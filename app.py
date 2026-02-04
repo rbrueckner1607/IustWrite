@@ -33,12 +33,13 @@ def parse_to_latex(text):
     lines = text.split('\n')
     latex_lines = []
     
+    # Muster für Jura-Gliederung
     patterns = {
-        'haupt': r'^[A-Z]\.\s.*',
-        'roemisch': r'^[IVX]+\.\s.*',
-        'arabisch': r'^[0-9]+\.\s.*',
-        'klein_buchstabe': r'^[a-z]\)\s.*',
-        'klein_doppel': r'^[a-z][a-z]\)\s.*'
+        'haupt': r'^[A-Z]\.\s.*',          # A.
+        'roemisch': r'^[IVX]+\.\s.*',       # I.
+        'arabisch': r'^[0-9]+\.\s.*',      # 1.
+        'klein_buchstabe': r'^[a-z]\)\s.*', # a)
+        'klein_doppel': r'^[a-z][a-z]\)\s.*'# aa)
     }
 
     for line in lines:
@@ -77,6 +78,7 @@ def main():
         key="main_editor"
     )
 
+    # Sidebar Live-Gliederung
     if user_input:
         for line in user_input.split('\n'):
             line = line.strip()
@@ -95,6 +97,7 @@ def main():
         with st.spinner("Erstelle PDF..."):
             latex_body = parse_to_latex(user_input)
             
+            # Deine Präambel
             full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
@@ -122,14 +125,15 @@ def main():
                 f.write(full_latex)
 
             try:
-                # Pfad zur jurabook.cls setzen (TEXINPUTS)
-                # Doppelpunkt am Ende ist wichtig, damit Standardpfade erhalten bleiben
+                # Umgebungsvariablen für LaTeX setzen, damit Assets gefunden werden
                 env = os.environ.copy()
                 assets_path = os.path.join(os.getcwd(), "latex_assets")
+                # TEXINPUTS: . (aktuell), assets_path, und dann Standardpfade (:)
                 env["TEXINPUTS"] = f".:{assets_path}:"
 
+                # LaTeX Durchläufe (zweimal für Inhaltsverzeichnis)
                 for _ in range(2):
-                    subprocess.run(
+                    result = subprocess.run(
                         ["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
                         check=True, capture_output=True, env=env
                     )
@@ -137,13 +141,16 @@ def main():
                 if os.path.exists("klausur.pdf"):
                     with open("klausur.pdf", "rb") as f:
                         st.download_button("📥 PDF herunterladen", f, "Klausur.pdf", "application/pdf")
-                    st.success("Erfolg!")
+                    st.success("PDF wurde erfolgreich erstellt!")
             except subprocess.CalledProcessError as e:
-                st.error("LaTeX-Fehler!")
-                # Debugging: Log ausgeben
+                st.error("LaTeX-Fehler beim Kompilieren!")
+                # Sichereres Auslesen des Logs bei Fehlern
                 if os.path.exists("klausur.log"):
-                    with open("klausur.log", "r") as log:
-                        st.code(log.read()[-2000:], language="text")
+                    with open("klausur.log", "r", encoding="utf-8", errors="replace") as log:
+                        log_content = log.read()
+                        st.code(log_content[-2000:], language="text")
+                else:
+                    st.write("Kein Logfile gefunden.")
 
 if __name__ == "__main__":
     main()
