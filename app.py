@@ -1,9 +1,8 @@
 import streamlit as st
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, TableOfContents
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
-from reportlab.lib.enums import TA_LEFT, TA_JUSTIFY
+from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT
 from io import BytesIO
 import re
 from datetime import datetime
@@ -11,42 +10,39 @@ from datetime import datetime
 st.set_page_config(page_title="iustWrite | lexgerm.de", layout="wide")
 
 # ============================================================================
-# KOMPAKTE METADATEN - GANZ OBEN
+# METADATEN OBEN (kompakt)
 # ============================================================================
-st.markdown("---")
 meta_col1, meta_col2, meta_col3 = st.columns([1, 1, 2])
 with meta_col1:
-    title = st.text_input("**Titel**", value="Zivilrecht I - Klausur", label_visibility="collapsed")
+    title = st.text_input("Titel", value="Zivilrecht I - Klausur", label_visibility="collapsed")
 with meta_col2:
-    date = st.date_input("**Datum**", value=datetime.now().date(), label_visibility="collapsed")
+    date = st.date_input("Datum", value=datetime.now().date(), label_visibility="collapsed")
 with meta_col3:
-    matrikel = st.text_input("**Matrikel**", value="12345678", label_visibility="collapsed")
-
-# Hauptlayout - MAXIMALER Schreibplatz rechts
-col_left, col_right = st.columns([0.18, 0.82])  # 18% links, 82% rechts!
+    matrikel = st.text_input("Matrikel", value="12345678", label_visibility="collapsed")
 
 # ============================================================================
-# LINKS: KLEINE, EINFACHE GLIEDERUNG (nur Überschriften)
+# SPLITTER: Links Gliederung, Rechts Editor (maximaler Platz)
 # ============================================================================
+col_left, col_right = st.columns([0.18, 0.82])  # 18% links, 82% rechts
+
+# ---------------------------------------------------------------------------
+# LINKS: Dynamische Mini-Gliederung
+# ---------------------------------------------------------------------------
 with col_left:
     st.markdown("### 📋 Gliederung")
-    
-    # KOMPAKTE Liste - nur Überschriften
     if 'toc_compact' in st.session_state:
         for idx, item in enumerate(st.session_state.toc_compact):
             level = st.session_state.toc_levels.get(idx, 1)
-            marker = ["▸", "├", "└"][min(level-1, 2)]
+            marker = ["▸", "├", "└"][min(level - 1, 2)]
             short_item = item[:35] + "..." if len(item) > 35 else item
             if st.button(f"{marker} {short_item}", key=f"tocbtn_{idx}", use_container_width=True):
                 st.session_state.selected_line = idx
                 st.rerun()
 
-# ============================================================================
-# RECHTS: GIGANTISCHER EDITOR (82% Platz!)
-# ============================================================================
+# ---------------------------------------------------------------------------
+# RECHTS: Großer Editor
+# ---------------------------------------------------------------------------
 with col_right:
-    st.markdown("### ✍️ Klausur Editor")
-    
     default_text = """Teil 1. Zulässigkeit
 
 A. Formelle Voraussetzungen
@@ -62,28 +58,27 @@ II. Begründetheit"""
     content = st.text_area(
         "",
         value=st.session_state.get('content', default_text),
-        height=850,  # MAXIMAL!
+        height=850,
         label_visibility="collapsed"
     )
 
 # ============================================================================
-# LIVE GLIEDERUNG + TIMER (unsichtbar)
+# AUTOMATISCHE GLIEDERUNG & TIMER
 # ============================================================================
 if content != st.session_state.get('last_content', ''):
     st.session_state.last_content = content
     
-    # Timer starten
+    # Timer
     if 'start_time' not in st.session_state:
         st.session_state.start_time = datetime.now()
     elapsed = int((datetime.now() - st.session_state.start_time).total_seconds())
     st.session_state.elapsed_time = elapsed
     
-    # KOMPAKTE Gliederung generieren
+    # Gliederung generieren
     lines = content.split('\n')
     toc_compact = []
     toc_levels = {}
     
-    # DEINE Patterns (vereinfacht)
     patterns = [
         r'^(Teil|Tatkomplex|Aufgabe)\s+\d+\.',
         r'^[A-I]\.',
@@ -98,19 +93,17 @@ if content != st.session_state.get('last_content', ''):
     for i, line in enumerate(lines):
         text = line.strip()
         if not text: continue
-        
         for level, pattern in enumerate(patterns, 1):
             if re.match(pattern, text):
                 toc_compact.append(text)
                 toc_levels[i] = level
                 break
-    
     st.session_state.toc_compact = toc_compact
     st.session_state.toc_levels = toc_levels
     st.rerun()
 
 # ============================================================================
-# MINI STATUS (unten rechts)
+# Status unten rechts
 # ============================================================================
 st.markdown("---")
 st.markdown(f"""
@@ -120,7 +113,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ============================================================================
-# BUTTONS (kompakt)
+# BUTTONS: Speichern, Laden, PDF
 # ============================================================================
 col_btn1, col_btn2, col_btn3 = st.columns(3)
 with col_btn1:
@@ -148,14 +141,15 @@ if 'pdf_bytes' in st.session_state:
     st.download_button("⬇️ PDF", st.session_state.pdf_bytes, st.session_state.pdf_name, "application/pdf")
 
 # ============================================================================
-# PERFEKTE PDF GENERIERUNG (GENAU deine Spezifikationen)
+# PDF GENERIERUNG via ReportLab
 # ============================================================================
 def create_perfect_pdf(title, date, matrikel, content):
     buffer = BytesIO()
+    from reportlab.lib.pagesizes import A4
     doc = SimpleDocTemplate(
         buffer, 
         pagesize=A4,
-        rightMargin=6*cm,      # 6cm Korrekturrand rechts!
+        rightMargin=6*cm,
         leftMargin=2.5*cm,
         topMargin=2.5*cm,
         bottomMargin=3*cm
@@ -163,31 +157,20 @@ def create_perfect_pdf(title, date, matrikel, content):
     story = []
     styles = getSampleStyleSheet()
     
-    # 1. STAMMDATEN (ganz oben)
-    meta_style = ParagraphStyle(
-        'Meta', parent=styles['Normal'], fontSize=10, spaceAfter=20,
-        leftIndent=0, alignment=TA_LEFT
-    )
-    story.append(Paragraph(f"<b>Matrikel-Nr.:</b> {matrikel} | <b>Datum:</b> {date}", meta_style))
+    # 1. Stammdaten
+    meta_style = ParagraphStyle('Meta', parent=styles['Normal'], fontSize=10, spaceAfter=5, alignment=TA_LEFT)
+    story.append(Paragraph(f"<b>Matrikel:</b> {matrikel} | <b>Datum:</b> {date}", meta_style))
     
-    # 2. TITEL
-    title_style = ParagraphStyle(
-        'Title', parent=styles['Heading1'], fontSize=16, spaceAfter=30,
-        leftIndent=0, alignment=TA_LEFT
-    )
+    # 2. Titel
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=16, spaceAfter=20, alignment=TA_LEFT)
     story.append(Paragraph(f"<b>{title}</b>", title_style))
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 12))
     
-    # 3. GLIEDERUNG (keine Seitenzahlen!)
-    gliederung_style = ParagraphStyle(
-        'Gliederung', parent=styles['Heading2'], 
-        fontSize=14, spaceAfter=10, spaceBefore=20
-    )
+    # 3. Gliederung
+    gliederung_style = ParagraphStyle('Gliederung', parent=styles['Heading2'], fontSize=14, spaceAfter=10, spaceBefore=10)
     story.append(Paragraph("**Gliederung**", gliederung_style))
     
-    # Einfache Gliederung (kein TOC - einfacher!)
-    lines = content.split('\n')
-    gliederung_items = []
+    # Einfache Gliederung (wie Sidebar)
     patterns = [
         r'^(Teil|Tatkomplex|Aufgabe)\s+\d+\.',
         r'^[A-I]\.',
@@ -198,72 +181,47 @@ def create_perfect_pdf(title, date, matrikel, content):
         r'^\([a-z]\)',
         r'^\([a-z]{2}\)'
     ]
-    
-    for line in lines:
+    gliederung_items = []
+    for line in content.split('\n'):
         text = line.strip()
         if not text: continue
-        
         for level, pattern in enumerate(patterns, 1):
             if re.match(pattern, text):
                 indent = "   " * (level - 1)
                 gliederung_items.append(f"{indent}{text}")
                 break
-    
-    # Gliederung als einfache Liste
-    for item in gliederung_items[:15]:  # Max 15 Einträge
+    for item in gliederung_items[:20]:
         story.append(Paragraph(item, styles['Normal']))
         story.append(Spacer(1, 3))
     
     story.append(PageBreak())
     
-    # 4. KLAUSURTEXT (BlockSatz 1.2 Zeilenabstand)
-    text_style = ParagraphStyle(
-        'KlausurText',
-        parent=styles['Normal'],
-        fontSize=12,
-        leading=14.4,  # 1.2 Zeilenabstand
-        alignment=TA_JUSTIFY,
-        spaceAfter=6,
-        leftIndent=0, rightIndent=0,
-        fontName='Helvetica'
-    )
+    # 4. Klausurtext (Blocksatz, 1.2 Zeilenabstand, Überschriften fett)
+    text_style = ParagraphStyle('Text', parent=styles['Normal'], fontSize=12, leading=14.4, alignment=TA_JUSTIFY)
     
-    # Überschriften inline fett (keine Einrückung!)
-    for line in lines:
+    for line in content.split('\n'):
         text = line.strip()
         if not text:
-            story.append(Spacer(1, 8))
+            story.append(Spacer(1, 6))
             continue
-            
-        # Überschrift? → FETT
-        is_heading = False
-        for pattern in patterns:
-            if re.match(pattern, text):
-                heading_style = ParagraphStyle(
-                    'InlineHeading',
-                    parent=text_style,
-                    fontName='Helvetica-Bold',
-                    fontSize=12,
-                    spaceAfter=8,
-                    alignment=TA_LEFT,
-                    leftIndent=0
-                )
-                story.append(Paragraph(text, heading_style))
-                is_heading = True
-                break
-        
-        if not is_heading:
-            # Normaltext Blocksatz
-            story.append(Paragraph(text, text_style))
+        is_heading = any(re.match(p, text) for p in patterns)
+        style = ParagraphStyle(
+            'Heading' if is_heading else 'Text',
+            parent=text_style,
+            fontName='Helvetica-Bold' if is_heading else 'Helvetica',
+            alignment=TA_LEFT if is_heading else TA_JUSTIFY,
+            spaceAfter=6
+        )
+        story.append(Paragraph(text, style))
     
-    doc.build(story, onFirstPage=first_page_no_number, onLaterPages=later_pages)
+    doc.build(story, onFirstPage=lambda c, d: first_page(c, d, matrikel), onLaterPages=lambda c, d: later_pages(c, d))
     buffer.seek(0)
     return buffer.getvalue()
 
 # ============================================================================
-# SEITENNUMMERIERUNG (erst ab Klausurtext!)
+# SEITENNUMMERIERUNG
 # ============================================================================
-def first_page_no_number(canvas, doc):
+def first_page(canvas, doc, matrikel):
     canvas.saveState()
     canvas.setFont('Helvetica', 10)
     canvas.drawRightString(A4[0] - 2*cm, 2*cm, f"Matrikel: {matrikel}")
@@ -275,6 +233,8 @@ def later_pages(canvas, doc):
     canvas.drawRightString(A4[0] - 2*cm, 2*cm, str(doc.page))
     canvas.restoreState()
 
-# Footer
+# ============================================================================
+# FOOTER
+# ============================================================================
 st.markdown("---")
 st.markdown("*iustWrite für lexgerm.de • Studentisches Projekt*")
