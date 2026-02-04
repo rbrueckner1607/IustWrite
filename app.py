@@ -29,18 +29,17 @@ class KlausurDocument:
             found_level = False
             for level, pattern in self.prefix_patterns.items():
                 if re.match(pattern, line_s):
-                    # Wir erzwingen die Einrückung im Inhaltsverzeichnis händisch!
-                    # level 1-8 werden auf die jurabook-befehle gemappt
+                    # Mapping auf jurabook-Ebenen
                     cmds = {1: "section", 2: "subsection", 3: "subsubsection", 
                             4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
                             7: "subparagraph", 8: "subparagraph"}
                     cmd = cmds.get(level, "subparagraph")
                     
-                    # Hier wird der TOC-Eintrag mit manuellem Abstand (hspace) gebaut
-                    # Das verhindert, dass alles auf einer Linie steht
-                    abstand = (level - 1) * 0.5 # Steigerung pro Ebene in cm
+                    # Manueller TOC-Eintrag mit händischer Einrückung (Treppen-Effekt)
+                    # Wir nutzen hspace im TOC-Eintrag
+                    indent_val = (level - 1) * 0.4
                     latex_output.append(f"\\{cmd}*{{{line_s}}}")
-                    latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{abstand}cm}}{line_s}}}")
+                    latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent_val}cm}}{line_s}}}")
                     found_level = True
                     break
             
@@ -67,8 +66,13 @@ def main():
 
     if st.button("🏁 PDF generieren"):
         if user_input:
-            with st.spinner("Präzisions-Kompilierung..."):
+            with st.spinner("Präzisions-Kompilierung läuft..."):
                 parsed_content = doc_parser.parse_content(user_input.split('\n'))
+                
+                # Header-Strings sauber vorbereiten
+                header_l = f"\\small {kl_kuerzel}"
+                header_r = f"\\small {kl_titel}"
+                titel_zeile = f"{{\\noindent\\Large\\bfseries {kl_titel} ({kl_datum}) \\par}}\\bigskip"
                 
                 # --- DIE ULTIMATIVE PRÄAMBEL ---
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
@@ -81,49 +85,34 @@ def main():
 \usepackage{fancyhdr}
 \usepackage{titlesec}
 \usepackage{tocloft}
-
 \geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
-
-% Zähler für tiefe Gliederung
 \setcounter{secnumdepth}{8}
 \setcounter{tocdepth}{8}
-
-% --- SEITENZAHLEN & KOPFZEILE RADIKAL FIXEN ---
 \pagestyle{fancy}
 \fancyhf{} 
-\fancyhead[L]{\small """ + kl_kuerzel + r"""}
-\fancyhead[R]{\small """ + kl_titel + r"""}
+\fancyhead[L]{""" + header_l + r"""}
+\fancyhead[R]{""" + header_r + r"""}
 \fancyfoot[R]{\thepage}
 \renewcommand{\headrulewidth}{0.5pt}
-
-% Diese Befehle löschen die jurabook-internen Kolumnentitel (keine "Gliederung" mehr im Kopf)
 \renewcommand{\sectionmark}[1]{}
 \renewcommand{\subsectionmark}[1]{}
-
 \makeatletter
-\renewcommand{\@cfoot}{} % Killt die mittige Seitenzahl
+\renewcommand{\@cfoot}{}
 \fancypagestyle{plain}{
   \fancyhf{}
   \fancyfoot[R]{\thepage}
   \renewcommand{\headrulewidth}{0pt}
 }
 \makeatother
-
 \begin{document}
-	\enlargethispage{40pt}
-	\pagenumbering{gobble} % Gliederung absolut ohne Zahlen
-	\vspace*{-3cm}
-	\renewcommand{\contentsname}{Gliederung}
-	\tableofcontents
-	\clearpage
-
-	\pagenumbering{arabic}
-    \setcounter{page}{1}
-	\setstretch{1.2}
-
-    % Titel auf der ersten Seite
-    {\noindent\Large\bfseries """ + kl_titel + " (" + kl_datum + r") \par}\bigskip
-""" + parsed_content + r"\end{document}"
+\pagenumbering{gobble}
+\renewcommand{\contentsname}{Gliederung}
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\setstretch{1.2}
+""" + titel_zeile + "\n" + parsed_content + r"\end{document}"
 
                 with open("klausur.tex", "w", encoding="utf-8") as f:
                     f.write(full_latex)
