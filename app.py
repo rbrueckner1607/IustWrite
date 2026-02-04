@@ -2,6 +2,7 @@ import streamlit as st
 import tempfile
 import os
 import subprocess
+import shutil   # ← FEHLTEN!
 import re
 from datetime import datetime
 
@@ -38,7 +39,7 @@ class HeadingCounter:
             else: parts.append(str(n))
         return " ".join([x for x in parts if x])
 
-# 2. KLAUSURDOCUMENT (GUI-unabhängige Logik)
+# 2. KLAUSURDOCUMENT
 class KlausurDocument:
     def __init__(self):
         self.heading_counter = HeadingCounter()
@@ -64,16 +65,9 @@ class KlausurDocument:
         }
         self.footnote_pattern = r'\\fn\([^)]*\)'
         
-    def clean_text(self, text):
-        for pattern in self.prefix_patterns.values():
-            text = re.sub(pattern, '', text, count=1).strip()
-        for pattern in self.title_patterns.values():
-            text = re.sub(pattern, '', text, count=1).strip()
-        return text
-    
     def generate_toc(self, lines):
         toc = []
-        for lineno, line in enumerate(lines):
+        for line in lines:
             text = line.strip()
             if not text: continue
                 
@@ -99,10 +93,7 @@ class KlausurDocument:
         return toc
     
     def to_latex(self, title, date, matrikel, lines):
-        latex = []
-        
-        # Präambel (Streamlit-kompatibel)
-        preamble = [
+        latex = [
             r"\documentclass[12pt,a4paper]{article}",
             r"\usepackage[ngerman]{babel}",
             r"\usepackage[utf8]{inputenc}",
@@ -110,20 +101,12 @@ class KlausurDocument:
             r"\usepackage{lmodern}",
             r"\usepackage[left=2cm,right=6cm,top=2.5cm,bottom=3cm]{geometry}",
             r"\usepackage{fancyhdr}",
-            r"\usepackage{titlesec}",
             r"\usepackage{tocloft}",
             r"\pagestyle{fancy}",
             r"\fancyhf{}",
             r"\fancyfoot[R]{\thepage}",
             r"\renewcommand{\contentsname}{Gliederung}",
-            r"\setcounter{tocdepth}{4}",
-            r"\setlength{\cftbeforesecskip}{2pt}",
-            r"\setlength{\cftbeforesubsecskip}{2pt}"
-        ]
-        latex.extend(preamble)
-        latex.append(r"\begin{document}")
-        
-        latex.extend([
+            r"\begin{document}",
             r"\enlargethispage{40pt}",
             r"\pagenumbering{gobble}",
             r"\vspace*{-3cm}",
@@ -131,17 +114,14 @@ class KlausurDocument:
             r"\clearpage",
             r"\pagenumbering{arabic}",
             fr"\section*{{{title} ({date})}}",
-            ""
-        ])
+        ]
         
         for line in lines:
             line_strip = line.strip()
             if not line_strip:
                 latex.append("")
                 continue
-            latex.append("")
             
-            # Title-Patterns
             title_match = False
             for level, pattern in self.title_patterns.items():
                 match = re.match(pattern, line_strip)
@@ -157,16 +137,12 @@ class KlausurDocument:
                     break
             
             if not title_match:
-                # Normale Patterns
                 if re.match(self.prefix_patterns[1], line_strip):
                     latex.extend([r"\section*{" + line_strip + "}",
                                 r"\addcontentsline{toc}{section}{" + line_strip + "}"])
                 elif re.match(self.prefix_patterns[2], line_strip):
                     latex.extend([r"\subsection*{" + line_strip + "}",
                                 r"\addcontentsline{toc}{subsection}{" + line_strip + "}"])
-                elif re.match(self.prefix_patterns[3], line_strip):
-                    latex.extend([r"\subsubsection*{" + line_strip + "}",
-                                r"\addcontentsline{toc}{subsubsection}{" + line_strip + "}"])
                 elif re.search(self.footnote_pattern, line_strip):
                     match = re.search(self.footnote_pattern, line_strip)
                     if match:
@@ -188,20 +164,12 @@ class KlausurDocument:
             with open(tex_path, "w", encoding="utf-8") as f:
                 f.write(latex_content)
             
-            # pdflatex direkt finden (Streamlit Cloud hat es!)
+            # SIMPEL: pdflatex aus PATH (Streamlit Cloud hat es!)
             pdflatex_bin = shutil.which("pdflatex")
             if not pdflatex_bin:
-                # Fallback: PATH durchsuchen
-                for path in os.environ["PATH"].split(os.pathsep):
-                    pdflatex_candidate = os.path.join(path, "pdflatex")
-                    if os.path.isfile(pdflatex_candidate):
-                        pdflatex_bin = pdflatex_candidate
-                        break
+                raise FileNotFoundError("pdflatex nicht im PATH!")
             
-            if not pdflatex_bin:
-                raise FileNotFoundError("pdflatex nicht gefunden!")
-            
-            # Zweimal kompilieren (für TOC)
+            # 2x kompilieren für TOC
             subprocess.run([pdflatex_bin, "-interaction=nonstopmode", "klausur.tex"], 
                          cwd=tmpdir, capture_output=True, check=True)
             subprocess.run([pdflatex_bin, "-interaction=nonstopmode", "klausur.tex"], 
@@ -211,13 +179,13 @@ class KlausurDocument:
             if os.path.exists(pdf_path):
                 with open(pdf_path, "rb") as f:
                     return f.read()
-            raise FileNotFoundError("PDF Generation failed!")
+            raise FileNotFoundError("PDF nicht erstellt!")
 
-# Streamlit App (identisch wie vorher)
+# STREAMLIT APP
 st.set_page_config(page_title="iustWrite | lexgerm.de", page_icon="⚖️", layout="wide")
 
 st.title("⚖️ iustWrite - Jura Klausur Editor")
-st.markdown("***Automatische Nummerierung • Live-Gliederung • PDF-Export***")
+st.markdown("***Automatische Nummerierung • Live-Gliederung • PDF-Export für lexgerm.de***")
 
 # Sidebar
 with st.sidebar:
@@ -230,6 +198,7 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
+# Layout (TOC | Editor)
 col1, col2 = st.columns([1, 3])
 
 with col1:
@@ -245,14 +214,19 @@ with col2:
 A. Formelle Voraussetzungen
 
 I. Antragsbegründung"""
-    content = st.text_area("", value=st.session_state.get('content', default_content), height=650, key="editor")
+    content = st.text_area("", value=st.session_state.get('content', default_content), 
+                          height=650, key="editor")
 
-# Live TOC
+# Live TOC Update
 if content != st.session_state.get('last_content', ''):
     doc = KlausurDocument()
     st.session_state.toc = doc.generate_toc(content.splitlines())
     st.session_state.last_content = content
     st.rerun()
+
+# Status
+if content.strip():
+    st.markdown(f"**Status**: {len(content):,} Zeichen")
 
 # Buttons
 col1, col2 = st.columns(2)
@@ -265,11 +239,15 @@ with col1:
                 latex = doc.to_latex(title, date.strftime("%d.%m.%Y"), matrikel, lines)
                 pdf_bytes = doc.to_pdf_bytes(latex)
                 st.session_state.pdf_bytes = pdf_bytes
-                st.session_state.pdf_name = f"{title}.pdf"
+                st.session_state.pdf_name = f"{title.replace(' ', '_')}.pdf"
                 st.success("✅ PDF bereit!")
                 st.rerun()
             except Exception as e:
-                st.error(f"PDF Fehler: {str(e)}")
+                st.error(f"❌ {str(e)}")
+                st.info("Prüfe packages.txt")
 
 if 'pdf_bytes' in st.session_state:
-    st.download_button("⬇️ PDF Download", st.session_state.pdf_bytes, st.session_state.pdf_name, "application/pdf")
+    st.download_button("⬇️ PDF Download", st.session_state.pdf_bytes, 
+                      st.session_state.pdf_name, "application/pdf")
+
+st.markdown("***iustWrite für lexgerm.de***")
