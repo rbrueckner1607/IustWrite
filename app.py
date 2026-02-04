@@ -19,10 +19,12 @@ class KlausurDocument:
         self.footnote_pattern = r'\\fn\((.*?)\)'
 
     def get_latex_level_command(self, level, title_text):
+        # Mapping auf LaTeX-Standardebenen
         commands = {1: "section", 2: "subsection", 3: "subsubsection", 
                     4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
                     7: "subparagraph", 8: "subparagraph"}
         cmd = commands.get(level, "subparagraph")
+        # Jede Ebene erhält einen eigenen addcontentsline-Eintrag
         return f"\\{cmd}*{{{title_text}}}\n\\addcontentsline{{toc}}{{{cmd}}}{{{title_text}}}"
 
     def parse_content(self, lines):
@@ -75,7 +77,7 @@ def main():
 
     if st.button("🏁 PDF generieren"):
         if user_input:
-            with st.spinner("Kompiliere PDF..."):
+            with st.spinner("Präzisions-Kompilierung läuft..."):
                 parsed_latex = doc_parser.parse_content(user_input.split('\n'))
                 
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
@@ -90,32 +92,40 @@ def main():
 
 \geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
 
-% TOC Einrückungen korrigiert (Treppen-Struktur bis Ebene 8)
+% --- TOC EINRÜCKUNGEN (Treppen-Logik erzwingen) ---
+\setcounter{tocdepth}{8}
+\setcounter{secnumdepth}{8}
 \setlength{\cftsecindent}{0em}
 \setlength{\cftsubsecindent}{1.5em}
 \setlength{\cftsubsubsecindent}{3em}
 \setlength{\cftparaindent}{4.5em}
 \setlength{\cftsubparaindent}{6em}
-% Manuelle Korrektur für extrem tiefe Ebenen im TOC (via LaTeX-Trick)
-\makeatletter
-\renewcommand{\l@subparagraph}{\@dottedtocline{5}{7.5em}{5em}}
-\makeatother
 
-% Kopf- und Fußzeile (Seitenzahl NUR Rechts unten)
+% --- DOPPELTE SEITENZAHLEN & KOPFZEILE FIX ---
 \pagestyle{fancy}
-\fancyhf{}
+\fancyhf{} % Löscht ALLES (Kopf- und Fußzeile)
 \fancyhead[L]{\small """ + kl_kuerzel + r"""}
 \fancyhead[R]{\small """ + kl_titel + r"""}
-\fancyfoot[R]{\thepage}
+\fancyfoot[R]{\thepage} % Seitenzahl NUR rechts unten
 \renewcommand{\headrulewidth}{0.4pt}
 \renewcommand{\footrulewidth}{0pt}
 
+% Jurabook spezifische Deaktivierung der Standard-Kopfzeilen (wichtig!)
+\makeatletter
+\renewcommand{\@evenhead}{}
+\renewcommand{\@oddhead}{\fancyplain{}{\fancyhead[L]{\small """ + kl_kuerzel + r"""}\fancyhead[R]{\small """ + kl_titel + r"""}}}
+\renewcommand{\@evenfoot}{}
+\renewcommand{\@oddfoot}{\fancyplain{}{\fancyfoot[R]{\thepage}}}
+\makeatother
+
 \begin{document}
-\pagenumbering{gobble} 
+% 1. Gliederung ohne Zahlen
+\pagenumbering{gobble}
 \renewcommand{\contentsname}{Gliederung}
 \tableofcontents
 \clearpage
 
+% 2. Textteil
 \pagenumbering{arabic}
 \setcounter{page}{1}
 \setstretch{1.2}
@@ -130,6 +140,7 @@ def main():
                 env = os.environ.copy()
                 env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
 
+                # 2 Durchläufe für TOC
                 for _ in range(2):
                     subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
                                    env=env, capture_output=True)
@@ -137,9 +148,9 @@ def main():
                 if os.path.exists("klausur.pdf"):
                     st.success("PDF erstellt!")
                     with open("klausur.pdf", "rb") as f:
-                        st.download_button("📥 Download Klausur", f, f"Klausur_{kl_kuerzel}.pdf")
+                        st.download_button("📥 PDF herunterladen", f, f"Klausur_{kl_kuerzel}.pdf")
                 else:
-                    st.error("Fehler bei der PDF-Erstellung.")
+                    st.error("Fehler beim Erzeugen des PDF.")
 
 if __name__ == "__main__":
     main()
