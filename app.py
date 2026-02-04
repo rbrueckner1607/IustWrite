@@ -35,7 +35,7 @@ class KlausurDocument:
                     cmd = cmds.get(level, "subparagraph")
                     
                     # TREPPEN-LOGIK (Minimal-Abstände für Jura-TOC)
-                    # A.(0) -> I.(0.1) -> 1.(0.2) -> a)(0.3) -> aa)(0.4)
+                    # A.(0) -> I.(-1.) -> 1.(-1) -> a)(-0.5) -> aa)(0.5)
                     indent = max(0, (level - 2) * 0.15) if level > 1 else 0
                         
                     latex_output.append(f"\\{cmd}*{{{line_s}}}")
