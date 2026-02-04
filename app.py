@@ -11,27 +11,22 @@ from datetime import datetime
 st.set_page_config(page_title="iustWrite | lexgerm.de", layout="wide")
 
 # ============================================================================
-# METADATEN + SPEICHER/EXPORT OBEN
+# METADATEN + EXPORT OBEN
 # ============================================================================
-col_meta1, col_meta2, col_meta3, col_btn1, col_btn2 = st.columns([1, 1, 1, 1, 1])
+col_meta1, col_meta2, col_meta3, col_export = st.columns([1, 1, 1, 1])
 with col_meta1:
     title = st.text_input("Titel", value="Zivilrecht I - Klausur", label_visibility="collapsed")
 with col_meta2:
     date = st.date_input("Datum", value=datetime.now().date(), label_visibility="collapsed")
 with col_meta3:
     matrikel = st.text_input("Matrikel", value="12345678", label_visibility="collapsed")
-with col_btn1:
-    save_content = st.button("💾 Speichern")
-with col_btn2:
-    export_pdf = st.button("📄 PDF")
+with col_export:
+    export_pdf = st.button("📄 Export PDF & Download")
 
 # ============================================================================
-# GROßER EDITOR RECHTS + optional Gliederung overlay
+# GROßER EDITOR
 # ============================================================================
-col_left, col_right = st.columns([0.2, 0.8])  # Links optional Gliederung
-
-with col_right:
-    default_text = """Teil 1. Zulässigkeit
+default_text = """Teil 1. Zulässigkeit
 
 A. Formelle Voraussetzungen
 
@@ -42,11 +37,12 @@ I. Antragsbegründung
 a) Einreichungsfrist
 
 II. Begründetheit"""
-    content = st.text_area("Editor", value=st.session_state.get('content', default_text), height=850)
-    st.session_state.content = content
+st.session_state.content = st.session_state.get('content', default_text)
+content = st.text_area("Editor", value=st.session_state.content, height=1000)
+st.session_state.content = content
 
 # ============================================================================
-# KOMPAKTE GLIEDERUNG (Overlay)
+# GLIEDERUNG (alle Muster, inkl. römische > V)
 # ============================================================================
 def build_toc(content):
     lines = content.split("\n")
@@ -54,7 +50,7 @@ def build_toc(content):
     patterns = [
         r'^(Teil|Tatkomplex|Aufgabe)\s+\d+\.',
         r'^[A-I]\.',
-        r'^(I{1,5}|V?|X{0,3})\.',
+        r'^(?=[IVXLCDM]+\.)[IVXLCDM]+\.?',  # römisch I, II, III, IV, V, VI, VII ...
         r'^\d+\.',
         r'^[a-z]\)',
         r'^[a-z]{2}\)',
@@ -77,14 +73,7 @@ st.session_state.toc = toc
 st.session_state.toc_levels = toc_levels
 
 # ============================================================================
-# SAVE / DOWNLOAD
-# ============================================================================
-if save_content:
-    meta_content = f"Titel: {title}\nDatum: {date}\nMatrikelnummer: {matrikel}\n---\n{content}"
-    st.download_button("📥 .klausur", meta_content, f"{title.replace(' ', '_')}.klausur", "text/plain")
-
-# ============================================================================
-# PDF EXPORT
+# PDF EXPORT (direkt Download)
 # ============================================================================
 def create_pdf(title, date, matrikel, content):
     buffer = BytesIO()
@@ -129,7 +118,7 @@ def create_pdf(title, date, matrikel, content):
         for pattern in [
             r'^(Teil|Tatkomplex|Aufgabe)\s+\d+\.',
             r'^[A-I]\.',
-            r'^(I{1,5}|V?|X{0,3})\.',
+            r'^(?=[IVXLCDM]+\.)[IVXLCDM]+\.?',  # römische Zahlen
             r'^\d+\.',
             r'^[a-z]\)',
             r'^[a-z]{2}\)',
@@ -150,8 +139,4 @@ def create_pdf(title, date, matrikel, content):
 
 if export_pdf:
     pdf_bytes = create_pdf(title, date, matrikel, content)
-    st.session_state.pdf_bytes = pdf_bytes
-    st.session_state.pdf_name = f"{title.replace(' ', '_')}.pdf"
-
-if 'pdf_bytes' in st.session_state:
-    st.download_button("⬇️ PDF herunterladen", st.session_state.pdf_bytes, st.session_state.pdf_name, "application/pdf")
+    st.download_button("⬇️ PDF wird heruntergeladen", pdf_bytes, f"{title.replace(' ','_')}.pdf", "application/pdf")
