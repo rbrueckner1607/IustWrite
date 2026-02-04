@@ -1,122 +1,267 @@
 import streamlit as st
-from io import BytesIO
 from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
-from reportlab.lib.enums import TA_LEFT
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, TableOfContents
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
+from reportlab.lib.enums import TA_LEFT, TA_JUSTIFY
+from reportlab.rl_config import defaultPageSize
+from io import BytesIO
 import re
 
-# ----------------------
-# Überschriften & Gliederung
-# ----------------------
-HEADING_PATTERNS = {
-    1: r'^(Teil|Tatkomplex|Aufgabe)\s+\d+',
-    2: r'^[A-H]\.',
-    3: r'^(I|II|III|IV|V|VI|VII|VIII|IX|X)\.',
-    4: r'^\d+\.',
-    5: r'^[a-z]\)',
-    6: r'^[a-z]{2}\)',
-    7: r'^\([a-z]\)',
-    8: r'^\([a-z]{2}\)',
-}
+st.set_page_config(page_title="iustWrite | lexgerm.de", layout="wide")
 
-FOOTNOTE_PATTERN = r'\\fn\(([^)]*)\)'
+# Sidebar (ausklappbar)
+with st.sidebar:
+    st.header("📄 Metadaten")
+    title = st.text_input("**Titel**", value="Zivilrecht I - Klausur")
+    date = st.date_input("**Datum**", value=datetime.now().date())
+    matrikel = st.text_input("**Matrikel-Nr.**", value="12345678")
+    
+    st.markdown("---")
+    st.caption("**Shortcuts:** Strg+1-8 = Überschriften")
+    if st.button("🆕 Neue Klausur", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
 
-# ----------------------
-# Streamlit UI
-# ----------------------
-st.title("iustWrite Web-Editor")
+# Hauptlayout
+header_col1, header_col2 = st.columns([3, 1])
+with header_col1:
+    st.title("⚖️ iustWrite - Jura Klausur Editor")
+with header_col2:
+    if 'elapsed_time' in st.session_state:
+        st.metric("⏱️ Zeit", f"{st.session_state.elapsed_time//60:02d}:{st.session_state.elapsed_time%60:02d}")
 
-with st.form("klausur_form"):
-    title = st.text_input("Titel")
-    date = st.text_input("Datum")
-    matrikel = st.text_input("Matrikelnummer")
-    text = st.text_area("Klausurtext", height=400)
+col1, col2 = st.columns([0.25, 0.75])
 
-    submitted = st.form_submit_button("PDF exportieren")
+# ════════════════════════════════════════════════════════════════════════════════
+# LINKS: NAVIGIERBARE GLIEDERUNG (Klick springt zur Zeile!)
+# ════════════════════════════════════════════════════════════════════════════════
+with col1:
+    st.markdown("### 📋 **Gliederung**")
+    
+    # Toggle für ein/ausblenden
+    if st.toggle("Gliederung ausblenden", key="toc_toggle"):
+        st.empty()
+    else:
+        if 'toc_items' in st.session_state:
+            for idx, toc_item in enumerate(st.session_state.toc_items):
+                level = st.session_state.toc_levels.get(idx, 1)
+                indent = "  " * (level - 1)
+                display_text = f"{indent}▸ {toc_item}"
+                
+                if st.button(display_text, key=f"toc_{idx}", use_container_width=True):
+                    st.session_state.selected_line = idx
+                    st.rerun()
 
-# ----------------------
-# PDF-Erstellung
-# ----------------------
-def generate_pdf(title, date, matrikel, text):
-    buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4,
-                            rightMargin=2*cm, leftMargin=2*cm,
-                            topMargin=2*cm, bottomMargin=2*cm)
+# ════════════════════════════════════════════════════════════════════════════════
+# RECHTS: EDITOR mit FETTEN ÜBERSCHRIFTEN
+# ════════════════════════════════════════════════════════════════════════════════
+with col2:
+    st.markdown("### ✍️ **Klausur Editor**")
+    
+    # Beispielttext
+    default_text = """Teil 1. Zulässigkeit
 
-    story = []
+A. Formelle Voraussetzungen
 
-    # Styles
-    heading_styles = {
-        1: ParagraphStyle('h1', fontSize=18, leading=22, spaceAfter=12, spaceBefore=12, leftIndent=0, alignment=TA_LEFT, fontName='Helvetica-Bold'),
-        2: ParagraphStyle('h2', fontSize=16, leading=20, spaceAfter=10, leftIndent=1*cm, fontName='Helvetica-Bold'),
-        3: ParagraphStyle('h3', fontSize=14, leading=18, spaceAfter=8, leftIndent=1.5*cm, fontName='Helvetica-Bold'),
-        4: ParagraphStyle('h4', fontSize=12, leading=16, spaceAfter=6, leftIndent=2*cm, fontName='Helvetica-Bold'),
-        5: ParagraphStyle('h5', fontSize=12, leading=14, spaceAfter=4, leftIndent=2.5*cm, fontName='Helvetica-Bold'),
-        6: ParagraphStyle('h6', fontSize=11, leading=14, spaceAfter=4, leftIndent=3*cm, fontName='Helvetica-Bold'),
-        7: ParagraphStyle('h7', fontSize=11, leading=12, spaceAfter=3, leftIndent=3.5*cm, fontName='Helvetica-Bold'),
-        8: ParagraphStyle('h8', fontSize=10, leading=12, spaceAfter=3, leftIndent=4*cm, fontName='Helvetica-Bold'),
+I. Antragsbegründung
+
+1. Fristgerechtigkeit
+
+a) Einreichungsfrist
+
+II. Begründetheit
+
+B. Sachliche Voraussetzungen"""
+    
+    content = st.text_area(
+        "",
+        value=st.session_state.get('content', default_text),
+        height=700,
+        key="editor_content"
+    )
+
+# ════════════════════════════════════════════════════════════════════════════════
+# LIVE VERARBEITUNG (wie PyQt on_text_changed)
+# ════════════════════════════════════════════════════════════════════════════════
+if content != st.session_state.get('last_content', ''):
+    st.session_state.last_content = content
+    
+    # 1. TIMER (wie PyQt)
+    if 'start_time' not in st.session_state:
+        st.session_state.start_time = time.time()
+    st.session_state.elapsed_time = int(time.time() - st.session_state.start_time)
+    
+    # 2. GLIEDERUNG generieren (deine Patterns)
+    lines = content.split('\n')
+    toc_items = []
+    toc_levels = {}
+    
+    patterns = {
+        1: r'^(Teil|Tatkomplex|Aufgabe)\s+\d+\.',
+        2: r'^[A-I]\.',
+        3: r'^(I|II|III|IV|V|VI|VII|VIII|IX|X)',
+        4: r'^\d+\.',
+        5: r'^[a-z]\)',
+        6: r'^[a-z]{2}\)',
+        7: r'^\([a-z]\)',
+        8: r'^\([a-z]{2}\)'
     }
-    normal_style = ParagraphStyle('normal', fontSize=11, leading=14, spaceAfter=4, leftIndent=0)
-
-    # Inhaltsverzeichnis vorbereiten
-    toc = []
-    lines = text.splitlines()
-    elements = []
-
-    for idx, line in enumerate(lines):
-        line_strip = line.strip()
-        if not line_strip:
-            elements.append(Spacer(1, 4))
+    
+    for i, line in enumerate(lines):
+        text = line.strip()
+        if not text:
             continue
-
-        # Fußnoten ersetzen
-        footnotes = re.findall(FOOTNOTE_PATTERN, line_strip)
-        for i, fn in enumerate(footnotes, 1):
-            line_strip = re.sub(r'\\fn\([^)]*\)', f'<super>{i}</super>', line_strip, count=1)
-
-        # Überschriften erkennen
-        matched = False
-        for level, pattern in HEADING_PATTERNS.items():
-            if re.match(pattern, line_strip):
-                p = Paragraph(line_strip, heading_styles[level])
-                elements.append(p)
-                toc.append((level, line_strip))
-                matched = True
+            
+        for level, pattern in patterns.items():
+            if re.match(pattern, text):
+                toc_items.append(text[:50] + ('...' if len(text) > 50 else ''))
+                toc_levels[i] = level
                 break
+    
+    st.session_state.toc_items = toc_items
+    st.session_state.toc_levels = toc_levels
+    
+    st.rerun()
 
-        if not matched:
-            elements.append(Paragraph(line_strip, normal_style))
+# ════════════════════════════════════════════════════════════════════════════════
+# STATUSLEISTE (wie PyQt)
+# ════════════════════════════════════════════════════════════════════════════════
+if content.strip():
+    chars = len(content)
+    words = len(re.findall(r'\w+', content))
+    st.markdown(f"**Status**: {chars:,} Zeichen | {words:,} Wörter | ⏱️ {st.session_state.elapsed_time//60:02d}:{st.session_state.elapsed_time%60:02d}")
 
-    # Deckblatt
-    story.append(Paragraph(f"{title} ({date})", heading_styles[1]))
-    story.append(Paragraph(f"Matrikelnummer: {matrikel}", normal_style))
+# ════════════════════════════════════════════════════════════════════════════════
+# BUTTONS
+# ════════════════════════════════════════════════════════════════════════════════
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    # SAVE
+    if st.button("💾 **Als .klausur speichern**", use_container_width=True):
+        content_with_meta = f"""Titel: {title}
+Datum: {date}
+Matrikelnummer: {matrikel}
+---
+{content}"""
+        st.download_button(
+            "📥 Download .klausur",
+            data=content_with_meta,
+            file_name=f"{title.replace(' ', '_')}.klausur",
+            mime="text/plain"
+        )
+
+with col2:
+    # UPLOAD
+    uploaded_file = st.file_uploader("📤 .klausur laden", type=['klausur', 'txt'])
+    if uploaded_file:
+        content = uploaded_file.read().decode('utf-8')
+        st.session_state.content = content
+        st.success("✅ Datei geladen!")
+        st.rerun()
+
+with col3:
+    # PDF EXPORT (EINFACH mit reportlab!)
+    if st.button("🎯 **PDF erstellen**", use_container_width=True):
+        with st.spinner("Erstelle PDF mit Gliederung..."):
+            try:
+                pdf_bytes = create_pdf(title, date, matrikel, content.split('\n'))
+                st.session_state.pdf_bytes = pdf_bytes
+                st.session_state.pdf_name = f"{title.replace(' ', '_')}_{date.strftime('%d%m%Y')}.pdf"
+                st.success("✅ PDF fertig!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ PDF Fehler: {str(e)}")
+
+# PDF Download
+if 'pdf_bytes' in st.session_state:
+    st.download_button(
+        "⬇️ **PDF herunterladen**",
+        st.session_state.pdf_bytes,
+        st.session_state.pdf_name,
+        "application/pdf",
+        use_container_width=True
+    )
+
+# ════════════════════════════════════════════════════════════════════════════════
+# PDF GENERIERUNG (EINFACH - KEIN LaTeX!)
+# ════════════════════════════════════════════════════════════════════════════════
+def create_pdf(title, date, matrikel, lines):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=6*cm)
+    story = []
+    styles = getSampleStyleSheet()
+    
+    # Titel
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=16,
+        spaceAfter=30,
+        alignment=TA_LEFT
+    )
+    story.append(Paragraph(f"<b>{title}</b> ({date})", title_style))
     story.append(Spacer(1, 12))
+    
+    # Gliederung
+    toc = TableOfContents()
+    toc.levelStyles = [
+        ParagraphStyle(fontName='Helvetica-Bold', fontSize=12),
+        ParagraphStyle(fontName='Helvetica-Bold', fontSize=11),
+        ParagraphStyle(fontName='Helvetica', fontSize=10),
+    ]
+    story.append(Paragraph("Gliederung", styles['Heading2']))
+    story.append(toc)
     story.append(PageBreak())
-
-    # Inhaltsverzeichnis
-    story.append(Paragraph("Inhaltsverzeichnis", heading_styles[1]))
-    for level, text_entry in toc:
-        indent = (level-1) * 0.5 * cm
-        p = Paragraph(f'{text_entry}', ParagraphStyle('toc', leftIndent=indent, fontSize=11, leading=14))
-        story.append(p)
-    story.append(PageBreak())
-
-    story.extend(elements)
-
+    
+    # Inhalt mit korrekter Nummerierung
+    patterns = {
+        1: r'^(Teil|Tatkomplex|Aufgabe)\s+\d+\.',
+        2: r'^[A-I]\.',
+        3: r'^(I|II|III|IV|V|VI|VII|VIII|IX|X)',
+        4: r'^\d+\.',
+        5: r'^[a-z]\)',
+        6: r'^[a-z]{2}\)',
+        7: r'^\([a-z]\)',
+        8: r'^\([a-z]{2}\)'
+    }
+    
+    for line in lines:
+        text = line.strip()
+        if not text:
+            story.append(Spacer(1, 6))
+            continue
+            
+        # Überschrift erkennen → fett
+        is_heading = False
+        for level, pattern in patterns.items():
+            if re.match(pattern, text):
+                style = ParagraphStyle(
+                    f'Heading{level}',
+                    parent=styles['Heading2'],
+                    fontSize=12-level,
+                    spaceAfter=6,
+                    fontName='Helvetica-Bold',
+                    leftIndent=(level-1)*0.5*cm,
+                    alignment=TA_LEFT
+                )
+                story.append(Paragraph(text, style))
+                toc.addEntry(level, text, len(story)-1, 0)
+                is_heading = True
+                break
+        
+        if not is_heading:
+            # Normaltext
+            style = ParagraphStyle(
+                'NormalText',
+                parent=styles['Normal'],
+                alignment=TA_JUSTIFY,
+                spaceAfter=4,
+                leftIndent=1*cm
+            )
+            story.append(Paragraph(re.sub(r'\\\\fn\((.*?)\)', r'<super>\1</super>', text), style))
+    
     doc.build(story)
     buffer.seek(0)
-    return buffer
-
-# ----------------------
-# PDF Download
-# ----------------------
-if submitted:
-    if not title or not date or not matrikel or not text:
-        st.warning("Bitte alle Felder ausfüllen!")
-    else:
-        pdf_bytes = generate_pdf(title, date, matrikel, text)
-        st.success("PDF erfolgreich erstellt!")
-        st.download_button("PDF herunterladen", pdf_bytes, file_name=f"{title}.pdf", mime="application/pdf")
+    return buffer.getvalue()
