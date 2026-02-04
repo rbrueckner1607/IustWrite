@@ -20,6 +20,9 @@ class KlausurDocument:
 
     def parse_content(self, lines):
         latex_output = []
+        # Hier: Einrückung pro Ebene für TOC definieren
+        toc_indent = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 4, 7: 5, 8: 5}
+
         for line in lines:
             line_s = line.strip()
             if not line_s:
@@ -29,14 +32,15 @@ class KlausurDocument:
             found_level = False
             for level, pattern in self.prefix_patterns.items():
                 if re.match(pattern, line_s):
-                    # Zurück zum bewährten Mapping mit Sternchen für jurabook
+                    # Sternchen für eigene Nummerierung
                     cmds = {1: "section", 2: "subsection", 3: "subsubsection", 
                             4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
                             7: "subparagraph", 8: "subparagraph"}
                     cmd = cmds.get(level, "subparagraph")
-                    # Sternchen verhindert jurabook-Automatik, addcontentsline füllt das TOC
+
                     latex_output.append(f"\\{cmd}*{{{line_s}}}")
-                    latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{{line_s}}}")
+                    # TOC mit passender Einrückung
+                    latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{toc_indent[level]}em}}{line_s}}}")
                     found_level = True
                     break
             
@@ -77,7 +81,7 @@ def main():
                 parsed_content = doc_parser.parse_content(user_input.split('\n'))
                 titel_komplett = f"{kl_titel} ({kl_datum})"
                 
-                # --- DEINE ORIGINAL-PRÄAMBEL (DIE LOKAL FUNKTIONIERT) ---
+                # --- ORIGINAL-PRÄAMBEL ---
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
@@ -108,18 +112,25 @@ def main():
 \renewcommand{\@cfoot}{}
 \makeatother
 
-% --- TOC ABSTÄNDE (DEINE WERTE) ---
+% --- TOC ABSTÄNDE ---
 \setlength{\cftsecnumwidth}{2em}
 \setlength{\cftsubsecnumwidth}{2.5em}
 \setlength{\cftsubsubsecnumwidth}{3em}
 \setlength{\cftparanumwidth}{3.5em}
 \setlength{\cftsubparanumwidth}{4em}
+\setlength{\cftbeforesecskip}{2pt}
+\setlength{\cftbeforesubsecskip}{2pt}
+\setlength{\cftbeforesubsubsecskip}{2pt}
+\setlength{\cftbeforeparaskip}{2pt}
+\setlength{\cftbeforesubparaskip}{2pt}
 \setlength{\cftindent}{0em}
 \setlength{\cftsectionindent}{0em}
-\setlength{\cftsubsectionindent}{1em}
-\setlength{\cftsubsubsectionindent}{2em}
-\setlength{\cftparaindent}{3em}
-\setlength{\cftsubparaindent}{4em}
+\setlength{\cftsubsectionindent}{0em}
+\setlength{\cftsubsubsectionindent}{0em}
+\setlength{\cftparaindent}{0em}
+\setlength{\cftsubparaindent}{0em}
+\renewcommand{\cftsecfont}{\bfseries}
+\renewcommand{\cftsubsecfont}{\bfseries}
 
 \begin{document}
 	\enlargethispage{40pt}
@@ -129,7 +140,6 @@ def main():
 	\tableofcontents
 	\clearpage
 	\pagenumbering{arabic}
-    \setcounter{page}{1}
 	\setstretch{1.2}
     {\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
 """ + parsed_content + r"\end{document}"
@@ -156,3 +166,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
