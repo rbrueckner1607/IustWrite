@@ -1,194 +1,122 @@
 import streamlit as st
-import os
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.units import cm
 import re
-import shutil
-import subprocess
-import tempfile
 
 # ----------------------
-# Pfad zu Assets
-def get_asset_path(filename):
-    return os.path.join("assets", filename)
-
+# Überschriften & Gliederung
 # ----------------------
-# Tectonic PDF Export
-def export_latex(latex_content: str, filename: str):
-    work_dir = os.path.dirname(filename)
-    os.makedirs(work_dir, exist_ok=True)
-    
-    # 1. .tex Datei schreiben
-    with open(filename, "w", encoding="utf-8") as f:
-        f.write(latex_content)
-    
-    # 2. Assets kopieren
-    assets = ["jurabook.cls", "jurabase.sty", "remreset.sty"]
-    for asset in assets:
-        src = get_asset_path(asset)
-        dst = os.path.join(work_dir, asset)
-        if os.path.exists(src):
-            shutil.copy(src, dst)
-    
-    # 3. Tectonic-Pfad
-    tectonic_bin = os.path.join("assets", "tectonic", "tectonic")
-    if not os.path.exists(tectonic_bin):
-        st.error("Tectonic-Binary fehlt! Bitte unter assets/tectonic/tectonic einfügen.")
-        return
-    
-    # 4. PDF kompilieren
-    try:
-        subprocess.run([tectonic_bin, filename, "--outdir", work_dir], check=True)
-        st.success("PDF erfolgreich erstellt!")
-    except subprocess.CalledProcessError as e:
-        st.error(f"PDF-Kompilierung fehlgeschlagen: {e}")
-
-# ----------------------
-# Heading Counter für Nummerierung
-class HeadingCounter:
-    def __init__(self, max_level=8):
-        self.max_level = max_level
-        self.counters = [0]*max_level
-    
-    def increment(self, level):
-        idx = level-1
-        self.counters[idx] += 1
-        for i in range(idx+1, self.max_level):
-            self.counters[i] = 0
-    
-    def get_numbering(self, level):
-        romans = ["", "I","II","III","IV","V","VI","VII","VIII","IX","X","XI","XII","XIII","XIV","XV","XVI","XVII","XVIII","XIX","XX"]
-        def letter(n): return chr(96+n) if 1<=n<=26 else str(n)
-        parts=[]
-        for i in range(level):
-            n = self.counters[i]
-            if n==0: continue
-            if i==0: parts.append(f"Teil {n}.")
-            elif i==1: parts.append(chr(64+n)+".")
-            elif i==2: parts.append(romans[n] if n<len(romans) else str(n)+".")
-            elif i==3: parts.append(f"{n}.")
-            elif i==4: parts.append(f"{letter(n)})")
-            elif i==5: parts.append(f"{letter(n)*2})")
-            elif i==6: parts.append(f"({letter(n)})")
-            elif i==7: parts.append(f"({letter(n)*2})")
-            else: parts.append(str(n))
-        return " ".join([x for x in parts if x])
-
-# ----------------------
-# Streamlit App
-st.set_page_config(page_title="iustWrite", layout="wide")
-
-st.title("iustWrite – Online Klausur Editor")
-
-# Metadaten
-col1, col2, col3 = st.columns(3)
-title_text = col1.text_input("Titel")
-date_text = col2.text_input("Datum")
-matrikel_text = col3.text_input("Matrikelnummer")
-
-# Editor + Gliederung
-counter = HeadingCounter()
-toc = []
-
-st.markdown("### Klausurtext")
-text_content = st.text_area("Schreibe hier deine Klausur...", height=500, key="editor")
-
-# ----------------------
-# Überschrift erkennen & TOC aufbauen
-prefix_patterns = {
-    1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
-    2: r'^\s*[A-H]\.(\s|$)',
-    3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.(\s|$)',
-    4: r'^\s*\d+\.(\s|$)',
-    5: r'^\s*[a-z]\)(\s|$)',
-    6: r'^\s*[a-z]{2}\)(\s|$)',
-    7: r'^\s*\([a-z]\)(\s|$)',
-    8: r'^\s*\([a-z]{2}\)(\s|$)',
+HEADING_PATTERNS = {
+    1: r'^(Teil|Tatkomplex|Aufgabe)\s+\d+',
+    2: r'^[A-H]\.',
+    3: r'^(I|II|III|IV|V|VI|VII|VIII|IX|X)\.',
+    4: r'^\d+\.',
+    5: r'^[a-z]\)',
+    6: r'^[a-z]{2}\)',
+    7: r'^\([a-z]\)',
+    8: r'^\([a-z]{2}\)',
 }
 
-title_patterns = {
-    1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+\*\s*(.*)',
-    2: r'^\s*([A-H])\*\s*(.*)',
-    3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\*\s*(.*)',
-    4: r'^\s*(\d+)\*\s*(.*)',
-    5: r'^\s*([a-z])\*\s*(.*)',
-    6: r'^\s*([a-z]{2})\*\s*(.*)',
-    7: r'^\s*\(([a-z])\)\*\s*(.*)',
-    8: r'^\s*\(([a-z]{2})\)\*\s*(.*)',
-}
+FOOTNOTE_PATTERN = r'\\fn\(([^)]*)\)'
 
-footnote_pattern = r'\\fn\(([^)]*)\)'
+# ----------------------
+# Streamlit UI
+# ----------------------
+st.title("iustWrite Web-Editor")
 
-lines = text_content.splitlines()
-toc = []
+with st.form("klausur_form"):
+    title = st.text_input("Titel")
+    date = st.text_input("Datum")
+    matrikel = st.text_input("Matrikelnummer")
+    text = st.text_area("Klausurtext", height=400)
 
-for lineno, line in enumerate(lines):
-    line_strip = line.strip()
-    if not line_strip: continue
-    
-    found=False
-    for level, pattern in sorted(title_patterns.items()):
-        m=re.match(pattern, line_strip)
-        if m:
-            toc.append((level, m.group(2)))
-            found=True
-            break
-    if not found:
-        for level, pattern in sorted(prefix_patterns.items()):
+    submitted = st.form_submit_button("PDF exportieren")
+
+# ----------------------
+# PDF-Erstellung
+# ----------------------
+def generate_pdf(title, date, matrikel, text):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            rightMargin=2*cm, leftMargin=2*cm,
+                            topMargin=2*cm, bottomMargin=2*cm)
+
+    story = []
+
+    # Styles
+    heading_styles = {
+        1: ParagraphStyle('h1', fontSize=18, leading=22, spaceAfter=12, spaceBefore=12, leftIndent=0, alignment=TA_LEFT, fontName='Helvetica-Bold'),
+        2: ParagraphStyle('h2', fontSize=16, leading=20, spaceAfter=10, leftIndent=1*cm, fontName='Helvetica-Bold'),
+        3: ParagraphStyle('h3', fontSize=14, leading=18, spaceAfter=8, leftIndent=1.5*cm, fontName='Helvetica-Bold'),
+        4: ParagraphStyle('h4', fontSize=12, leading=16, spaceAfter=6, leftIndent=2*cm, fontName='Helvetica-Bold'),
+        5: ParagraphStyle('h5', fontSize=12, leading=14, spaceAfter=4, leftIndent=2.5*cm, fontName='Helvetica-Bold'),
+        6: ParagraphStyle('h6', fontSize=11, leading=14, spaceAfter=4, leftIndent=3*cm, fontName='Helvetica-Bold'),
+        7: ParagraphStyle('h7', fontSize=11, leading=12, spaceAfter=3, leftIndent=3.5*cm, fontName='Helvetica-Bold'),
+        8: ParagraphStyle('h8', fontSize=10, leading=12, spaceAfter=3, leftIndent=4*cm, fontName='Helvetica-Bold'),
+    }
+    normal_style = ParagraphStyle('normal', fontSize=11, leading=14, spaceAfter=4, leftIndent=0)
+
+    # Inhaltsverzeichnis vorbereiten
+    toc = []
+    lines = text.splitlines()
+    elements = []
+
+    for idx, line in enumerate(lines):
+        line_strip = line.strip()
+        if not line_strip:
+            elements.append(Spacer(1, 4))
+            continue
+
+        # Fußnoten ersetzen
+        footnotes = re.findall(FOOTNOTE_PATTERN, line_strip)
+        for i, fn in enumerate(footnotes, 1):
+            line_strip = re.sub(r'\\fn\([^)]*\)', f'<super>{i}</super>', line_strip, count=1)
+
+        # Überschriften erkennen
+        matched = False
+        for level, pattern in HEADING_PATTERNS.items():
             if re.match(pattern, line_strip):
+                p = Paragraph(line_strip, heading_styles[level])
+                elements.append(p)
                 toc.append((level, line_strip))
+                matched = True
                 break
 
-# ----------------------
-# Seitenleiste für TOC
-st.sidebar.title("Gliederung")
-for lvl, txt in toc:
-    st.sidebar.write("  "*(lvl-1) + txt)
+        if not matched:
+            elements.append(Paragraph(line_strip, normal_style))
+
+    # Deckblatt
+    story.append(Paragraph(f"{title} ({date})", heading_styles[1]))
+    story.append(Paragraph(f"Matrikelnummer: {matrikel}", normal_style))
+    story.append(Spacer(1, 12))
+    story.append(PageBreak())
+
+    # Inhaltsverzeichnis
+    story.append(Paragraph("Inhaltsverzeichnis", heading_styles[1]))
+    for level, text_entry in toc:
+        indent = (level-1) * 0.5 * cm
+        p = Paragraph(f'{text_entry}', ParagraphStyle('toc', leftIndent=indent, fontSize=11, leading=14))
+        story.append(p)
+    story.append(PageBreak())
+
+    story.extend(elements)
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
 
 # ----------------------
-# Export Button
-if st.button("Export PDF"):
-    if not title_text or not date_text or not matrikel_text:
-        st.warning("Bitte Titel, Datum und Matrikelnummer eingeben!")
+# PDF Download
+# ----------------------
+if submitted:
+    if not title or not date or not matrikel or not text:
+        st.warning("Bitte alle Felder ausfüllen!")
     else:
-        # LaTeX Inhalt zusammenstellen
-        latex=[]
-        latex.append(r"\documentclass[12pt,a4paper,oneside]{jurabook}")
-        latex.append(r"\usepackage[ngerman]{babel}")
-        latex.append(r"\usepackage[utf8]{inputenc}")
-        latex.append(r"\usepackage[T1]{fontenc}")
-        latex.append(r"\usepackage{lmodern}")
-        latex.append(r"\usepackage{geometry}")
-        latex.append(r"\usepackage{fancyhdr}")
-        latex.append(r"\usepackage{titlesec}")
-        latex.append(r"\usepackage{enumitem}")
-        latex.append(r"\usepackage{tocloft}")
-        latex.append(r"\geometry{left=2cm,right=6cm,top=2.5cm,bottom=3cm}")
-        latex.append(r"\setcounter{secnumdepth}{6}")
-        latex.append(r"\setcounter{tocdepth}{6}")
-        latex.append(r"\begin{document}")
-        latex.append(fr"\chapter*{{{title_text} ({date_text})}}")
-        latex.append(r"\tableofcontents\clearpage")
-
-        for line in lines:
-            line_strip=line.strip()
-            if not line_strip:
-                latex.append("")
-                continue
-            # Fußnoten ersetzen
-            fn_match=re.search(footnote_pattern,line_strip)
-            if fn_match:
-                fn_text=fn_match.group(1)
-                clean_line=re.sub(footnote_pattern,"",line_strip)
-                if clean_line:
-                    latex.append(clean_line + f"\\footnote{{{fn_text}}}")
-                else:
-                    latex.append(f"\\footnote{{{fn_text}}}")
-            else:
-                latex.append(line_strip)
-        
-        latex.append(r"\end{document}")
-        latex_content="\n".join(latex)
-
-        # Temporärer Pfad
-        tmp_dir=tempfile.gettempdir()
-        tex_path=os.path.join(tmp_dir,"klausur.tex")
-        export_latex(latex_content, tex_path)
+        pdf_bytes = generate_pdf(title, date, matrikel, text)
+        st.success("PDF erfolgreich erstellt!")
+        st.download_button("PDF herunterladen", pdf_bytes, file_name=f"{title}.pdf", mime="application/pdf")
