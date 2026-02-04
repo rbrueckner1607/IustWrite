@@ -6,7 +6,6 @@ import re
 # --- KLAUSUR-PARSER ---
 class KlausurDocument:
     def __init__(self):
-        # Deine Gliederungsmuster
         self.prefix_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
             2: r'^\s*[A-H]\.(\s|$)',
@@ -27,21 +26,25 @@ class KlausurDocument:
                 latex_output.append("\\medskip")
                 continue
             
-            # Gliederungs-Erkennung
             found_level = False
             for level, pattern in self.prefix_patterns.items():
                 if re.match(pattern, line_s):
-                    # Mapping exakt nach jurabook Ebenen für deine Präambel
-                    commands = {1: "section", 2: "subsection", 3: "subsubsection", 
-                                4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
-                                7: "subparagraph", 8: "subparagraph"}
-                    cmd = commands.get(level, "subparagraph")
-                    latex_output.append(f"\\{cmd}*{{{line_s}}}\n\\addcontentsline{{toc}}{{{cmd}}}{{{line_s}}}")
+                    # Wir erzwingen die Einrückung im Inhaltsverzeichnis händisch!
+                    # level 1-8 werden auf die jurabook-befehle gemappt
+                    cmds = {1: "section", 2: "subsection", 3: "subsubsection", 
+                            4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
+                            7: "subparagraph", 8: "subparagraph"}
+                    cmd = cmds.get(level, "subparagraph")
+                    
+                    # Hier wird der TOC-Eintrag mit manuellem Abstand (hspace) gebaut
+                    # Das verhindert, dass alles auf einer Linie steht
+                    abstand = (level - 1) * 0.5 # Steigerung pro Ebene in cm
+                    latex_output.append(f"\\{cmd}*{{{line_s}}}")
+                    latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{abstand}cm}}{line_s}}}")
                     found_level = True
                     break
             
             if not found_level:
-                # Textbearbeitung (Fußnoten & Sonderzeichen)
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
                 line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
                 latex_output.append(line_s)
@@ -53,34 +56,21 @@ st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
 def main():
     doc_parser = KlausurDocument()
-    
     st.title("⚖️ IustWrite Editor")
+    
     c1, c2, c3 = st.columns(3)
-    with c1:
-        kl_titel = st.text_input("Klausur-Titel", "Übungsklausur")
-    with c2:
-        kl_datum = st.text_input("Datum", "04.02.2026")
-    with c3:
-        kl_kuerzel = st.text_input("Kürzel / Matrikel", "K-123")
+    with c1: kl_titel = st.text_input("Klausur-Titel", "Übungsklausur")
+    with c2: kl_datum = st.text_input("Datum", "04.02.2026")
+    with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "K-123")
 
-    st.sidebar.title("📌 Gliederung")
     user_input = st.text_area("Gutachten-Text", height=500, key="editor")
-
-    # Sidebar Vorschau
-    if user_input:
-        for line in user_input.split('\n'):
-            line_s = line.strip()
-            for level, pattern in doc_parser.prefix_patterns.items():
-                if re.match(pattern, line_s):
-                    st.sidebar.markdown("&nbsp;" * (level * 4) + line_s)
-                    break
 
     if st.button("🏁 PDF generieren"):
         if user_input:
-            with st.spinner("Generiere PDF nach Vorlage..."):
+            with st.spinner("Präzisions-Kompilierung..."):
                 parsed_content = doc_parser.parse_content(user_input.split('\n'))
                 
-                # --- EXAKTE KOPIE DEINER VORLAGE ---
+                # --- DIE ULTIMATIVE PRÄAMBEL ---
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
@@ -90,59 +80,49 @@ def main():
 \usepackage{geometry}
 \usepackage{fancyhdr}
 \usepackage{titlesec}
-\usepackage{enumitem}
 \usepackage{tocloft}
-\geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm, bindingoffset=0cm}
-\setcounter{secnumdepth}{6}
-\setcounter{tocdepth}{6}
+
+\geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
+
+% Zähler für tiefe Gliederung
+\setcounter{secnumdepth}{8}
+\setcounter{tocdepth}{8}
+
+% --- SEITENZAHLEN & KOPFZEILE RADIKAL FIXEN ---
 \pagestyle{fancy}
-\fancyhf{}
-\renewcommand{\headrulewidth}{0.5pt}
+\fancyhf{} 
 \fancyhead[L]{\small """ + kl_kuerzel + r"""}
 \fancyhead[R]{\small """ + kl_titel + r"""}
-\fancypagestyle{plain}{
-	\fancyhf{}
-	\fancyfoot[R]{\thepage}
-	\renewcommand{\headrulewidth}{0pt}
-}
+\fancyfoot[R]{\thepage}
+\renewcommand{\headrulewidth}{0.5pt}
+
+% Diese Befehle löschen die jurabook-internen Kolumnentitel (keine "Gliederung" mehr im Kopf)
+\renewcommand{\sectionmark}[1]{}
+\renewcommand{\subsectionmark}[1]{}
+
 \makeatletter
-\renewcommand{\@cfoot}{}
+\renewcommand{\@cfoot}{} % Killt die mittige Seitenzahl
+\fancypagestyle{plain}{
+  \fancyhf{}
+  \fancyfoot[R]{\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+}
 \makeatother
-\setlength{\cftsecnumwidth}{2em}
-\setlength{\cftsubsecnumwidth}{2.5em}
-\setlength{\cftsubsubsecnumwidth}{3em}
-\setlength{\cftparanumwidth}{3.5em}
-\setlength{\cftsubparanumwidth}{4em}
-\setlength{\cftbeforesecskip}{2pt}
-\setlength{\cftbeforesubsecskip}{2pt}
-\setlength{\cftbeforesubsubsecskip}{2pt}
-\setlength{\cftbeforeparaskip}{2pt}
-\setlength{\cftbeforesubparaskip}{2pt}
-\setlength{\cftindent}{0em}
-\setlength{\cftsectionindent}{1em}
-\setlength{\cftsubsectionindent}{1.5em}
-\setlength{\cftsubsubsectionindent}{2em}
-\setlength{\cftparaindent}{2.5em}
-\setlength{\cftsubparaindent}{3em}
-\renewcommand{\cftsecfont}{\bfseries}
-\renewcommand{\cftsubsecfont}{\bfseries}
-\titleformat{\section}[block]{\normalfont\Large\bfseries}{\thesection}{1em}{}
-\titlespacing*{\section}{0pt}{2em}{1em}
-\titleformat{\subsection}[block]{\normalfont\large\bfseries}{\thesubsection}{1em}{}
-\titlespacing*{\subsection}{0pt}{1.5em}{0.8em}
-\titleformat{\subsubsection}[block]{\normalfont\normalsize\bfseries}{\thesubsubsection}{1em}{}
-\titlespacing*{\subsubsection}{0pt}{1.2em}{0.7em}
+
 \begin{document}
 	\enlargethispage{40pt}
-	\pagenumbering{}
+	\pagenumbering{gobble} % Gliederung absolut ohne Zahlen
 	\vspace*{-3cm}
 	\renewcommand{\contentsname}{Gliederung}
 	\tableofcontents
 	\clearpage
-    \fancyfoot[R]{\thepage}
+
 	\pagenumbering{arabic}
+    \setcounter{page}{1}
 	\setstretch{1.2}
-    \section*{""" + kl_titel + " (" + kl_datum + r")}" + """
+
+    % Titel auf der ersten Seite
+    {\noindent\Large\bfseries """ + kl_titel + " (" + kl_datum + r") \par}\bigskip
 """ + parsed_content + r"\end{document}"
 
                 with open("klausur.tex", "w", encoding="utf-8") as f:
@@ -158,9 +138,9 @@ def main():
                 if os.path.exists("klausur.pdf"):
                     st.success("PDF erfolgreich erstellt!")
                     with open("klausur.pdf", "rb") as f:
-                        st.download_button("📥 PDF herunterladen", f, f"Klausur_{kl_kuerzel}.pdf")
+                        st.download_button("📥 Download", f, f"Klausur_{kl_kuerzel}.pdf")
                 else:
-                    st.error("Fehler: Prüfe das Log.")
+                    st.error("Fehler - Log prüfen.")
                     if os.path.exists("klausur.log"):
                         with open("klausur.log", "r", encoding="utf-8", errors="replace") as log:
                             st.code(log.read()[-2000:])
