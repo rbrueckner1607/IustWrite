@@ -80,35 +80,64 @@ def main():
                 titel_zeile = f"{{\\noindent\\Large\\bfseries {kl_titel} ({kl_datum}) \\par}}\\bigskip"
                 
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
+\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage{setspace}
 \usepackage[T1]{fontenc}
 \usepackage{palatino}
 \usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{enumitem}
 \usepackage{tocloft}
-\geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
-
-\setcounter{secnumdepth}{8}
-\setcounter{tocdepth}{8}
-
+\geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm, bindingoffset=0cm}
+\setcounter{secnumdepth}{6}
+\setcounter{tocdepth}{6}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.5pt}
+\fancypagestyle{plain}{
+	\fancyhf{}
+	\fancyfoot[R]{\thepage}
+	\renewcommand{\headrulewidth}{0pt}
+}
 \makeatletter
 \renewcommand{\@cfoot}{}
-\renewcommand{\@oddfoot}{\hfill\thepage}
-\renewcommand{\@evenfoot}{\hfill\thepage}
-\renewcommand{\@oddhead}{}
-\renewcommand{\@evenhead}{}
 \makeatother
-
+\setlength{\cftsecnumwidth}{2em}
+\setlength{\cftsubsecnumwidth}{2.5em}
+\setlength{\cftsubsubsecnumwidth}{3em}
+\setlength{\cftparanumwidth}{3.5em}
+\setlength{\cftsubparanumwidth}{4em}
+\setlength{\cftbeforesecskip}{2pt}
+\setlength{\cftbeforesubsecskip}{2pt}
+\setlength{\cftbeforesubsubsecskip}{2pt}
+\setlength{\cftbeforeparaskip}{2pt}
+\setlength{\cftbeforesubparaskip}{2pt}
+\setlength{\cftindent}{0em}
+\setlength{\cftsectionindent}{1em}
+\setlength{\cftsubsectionindent}{1.5em}
+\setlength{\cftsubsubsectionindent}{2em}
+\setlength{\cftparaindent}{2.5em}
+\setlength{\cftsubparaindent}{3em}
+\renewcommand{\cftsecfont}{\bfseries}
+\renewcommand{\cftsubsecfont}{\bfseries}
+\titleformat{\section}[block]{\normalfont\Large\bfseries}{\thesection}{1em}{}
+\titlespacing*{\section}{0pt}{2em}{1em}
+\titleformat{\subsection}[block]{\normalfont\large\bfseries}{\thesubsection}{1em}{}
+\titlespacing*{\subsection}{0pt}{1.5em}{0.8em}
+\titleformat{\subsubsection}[block]{\normalfont\normalsize\bfseries}{\thesubsubsection}{1em}{}
+\titlespacing*{\subsubsection}{0pt}{1.2em}{0.7em}
 \begin{document}
-\pagenumbering{gobble}
-\renewcommand{\contentsname}{Gliederung}
-\tableofcontents
-\clearpage
-
-\pagenumbering{arabic}
-\setcounter{page}{1}
-\setstretch{1.2}
+	\enlargethispage{40pt}
+	\pagenumbering{}
+	\vspace*{-3cm}
+	\renewcommand{\contentsname}{Gliederung}
+	\tableofcontents
+	\clearpage
+	\pagenumbering{arabic}
+	\setstretch{1.2}
 """ + titel_zeile + "\n" + parsed_content + r"\end{document}"
 
                 with open("klausur.tex", "w", encoding="utf-8") as f:
