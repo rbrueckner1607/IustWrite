@@ -7,23 +7,23 @@ import re
 class KlausurDocument:
     def __init__(self):
         self.prefix_patterns = {
-            1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
-            2: r'^\s*[A-H]\.(\s|$)',
-            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.(\s|$)',
-            4: r'^\s*\d+\.(\s|$)',
-            5: r'^\s*[a-z]\)\s.*', 
-            6: r'^\s*[a-z]{2}\)\s.*',
-            7: r'^\s*\([a-z]\)\s.*',
-            8: r'^\s*\([a-z]{2}\)\s.*'
+            1: r'^\\s*(Teil|Tatkomplex|Aufgabe)\\s+\\d+(\\.|)(\\s|$)',
+            2: r'^\\s*[A-H]\\.(\\s|$)',
+            3: r'^\\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\\.(\\s|$)',
+            4: r'^\\s*\\d+\\.(\\s|$)',
+            5: r'^\\s*[a-z]\\)\\s.*', 
+            6: r'^\\s*[a-z]{2}\\)\\s.*',
+            7: r'^\\s*\\([a-z]\\)\\s.*',
+            8: r'^\\s*\\([a-z]{2}\\)\\s.*'
         }
-        self.footnote_pattern = r'\\fn\((.*?)\)'
+        self.footnote_pattern = r'\\\\fn\\((.*?)\\)'
 
     def parse_content(self, lines):
         latex_output = []
         for line in lines:
             line_s = line.strip()
             if not line_s:
-                latex_output.append("\\medskip")
+                latex_output.append("\\\\medskip")
                 continue
             
             found_level = False
@@ -34,21 +34,18 @@ class KlausurDocument:
                             7: "subparagraph", 8: "subparagraph"}
                     cmd = cmds.get(level, "subparagraph")
                     
-                    # TREPPEN-LOGIK (Minimal-Abstände für Jura-TOC)
-                    # A.(0) -> I.(0.1) -> 1.(0.2) -> a)(0.3) -> aa)(0.4)
-                    indent = max(0, (level - 2) * 0.15) if level > 1 else 0
-                        
-                    latex_output.append(f"\\{cmd}*{{{line_s}}}")
-                    latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent}cm}}{line_s}}}")
+                    # Vereinfacht - tocloft übernimmt Einrückungen!
+                    latex_output.append(f"\\\\{cmd}*{{{line_s}}}")
+                    latex_output.append(f"\\\\addcontentsline{{toc}}{{{cmd}}}{{{line_s}}}")
                     found_level = True
                     break
             
             if not found_level:
-                line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
-                line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
+                line_s = re.sub(self.footnote_pattern, r'\\\\footnote{{\\1}}', line_s)
+                line_s = line_s.replace('§', '\\\\S~').replace('&', '\\\\&').replace('%', '\\\\%')
                 latex_output.append(line_s)
             
-        return "\n".join(latex_output)
+        return "\\n".join(latex_output)
 
 # --- UI ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
@@ -66,7 +63,7 @@ def main():
     user_input = st.text_area("Gutachten-Text", height=500, key="editor")
 
     if user_input:
-        for line in user_input.split('\n'):
+        for line in user_input.split('\\n'):
             line_s = line.strip()
             for level, pattern in doc_parser.prefix_patterns.items():
                 if re.match(pattern, line_s):
@@ -76,7 +73,7 @@ def main():
     if st.button("🏁 PDF generieren"):
         if user_input:
             with st.spinner("Präzisions-Kompilierung läuft..."):
-                parsed_content = doc_parser.parse_content(user_input.split('\n'))
+                parsed_content = doc_parser.parse_content(user_input.split('\\n'))
                 titel_komplett = f"{kl_titel} ({kl_datum})"
                 
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
@@ -87,37 +84,62 @@ def main():
 \usepackage{palatino}
 \usepackage{geometry}
 \usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{enumitem}
 \usepackage{tocloft}
-\geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
-
-% --- RADIKALE SEITEN-KONTROLLE ---
-\fancypagestyle{iustwrite}{
-    \fancyhf{}
-    \fancyhead[L]{\small """ + kl_kuerzel + r"""}
-    \fancyhead[R]{\small """ + titel_komplett + r"""}
-    \fancyfoot[R]{\thepage}
-    \renewcommand{\headrulewidth}{0.5pt}
-    \renewcommand{\footrulewidth}{0pt}
-}
-
+\geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm, bindingoffset=0cm}
+\setcounter{secnumdepth}{6}
+\setcounter{tocdepth}{6}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small """ + kl_kuerzel + r"""}
+\fancyhead[R]{\small """ + titel_komplett + r"""}
+\renewcommand{\headrulewidth}{0.5pt}
+\fancypagestyle{plain}{\fancyhf{} \fancyfoot[R]{\thepage} \renewcommand{\headrulewidth}{0pt}}
 \makeatletter
-\renewcommand{\@cfoot}{} % Killt die Standard-Zahl in der Mitte
+\renewcommand{\@cfoot}{}
 \makeatother
 
+% Loka-TOC + Titlesec-Konfiguration
+\setlength{\cftsecnumwidth}{2em}
+\setlength{\cftsubsecnumwidth}{2.5em}
+\setlength{\cftsubsubsecnumwidth}{3em}
+\setlength{\cftparanumwidth}{3.5em}
+\setlength{\cftsubparanumwidth}{4em}
+\setlength{\cftbeforesecskip}{2pt}
+\setlength{\cftbeforesubsecskip}{2pt}
+\setlength{\cftbeforesubsubsecskip}{2pt}
+\setlength{\cftbeforeparaskip}{2pt}
+\setlength{\cftbeforesubparaskip}{2pt}
+\setlength{\cftindent}{0em}
+\setlength{\cftsectionindent}{1em}
+\setlength{\cftsubsectionindent}{1.5em}
+\setlength{\cftsubsubsectionindent}{2em}
+\setlength{\cftparaindent}{2.5em}
+\setlength{\cftsubparaindent}{3em}
+\renewcommand{\cftsecfont}{\bfseries}
+\renewcommand{\cftsubsecfont}{\bfseries}
+
+\titleformat{\section}[block]{\normalfont\Large\bfseries}{\thesection}{1em}{}
+\titlespacing*{\section}{0pt}{2em}{1em}
+\titleformat{\subsection}[block]{\normalfont\large\bfseries}{\thesubsection}{1em}{}
+\titlespacing*{\subsection}{0pt}{1.5em}{0.8em}
+\titleformat{\subsubsection}[block]{\normalfont\normalsize\bfseries}{\thesubsubsection}{1em}{}
+\titlespacing*{\subsubsection}{0pt}{1.2em}{0.7em}
+
 \begin{document}
+\enlargethispage{40pt}
 \pagenumbering{gobble}
+\vspace*{-3cm}
 \renewcommand{\contentsname}{Gliederung}
 \tableofcontents
 \clearpage
-
-% --- AKTIVIERUNG FÜR TEXTTEIL ---
 \pagenumbering{arabic}
 \setcounter{page}{1}
-\pagestyle{iustwrite} % Aktiviert unseren eigenen Style
 \setstretch{1.2}
 
-{\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
-""" + parsed_content + r"\end{document}"
+\noindent\Large\bfseries """ + titel_komplett + r""" \par\bigskip
+""" + parsed_content + r"""\end{document}"""
 
                 with open("klausur.tex", "w", encoding="utf-8") as f:
                     f.write(full_latex)
@@ -138,3 +160,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
