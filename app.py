@@ -33,13 +33,12 @@ def parse_to_latex(text):
     lines = text.split('\n')
     latex_lines = []
     
-    # Muster für Jura-Gliederung
     patterns = {
-        'haupt': r'^[A-Z]\.\s.*',          # A.
-        'roemisch': r'^[IVX]+\.\s.*',       # I.
-        'arabisch': r'^[0-9]+\.\s.*',      # 1.
-        'klein_buchstabe': r'^[a-z]\)\s.*', # a)
-        'klein_doppel': r'^[a-z][a-z]\)\s.*'# aa)
+        'haupt': r'^[A-Z]\.\s.*',
+        'roemisch': r'^[IVX]+\.\s.*',
+        'arabisch': r'^[0-9]+\.\s.*',
+        'klein_buchstabe': r'^[a-z]\)\s.*',
+        'klein_doppel': r'^[a-z][a-z]\)\s.*'
     }
 
     for line in lines:
@@ -78,7 +77,6 @@ def main():
         key="main_editor"
     )
 
-    # Sidebar Live-Gliederung
     if user_input:
         for line in user_input.split('\n'):
             line = line.strip()
@@ -124,11 +122,16 @@ def main():
                 f.write(full_latex)
 
             try:
-                # LaTeX Durchläufe
+                # Pfad zur jurabook.cls setzen (TEXINPUTS)
+                # Doppelpunkt am Ende ist wichtig, damit Standardpfade erhalten bleiben
+                env = os.environ.copy()
+                assets_path = os.path.join(os.getcwd(), "latex_assets")
+                env["TEXINPUTS"] = f".:{assets_path}:"
+
                 for _ in range(2):
                     subprocess.run(
                         ["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
-                        check=True, capture_output=True
+                        check=True, capture_output=True, env=env
                     )
                 
                 if os.path.exists("klausur.pdf"):
@@ -137,9 +140,10 @@ def main():
                     st.success("Erfolg!")
             except subprocess.CalledProcessError as e:
                 st.error("LaTeX-Fehler!")
+                # Debugging: Log ausgeben
                 if os.path.exists("klausur.log"):
                     with open("klausur.log", "r") as log:
-                        st.code(log.read()[-1000:], language="text")
+                        st.code(log.read()[-2000:], language="text")
 
 if __name__ == "__main__":
     main()
