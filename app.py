@@ -17,7 +17,6 @@ class KlausurDocument:
             8: r'^\s*\([a-z]{2}\)\s.*'
         }
 
-        # NEU: Unnummerierte Sterne-Überschriften (OHNE PUNKT)
         self.star_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+\*(\s|$)',
             2: r'^\s*[A-H]\*(\s|$)',
@@ -40,13 +39,14 @@ class KlausurDocument:
 
             found_level = False
 
-            # --- Sterne-Überschriften prüfen ---
+            # --- Sterne-Überschriften ---
             for level, pattern in self.star_patterns.items():
                 if re.match(pattern, line_s):
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*", 4: "paragraph*", 5: "subparagraph*"}
                     cmd = cmds.get(level, "subparagraph*")
                     latex_output.append(f"\\{cmd}{{{line_s}}}")
-                    latex_output.append("\\par\\noindent")  # NEU: Neuer Block nach Überschrift
+                    latex_output.append("\\vspace{0.5\\baselineskip}")  # Platz
+                    latex_output.append("\\par\\noindent")              # Neuer Block
                     found_level = True
                     break
 
@@ -55,33 +55,27 @@ class KlausurDocument:
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
                         cmds = {
-                            1: "section",
-                            2: "subsection",
-                            3: "subsubsection",
-                            4: "paragraph",
-                            5: "subparagraph",
-                            6: "subparagraph",
-                            7: "subparagraph",
-                            8: "subparagraph"
+                            1: "section", 2: "subsection", 3: "subsubsection",
+                            4: "paragraph", 5: "subparagraph", 6: "subparagraph",
+                            7: "subparagraph", 8: "subparagraph"
                         }
                         cmd = cmds.get(level, "subparagraph")
                         indent = max(0, (level - 2) * 0.15) if level > 1 else 0
                         latex_output.append(f"\\{cmd}*{{{line_s}}}")
                         latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent}cm}}{line_s}}}")
-                        latex_output.append("\\par\\noindent")  # NEU: Neuer Block nach Überschrift
+                        latex_output.append("\\vspace{0.5\\baselineskip}")  # Platz
+                        latex_output.append("\\par\\noindent")              # Neuer Block
                         found_level = True
                         break
 
-            # --- Normaltextblock ---
+            # --- Normaltext ---
             if not found_level:
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
                 line_s = (
-                    line_s
-                    .replace('§', '\\S~')
+                    line_s.replace('§', '\\S~')
                     .replace('&', '\\&')
                     .replace('%', '\\%')
                 )
-                # Für den allerersten Block im Dokument -> \noindent davor
                 if not first_block_written:
                     latex_output.append(f"\\noindent {line_s}")
                     first_block_written = True
@@ -90,77 +84,58 @@ class KlausurDocument:
 
         return "\n".join(latex_output)
 
-
-# --- UI ---
+# --- UI (unverändert) ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
-# === CALLBACK FÜR UPLOAD ===
 def load_klausur():
     uploaded_file = st.session_state.uploader_key
     if uploaded_file is not None:
         loaded_text = uploaded_file.read().decode("utf-8")
         st.session_state.klausur_text = (
-            st.session_state.klausur_text
-            + "\n\n--- NEU GELADETE KLASUR ---\n\n"
-            + loaded_text
+            st.session_state.klausur_text + "\n\n--- NEU GELADETE KLASUR ---\n\n" + loaded_text
         )
         st.session_state.show_success = True
-
 
 def main():
     doc_parser = KlausurDocument()
     st.title("⚖️ IustWrite Editor")
 
-    # === SESSION STATE ===
     if "klausur_text" not in st.session_state:
         st.session_state.klausur_text = ""
     if "show_success" not in st.session_state:
         st.session_state.show_success = False
 
     c1, c2, c3 = st.columns(3)
-    with c1:
-        kl_titel = st.text_input("Klausur-Titel", "Übungsklausur")
-    with c2:
-        kl_datum = st.text_input("Datum", "04.02.2026")
-    with c3:
-        kl_kuerzel = st.text_input("Kürzel / Matrikel", "K-123")
+    with c1: kl_titel = st.text_input("Klausur-Titel", "Übungsklausur")
+    with c2: kl_datum = st.text_input("Datum", "04.02.2026")
+    with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "K-123")
 
     st.sidebar.title("📌 Gliederung")
 
-    # === TEXTAREA ===
-    user_input = st.text_area(
-        "Gutachten-Text",
-        value=st.session_state.klausur_text,
-        height=700,
-        key="klausur_text"
-    )
+    user_input = st.text_area("Gutachten-Text", value=st.session_state.klausur_text, height=700, key="klausur_text")
 
-    # === Zeichenzähler ===
     if user_input:
         char_count = len(user_input)
         col1, col2 = st.columns([4, 1])
-        with col1:
-            st.empty()
-        with col2:
-            st.metric("Zeichen", f"{char_count:,}")
+        with col1: st.empty()
+        with col2: st.metric("Zeichen", f"{char_count:,}")
 
-    # === Sidebar Gliederung ===
-    if user_input:
-        for line in user_input.split('\n'):
-            line_s = line.strip()
-            found = False
-            for level, pattern in doc_parser.star_patterns.items():
-                if re.match(pattern, line_s):
-                    st.sidebar.markdown(f"{'&nbsp;' * (level * 4)}**{line_s}**")
-                    found = True
-                    break
-            if not found:
-                for level, pattern in doc_parser.prefix_patterns.items():
+        # Sidebar Gliederung
+        if user_input:
+            for line in user_input.split('\n'):
+                line_s = line.strip()
+                found = False
+                for level, pattern in doc_parser.star_patterns.items():
                     if re.match(pattern, line_s):
-                        st.sidebar.markdown("&nbsp;" * (level * 4) + line_s)
+                        st.sidebar.markdown(f"{'&nbsp;' * (level * 4)}**{line_s}**")
+                        found = True
                         break
+                if not found:
+                    for level, pattern in doc_parser.prefix_patterns.items():
+                        if re.match(pattern, line_s):
+                            st.sidebar.markdown("&nbsp;" * (level * 4) + line_s)
+                            break
 
-    # === Buttons ===
     col_pdf, col_save, col_load = st.columns([1, 1, 1])
 
     with col_pdf:
@@ -190,7 +165,6 @@ def main():
 \makeatletter
 \renewcommand{\@cfoot}{}
 \makeatother
-
 \begin{document}
 \pagenumbering{gobble}
 \renewcommand{\contentsname}{Gliederung}
@@ -200,14 +174,9 @@ def main():
 \setcounter{page}{1}
 \pagestyle{iustwrite}
 \setstretch{1.2}
-
-% Titel bündig
 {\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
-
 """ + parsed_content + r"""
-
-\end{document}
-"""
+\end{document}"""
 
                 with open("klausur.tex", "w", encoding="utf-8") as f:
                     f.write(full_latex)
@@ -215,11 +184,7 @@ def main():
                 env = os.environ.copy()
                 env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
                 for _ in range(2):
-                    subprocess.run(
-                        ["pdflatex", "-interaction=nonstopmode", "klausur.tex"],
-                        env=env,
-                        capture_output=True
-                    )
+                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
                 if os.path.exists("klausur.pdf"):
                     st.success("PDF erfolgreich erstellt!")
@@ -230,25 +195,14 @@ def main():
 
     with col_save:
         if st.button("💾 Als TXT speichern", type="secondary"):
-            st.download_button(
-                label="📥 Download TXT",
-                data=user_input,
-                file_name=f"Klausur_{kl_kuerzel}_{kl_titel.replace(' ', '_')}.txt",
-                mime="text/plain"
-            )
+            st.download_button(label="📥 Download TXT", data=user_input, file_name=f"Klausur_{kl_kuerzel}_{kl_titel.replace(' ', '_')}.txt", mime="text/plain")
 
     with col_load:
-        st.file_uploader(
-            "📂 Klausur laden",
-            type=['txt'],
-            key="uploader_key",
-            on_change=load_klausur
-        )
+        st.file_uploader("📂 Klausur laden", type=['txt'], key="uploader_key", on_change=load_klausur)
 
     if st.session_state.get("show_success", False):
         st.success("✅ Klausur geladen!")
         st.session_state.show_success = False
-
 
 if __name__ == "__main__":
     main()
