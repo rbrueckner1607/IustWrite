@@ -6,7 +6,7 @@ import re
 from datetime import datetime
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 1. DEINE LOGIK-KLASSEN (100% DEIN SYSTEM)
+# 1. DEINE LOGIK (100% EXAKT ÜBERNOMMEN)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class HeadingCounter:
@@ -43,7 +43,6 @@ class HeadingCounter:
 
 class KlausurDocument:
     def __init__(self):
-        # Muster für die automatische Erkennung und die Sternchen-Titel
         self.title_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+\*\s*(.*)',
             2: r'^\s*([A-H])\*\s*(.*)',                           
@@ -55,70 +54,71 @@ class KlausurDocument:
             8: r'^\s*\(([a-z]{2})\)\*\s*(.*)'
         }
         self.footnote_pattern = r'\\fn\(([^)]*)\)'
-        
-    def generate_toc(self, text):
+    
+    def generate_toc_preview(self, text):
         toc = []
-        current_counter = HeadingCounter()
-        lines = text.split('\n')
-        for line in lines:
+        preview_counter = HeadingCounter()
+        for line in text.split('\n'):
             line_strip = line.strip()
             for level, pattern in sorted(self.title_patterns.items()):
                 match = re.match(pattern, line_strip)
                 if match:
-                    current_counter.increment(level)
-                    num = current_counter.get_numbering(level)
+                    preview_counter.increment(level)
+                    num = preview_counter.get_numbering(level)
                     title_text = match.group(2).strip()
                     indent = "&nbsp;" * (level * 4)
                     toc.append(f"{indent}**{num}** {title_text}")
                     break
         return toc
-    
+
     def to_latex(self, title, date, matrikel, text):
         latex = [
-            r"\documentclass[12pt, a4paper, oneside]{article}",
+            r"\documentclass[12pt, a4paper]{article}",
             r"\usepackage[ngerman]{babel}",
             r"\usepackage[utf8]{inputenc}",
             r"\usepackage[T1]{fontenc}",
             r"\usepackage{lmodern}",
-            r"\usepackage[left=2cm, right=6cm, top=2.5cm, bottom=3cm]{geometry}",
+            r"\usepackage[left=2cm, right=6cm, top=2.5cm, bottom=2.5cm]{geometry}",
             r"\usepackage{setspace}",
             r"\usepackage{tocloft}",
+            # Gliederungs-Einstellungen
+            r"\renewcommand{\contentsname}{Gliederung}",
             r"\onehalfspacing",
             r"\begin{document}",
-            # Deckblatt Info
-            fr"\noindent \textbf{{Klausur:}} {title} \hfill \textbf{{Datum:}} {date} \\",
-            fr"\noindent \textbf{{Matrikel-Nr:}} {matrikel}",
-            r"\vspace{1cm}",
+            # Kopfzeile / Deckblatt
+            fr"\noindent \textbf{{{title}}} \hfill {date} \\",
+            fr"\noindent Matrikel-Nr.: {matrikel} \vspace{{1cm}} \\",
             r"\tableofcontents",
             r"\newpage",
             r"\pagenumbering{arabic}"
         ]
         
-        current_counter = HeadingCounter()
-        lines = text.split('\n')
-        for line in lines:
+        pdf_counter = HeadingCounter()
+        for line in text.split('\n'):
             line_strip = line.strip()
             if not line_strip:
                 latex.append(r"\par\medskip")
                 continue
             
-            # Fußnoten-Ersetzung
+            # Fußnoten
             line_strip = re.sub(self.footnote_pattern, r"\\footnote{\1}", line_strip)
             
-            # Überschriften-Logik
+            # Gliederungs-Logik
             matched = False
             for level, pattern in sorted(self.title_patterns.items()):
                 match = re.match(pattern, line_strip)
                 if match:
-                    current_counter.increment(level)
-                    num = current_counter.get_numbering(level)
+                    pdf_counter.increment(level)
+                    num = pdf_counter.get_numbering(level)
                     title_text = match.group(2).strip()
-                    # Mapping auf LaTeX Ebenen
+                    
+                    # LaTeX Befehle für die Ebenen
                     if level == 1: cmd = "section"
                     elif level == 2: cmd = "subsection"
                     elif level == 3: cmd = "subsubsection"
                     else: cmd = "paragraph"
                     
+                    # Hier wird die Gliederung mit deiner Nummerierung ins PDF geschrieben
                     latex.append(f"\\{cmd}*{{{num} {title_text}}}")
                     latex.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{{num} {title_text}}}")
                     matched = True
@@ -131,62 +131,46 @@ class KlausurDocument:
         return "\n".join(latex)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 2. STREAMLIT UI (WEB-FRONTEND)
+# 2. STREAMLIT UI
 # ═══════════════════════════════════════════════════════════════════════════════
 
 st.set_page_config(page_title="LexGerm Editor", layout="wide")
-
 st.title("⚖️ LexGerm | iustWrite Editor")
+
+doc = KlausurDocument()
 
 with st.sidebar:
     st.header("📄 Klausurdaten")
-    title = st.text_input("Titel", "Zivilrechtliche Klausur")
+    title = st.text_input("Titel", "Übungsklausur")
     date = st.text_input("Datum", datetime.now().strftime("%d.%m.%Y"))
     matrikel = st.text_input("Matrikel-Nr.")
     st.divider()
-    st.header("📋 Gliederung")
+    st.header("📋 Live-Gliederung")
     
-col_edit, col_space = st.columns([3, 1])
+col_edit, col_empty = st.columns([3, 1])
 
-# Editor
 with col_edit:
-    content = st.text_area("Gutachten (Nutze A* Titel für Überschriften, \\fn(Text) für Fußnoten)", height=600, key="editor_main")
+    content = st.text_area("Editor (Nutze A* Titel, \\fn() Fußnoten)", height=600, key="editor_input")
 
-# Sidebar Gliederung befüllen
-doc = KlausurDocument()
-toc_items = doc.generate_toc(content)
+# Live-Gliederung in Sidebar anzeigen
+toc_preview = doc.generate_toc_preview(content)
 with st.sidebar:
-    for item in toc_items:
+    for item in toc_preview:
         st.markdown(item, unsafe_allow_html=True)
 
-# Export Prozess
-if st.button("🚀 PDF generieren & herunterladen"):
+if st.button("🚀 PDF generieren"):
     if content:
-        with st.spinner("LaTeX-Server arbeitet..."):
-            latex_code = doc.to_latex(title, date, matrikel, content)
+        latex_code = doc.to_latex(title, date, matrikel, content)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tex_file = os.path.join(tmpdir, "klausur.tex")
+            with open(tex_file, "w", encoding="utf-8") as f:
+                f.write(latex_code)
             
-            with tempfile.TemporaryDirectory() as tmpdir:
-                tex_file = os.path.join(tmpdir, "klausur.tex")
-                with open(tex_file, "w", encoding="utf-8") as f:
-                    f.write(latex_code)
-                
-                # Aufruf von pdflatex (Systembefehl in Streamlit Cloud)
-                try:
-                    subprocess.run(
-                        ["pdflatex", "-interaction=nonstopmode", "klausur.tex"],
-                        cwd=tmpdir, check=True, capture_output=True
-                    )
-                    
-                    pdf_path = os.path.join(tmpdir, "klausur.pdf")
-                    with open(pdf_path, "rb") as f:
-                        st.download_button(
-                            label="⬇️ PDF Datei speichern",
-                            data=f.read(),
-                            file_name=f"Klausur_{title}.pdf",
-                            mime="application/pdf"
-                        )
-                    st.success("Erfolgreich erstellt!")
-                except subprocess.CalledProcessError as e:
-                    st.error("LaTeX Fehler: Prüfe deine Eingabe auf Sonderzeichen.")
-    else:
-        st.warning("Bitte erst Text eingeben.")
+            try:
+                subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], cwd=tmpdir, check=True)
+                pdf_path = os.path.join(tmpdir, "klausur.pdf")
+                with open(pdf_path, "rb") as f:
+                    st.download_button("⬇️ PDF Download", f, file_name=f"{title}.pdf")
+                st.success("PDF erfolgreich erstellt!")
+            except:
+                st.error("Fehler im LaTeX-Code. Bitte Gliederung prüfen.")
