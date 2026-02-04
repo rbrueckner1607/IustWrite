@@ -54,7 +54,7 @@ def main():
     doc_parser = KlausurDocument()
     st.title("⚖️ IustWrite Editor")
     
-    # === SESSION STATE INITIALISIEREN (OBEN!) ===
+    # === SESSION STATE (OBEN) ===
     if "klausur_text" not in st.session_state:
         st.session_state.klausur_text = ""
     
@@ -65,9 +65,8 @@ def main():
 
     st.sidebar.title("📌 Gliederung")
     
-    # === TEXTAREA mit SESSION STATE ===
+    # === TEXTAREA ===
     user_input = st.text_area("Gutachten-Text", value=st.session_state.klausur_text, height=500, key="main_editor")
-    st.session_state.klausur_text = user_input  # Update nach jeder Eingabe
 
     # === Zeichenzähler ===
     if user_input:
@@ -93,6 +92,7 @@ def main():
     with col_pdf:
         if st.button("🏁 PDF generieren"):
             if user_input:
+                st.session_state.klausur_text = user_input  # Sync
                 with st.spinner("Präzisions-Kompilierung läuft..."):
                     parsed_content = doc_parser.parse_content(user_input.split('\n'))
                     titel_komplett = f"{kl_titel} ({kl_datum})"
@@ -119,7 +119,7 @@ def main():
 }
 
 \makeatletter
-\renewcommand{\@cfoot}{} % Killt die Standard-Zahl in der Mitte
+\renewcommand{\@cfoot}{}
 \makeatother
 
 \begin{document}
@@ -128,7 +128,6 @@ def main():
 \tableofcontents
 \clearpage
 
-% --- AKTIVIERUNG FÜR TEXTTEIL ---
 \pagenumbering{arabic}
 \setcounter{page}{1}
 \pagestyle{iustwrite}
@@ -156,6 +155,7 @@ def main():
 
     with col_save:
         if st.button("💾 Als TXT speichern", type="secondary"):
+            st.session_state.klausur_text = user_input  # Sync
             st.download_button(
                 label="📥 Download TXT",
                 data=user_input,
@@ -163,14 +163,18 @@ def main():
                 mime="text/plain"
             )
 
+    # === ✅ FIX: UPLOADER mit CALLBACK (KEIN RERUN!) ===
     with col_load:
-        # === FIX: UPLOADER mit CALLBACK ===
-        uploaded_file = st.file_uploader("📂 Klausur laden", type=['txt'])
+        uploaded_file = st.file_uploader("📂 Klausur laden", type=['txt'], key="uploader_key")
         if uploaded_file is not None:
-            loaded_text = uploaded_file.read().decode("utf-8")
-            st.session_state.klausur_text += "\n\n" + loaded_text
-            st.success(f"✅ {uploaded_file.name} geladen ({len(loaded_text)} Zeichen)!")
-            st.rerun()
+            # Session State FLAG setzen
+            if "file_loaded" not in st.session_state:
+                st.session_state.file_loaded = True
+                loaded_text = uploaded_file.read().decode("utf-8")
+                st.session_state.klausur_text = st.session_state.klausur_text + "\n\n--- NEU GELADETE KLASUR ---\n\n" + loaded_text
+                st.session_state.file_loaded = False
+                st.success(f"✅ {uploaded_file.name} geladen ({len(loaded_text)} Zeichen)!")
+                st.rerun()
 
 if __name__ == "__main__":
     main()
