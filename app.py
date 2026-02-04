@@ -88,8 +88,6 @@ class KlausurDocument:
                 if first_paragraph_after_heading:
                     line_s = "\\noindent " + line_s
                     first_paragraph_after_heading = False
-                else:
-                    first_paragraph_after_heading = False
 
                 line_s = re.sub(self.footnote_pattern, r'\\\\footnote{\\1}', line_s)
                 line_s = (
@@ -206,7 +204,7 @@ def main():
 
 \\makeatletter
 \\renewcommand{\\@cfoot}{}
-\\make@other
+\\makeatother
 
 \\begin{document}
 \\pagenumbering{gobble}
@@ -249,4 +247,22 @@ def main():
             st.download_button(
                 label="📥 Download TXT",
                 data=user_input,
-                file_name=f"Klausur
+                file_name=f"Klausur_{kl_kuerzel}_{kl_titel.replace(' ', '_')}.txt",
+                mime="text/plain"
+            )
+
+    with col_load:
+        st.file_uploader(
+            "📂 Klausur laden",
+            type=['txt'],
+            key="uploader_key",
+            on_change=load_klausur
+        )
+
+    if st.session_state.get("show_success", False):
+        st.success("✅ Klausur geladen!")
+        st.session_state.show_success = False
+
+
+if __name__ == "__main__":
+    main()
