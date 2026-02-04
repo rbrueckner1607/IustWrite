@@ -16,7 +16,6 @@ class KlausurDocument:
             7: r'^\s*\([a-z]\)\s.*',
             8: r'^\s*\([a-z]{2}\)\s.*'
         }
-        # FIX: Korrekte Sterne-Patterns (KEINE doppelten \\)
         self.star_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+\*(\s|$)',
             2: r'^\s*[A-H]\*(\s|$)',
@@ -27,7 +26,7 @@ class KlausurDocument:
         self.footnote_pattern = r'\\fn\((.*?)\)'
 
     def get_display_text(self, line_s, patterns):
-        """Extrahiert nur den Text NACH dem Präfix für Gliederung/TOC"""
+        """Extrahiert Text NACH Präfix/Stern"""
         for level, pattern in patterns.items():
             match = re.match(pattern, line_s)
             if match:
@@ -46,17 +45,25 @@ class KlausurDocument:
             
             found_level = False
             
-            # Zuerst Sterne-Überschriften prüfen
+            # Zuerst Sterne-Überschriften (mit TOC-Eintrag!)
             for level, pattern in self.star_patterns.items():
                 if re.match(pattern, line_s):
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*", 
                            4: "paragraph*", 5: "subparagraph*"}
                     cmd = cmds.get(level, "subparagraph*")
+                    
+                    # Vollständige Überschrift als section*
                     latex_output.append(f"\\{cmd}{{{line_s}}}")
+                    
+                    # TOC-Eintrag mit nur Text nach Stern
+                    display_text = self.get_display_text(line_s, self.star_patterns)
+                    indent = max(0, (level - 2) * 0.15) if level > 1 else 0
+                    latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent}cm}}{display_text}}}")
+                    
                     found_level = True
                     break
             
-            # Dann normale Überschriften
+            # Normale Überschriften
             if not found_level:
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
@@ -73,16 +80,15 @@ class KlausurDocument:
                         break
             
             if not found_level:
-                line_s = re.sub(self.footnote_pattern, r'\\footnote{\\1}', line_s)
+                line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
                 line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
                 latex_output.append(line_s)
             
         return "\\n".join(latex_output)
 
-# --- UI ---
+# --- REST DES CODES GLEICH ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
-# === CALLBACK FÜR UPLOAD ===
 def load_klausur():
     uploaded_file = st.session_state.uploader_key
     if uploaded_file is not None:
@@ -94,7 +100,6 @@ def main():
     doc_parser = KlausurDocument()
     st.title("⚖️ IustWrite Editor")
     
-    # === SESSION STATE ===
     if "klausur_text" not in st.session_state:
         st.session_state.klausur_text = ""
     if "show_success" not in st.session_state:
@@ -107,13 +112,11 @@ def main():
 
     st.sidebar.title("📌 Gliederung")
     
-    # === TEXTAREA (600px) ===
     user_input = st.text_area("Gutachten-Text", 
                              value=st.session_state.klausur_text, 
                              height=600, 
                              key="klausur_text")
 
-    # === Zeichenzähler ===
     if user_input:
         char_count = len(user_input)
         col1, col2 = st.columns([4, 1])
@@ -122,7 +125,7 @@ def main():
         with col2:
             st.metric("Zeichen", f"{char_count:,}")
 
-    # === Sidebar Gliederung (JETZT WIEDER DA!) ===
+    # Sidebar Gliederung
     if user_input:
         for line in user_input.split('\n'):
             line_s = line.strip()
@@ -131,7 +134,6 @@ def main():
                 
             found = False
             
-            # Sterne zuerst
             for level, pattern in doc_parser.star_patterns.items():
                 if re.match(pattern, line_s):
                     display_text = doc_parser.get_display_text(line_s, doc_parser.star_patterns)
@@ -142,7 +144,6 @@ def main():
                     found = True
                     break
             
-            # Normale Überschriften
             if not found:
                 for level, pattern in doc_parser.prefix_patterns.items():
                     if re.match(pattern, line_s):
@@ -154,7 +155,7 @@ def main():
                         found = True
                         break
 
-    # === Buttons ===
+    # Buttons (Rest unverändert)
     col_pdf, col_save, col_load = st.columns([1, 1, 1])
     
     with col_pdf:
