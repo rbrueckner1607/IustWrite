@@ -6,9 +6,9 @@ import shutil
 import re
 from datetime import datetime
 
-# -----------------------------
-# HeadingCounter für Nummerierung
-# -----------------------------
+# ----------------------
+# HeadingCounter
+# ----------------------
 class HeadingCounter:
     def __init__(self, max_level=13):
         self.max_level = max_level
@@ -31,14 +31,14 @@ class HeadingCounter:
         parts = []
         for i in range(level):
             n = self.counters[i]
-            if n == 0:
+            if n == 0: 
                 continue
             if i == 0:
                 parts.append(f"Teil {n}.")
             elif i == 1:
                 parts.append(chr(64 + n) + ".")
             elif i == 2:
-                parts.append(romans[n] + ".") if n < len(romans) else parts.append(str(n)+".")
+                parts.append(romans[n] + ".") if n < len(romans) else parts.append(str(n) + ".")
             elif i == 3:
                 parts.append(f"{n}.")
             elif i == 4:
@@ -53,9 +53,9 @@ class HeadingCounter:
                 parts.append(str(n))
         return " ".join([x for x in parts if x])
 
-# -----------------------------
-# KlausurDocument für Export
-# -----------------------------
+# ----------------------
+# KlausurDocument
+# ----------------------
 class KlausurDocument:
     def __init__(self):
         self.heading_counter = HeadingCounter()
@@ -81,48 +81,35 @@ class KlausurDocument:
         }
         self.footnote_pattern = r'\\fn\(([^)]*)\)'
 
-    # TOC-Generator
+    # ----------------------
+    # TOC generieren
+    # ----------------------
     def generate_toc(self, lines):
         toc = []
         for lineno, line in enumerate(lines):
             text = line.strip()
-            if not text:
-                continue
-            level = None
-            title_text = None
-            for l, pattern in self.prefix_patterns.items():
+            if not text: continue
+            found = False
+            # Normale Prefixe
+            for level, pattern in sorted(self.prefix_patterns.items()):
                 if re.match(pattern, text):
-                    level = l
-                    title_text = text
+                    toc.append({"text": text, "line": lineno, "level": level})
+                    found = True
                     break
-            if not level:
-                for l, pattern in self.title_patterns.items():
+            if not found:
+                # Title Patterns
+                for level, pattern in sorted(self.title_patterns.items()):
                     match = re.match(pattern, text)
                     if match:
-                        level = l
                         title_text = match.group(2).strip()
+                        if title_text:
+                            toc.append({"text": title_text, "line": lineno, "level": level})
                         break
-            if level and title_text:
-                indent = (level - 1) * 2
-                toc.append("  " * indent + title_text)
         return toc
 
-    # LaTeX-Header für jede Ebene
-    def latex_header(self, level, text):
-        if level == 1:
-            return r"\section*{" + text + "}", r"\addcontentsline{toc}{section}{" + text + "}"
-        elif level == 2:
-            return r"\subsection*{" + text + "}", r"\addcontentsline{toc}{subsection}{" + text + "}"
-        elif level == 3:
-            return r"\subsubsection*{" + text + "}", r"\addcontentsline{toc}{subsubsection}{" + text + "}"
-        elif level == 4:
-            return r"\paragraph*{" + text + "}", r"\addcontentsline{toc}{paragraph}{" + text + "}"
-        elif level == 5:
-            return r"\subparagraph*{" + text + "}", r"\addcontentsline{toc}{subparagraph}{" + text + "}"
-        else:
-            return r"\subparagraph*{\textit{" + text + "}}", r"\addcontentsline{toc}{subparagraph}{" + text + "}"
-
-    # Export nach LaTeX
+    # ----------------------
+    # LaTeX generieren
+    # ----------------------
     def to_latex(self, title, date, matrikel, lines):
         latex = [
             r"\documentclass[12pt,a4paper]{article}",
@@ -135,7 +122,7 @@ class KlausurDocument:
             r"\usepackage{tocloft}",
             r"\pagestyle{fancy}",
             r"\fancyhf{}",
-            r"\fancyhead[L]{" + title + "}",
+            r"\fancyhead[L]{" + title + r"}",
             r"\fancyfoot[R]{\thepage}",
             r"\renewcommand{\contentsname}{Gliederung}",
             r"\begin{document}",
@@ -143,67 +130,66 @@ class KlausurDocument:
             r"\clearpage",
             fr"\section*{{{title} ({date})}}",
         ]
+
         for line in lines:
             line_strip = line.strip()
             if not line_strip:
                 latex.append("")
                 continue
-            level = None
-            title_text = None
-            for l, pattern in self.prefix_patterns.items():
-                if re.match(pattern, line_strip):
-                    level = l
-                    title_text = line_strip
-                    break
-            if not level:
-                for l, pattern in self.title_patterns.items():
-                    match = re.match(pattern, line_strip)
-                    if match:
-                        level = l
-                        title_text = match.group(2).strip()
-                        break
-            if level and title_text:
-                # Fußnoten prüfen
-                fn_match = re.search(self.footnote_pattern, title_text)
-                if fn_match:
-                    fn_text = fn_match.group(1)
-                    title_text = re.sub(self.footnote_pattern, '', title_text).strip()
-                    if title_text:
-                        title_text += f"\\footnote{{{fn_text}}}"
+
+            title_match = False
+            for level, pattern in self.title_patterns.items():
+                match = re.match(pattern, line_strip)
+                if match:
+                    title_text = match.group(2).strip()
+                    if level == 1:
+                        latex.append(r"\section*{" + title_text + "}")
+                        latex.append(r"\addcontentsline{toc}{section}{" + title_text + "}")
+                    elif level == 2:
+                        latex.append(r"\subsection*{" + title_text + "}")
+                        latex.append(r"\addcontentsline{toc}{subsection}{" + title_text + "}")
+                    elif level == 3:
+                        latex.append(r"\subsubsection*{" + title_text + "}")
+                        latex.append(r"\addcontentsline{toc}{subsubsection}{" + title_text + "}")
                     else:
-                        title_text = f"\\footnote{{{fn_text}}}"
-                cmd, toc = self.latex_header(level, title_text)
-                latex.append(cmd)
-                latex.append(toc)
-            else:
+                        latex.append(r"\paragraph*{" + title_text + "}")
+                        latex.append(r"\addcontentsline{toc}{subsection}{\hspace{" + str(level-1) + "em}" + title_text + "}")
+                    title_match = True
+                    break
+
+            if not title_match:
                 latex.append(line_strip)
+
         latex.append(r"\end{document}")
         return "\n".join(latex)
 
-    # PDF Bytes erzeugen
+    # ----------------------
+    # PDF generieren
+    # ----------------------
     def to_pdf_bytes(self, latex_content):
         with tempfile.TemporaryDirectory() as tmpdir:
             tex_path = os.path.join(tmpdir, "klausur.tex")
             with open(tex_path, "w", encoding="utf-8") as f:
                 f.write(latex_content)
+
             pdflatex_bin = shutil.which("pdflatex")
             if not pdflatex_bin:
-                raise FileNotFoundError("pdflatex nicht im PATH")
-            subprocess.run([pdflatex_bin, "-interaction=nonstopmode", "klausur.tex"],
-                           cwd=tmpdir, capture_output=True, check=True)
-            subprocess.run([pdflatex_bin, "-interaction=nonstopmode", "klausur.tex"],
-                           cwd=tmpdir, capture_output=True, check=True)
+                raise FileNotFoundError("pdflatex nicht im PATH!")
+
+            # 2x kompilieren für TOC
+            subprocess.run([pdflatex_bin, "-interaction=nonstopmode", "klausur.tex"], cwd=tmpdir, capture_output=True, check=True)
+            subprocess.run([pdflatex_bin, "-interaction=nonstopmode", "klausur.tex"], cwd=tmpdir, capture_output=True, check=True)
+
             pdf_path = os.path.join(tmpdir, "klausur.pdf")
             if os.path.exists(pdf_path):
                 with open(pdf_path, "rb") as f:
                     return f.read()
-            raise FileNotFoundError("PDF nicht erstellt")
+            raise FileNotFoundError("PDF nicht erstellt!")
 
-# -----------------------------
+# ----------------------
 # Streamlit App
-# -----------------------------
-st.set_page_config(page_title="iustWrite | lexgerm.de", layout="wide")
-
+# ----------------------
+st.set_page_config(page_title="iustWrite | lexgerm.de", page_icon="⚖️", layout="wide")
 st.title("⚖️ iustWrite - Jura Klausur Editor")
 st.markdown("***Automatische Nummerierung • Live-Gliederung • PDF-Export***")
 
@@ -213,16 +199,16 @@ with st.sidebar:
     title = st.text_input("Titel", value="Zivilrecht I - Klausur")
     date = st.date_input("Datum", value=datetime.now())
     matrikel = st.text_input("Matrikel-Nr.", value="12345678")
-    st.markdown("---")
+    
+    if st.button("🆕 Neue Klausur"):
+        st.session_state.clear()
 
-# Layout: Split-Screen
-col1, col2 = st.columns([1, 3])
+# Layout
+col1, col2 = st.columns([1,3])
 
 with col1:
     st.header("📋 Gliederung")
-    toc = st.session_state.get("toc", [])
-    for item in toc:
-        st.write(item)
+    toc_placeholder = st.empty()
 
 with col2:
     st.header("✍️ Editor")
@@ -231,47 +217,34 @@ with col2:
 A. Formelle Voraussetzungen
 
 I. Antragsbegründung"""
-    content = st.text_area("", value=st.session_state.get("content", default_content),
-                           height=650, key="editor")
+    content = st.text_area("Editor", value=st.session_state.get('content', default_content), height=650)
+    st.session_state['content'] = content
 
-# TOC live aktualisieren
+# ----------------------
+# TOC generieren
+# ----------------------
 doc = KlausurDocument()
-if content != st.session_state.get("last_content", ""):
-    st.session_state.toc = doc.generate_toc(content.splitlines())
-    st.session_state.last_content = content
-    st.session_state.content = content
-    st.experimental_rerun()
+toc = doc.generate_toc(content.splitlines())
+st.session_state['toc'] = toc
+
+# TOC anzeigen
+for item in toc:
+    indent = (item["level"]-1)*2
+    if st.button(" " * indent + item["text"], key=f"toc_{item['line']}"):
+        # Springe zur Zeile: nur Scroll-Anker (nicht perfekt in Streamlit)
+        st.experimental_set_query_params(line=item["line"])
 
 # Status
-if content.strip():
-    st.markdown(f"**Status**: {len(content):,} Zeichen")
+st.markdown(f"**Status**: {len(content):,} Zeichen")
 
-# Buttons
-col1b, col2b, col3b = st.columns(3)
-with col1b:
-    if st.button("🎯 PDF Export"):
-        with st.spinner("Erstelle PDF..."):
-            try:
-                latex = doc.to_latex(title, date.strftime("%d.%m.%Y"), matrikel, content.splitlines())
-                pdf_bytes = doc.to_pdf_bytes(latex)
-                st.session_state.pdf_bytes = pdf_bytes
-                st.session_state.pdf_name = f"{title.replace(' ', '_')}.pdf"
-                st.success("✅ PDF bereit!")
-            except Exception as e:
-                st.error(f"❌ {str(e)}")
-with col2b:
-    if st.button("💾 Speichern"):
-        with open(f"{title.replace(' ','_')}.txt", "w", encoding="utf-8") as f:
-            f.write(content)
-        st.success("✅ Datei gespeichert")
-with col3b:
-    uploaded_file = st.file_uploader("📂 Laden", type=["txt"])
-    if uploaded_file:
-        content = uploaded_file.read().decode("utf-8")
-        st.session_state.content = content
-        st.experimental_rerun()
-
-# PDF Download
-if 'pdf_bytes' in st.session_state:
-    st.download_button("⬇️ PDF Download", st.session_state.pdf_bytes, 
-                       st.session_state.pdf_name, "application/pdf")
+# ----------------------
+# PDF Export
+# ----------------------
+if st.button("🎯 PDF Export"):
+    try:
+        latex = doc.to_latex(title, date.strftime("%d.%m.%Y"), matrikel, content.splitlines())
+        pdf_bytes = doc.to_pdf_bytes(latex)
+        st.download_button("⬇️ PDF Download", pdf_bytes, f"{title.replace(' ','_')}.pdf", "application/pdf")
+        st.success("✅ PDF bereit!")
+    except Exception as e:
+        st.error(f"❌ LaTeX Fehler: {e}")
