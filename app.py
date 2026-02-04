@@ -3,7 +3,7 @@ import subprocess
 import os
 import re
 
-# --- PARSER KLASSE (FIXED REGEX) ---
+# --- PARSER KLASSE (bereits gefixt) ---
 class KlausurDocument:
     def __init__(self):
         self.prefix_patterns = {
@@ -13,8 +13,8 @@ class KlausurDocument:
             4: r'^\s*\d+\.(\s|$)',
             5: r'^\s*[a-z]\)\s.*', 
             6: r'^\s*[a-z]{2}\)\s.*',
-            7: r'^\s*\([a-z]\)\s.*',     # ✅ FIX: fehlende schließende Klammer
-            8: r'^\s*\([a-z]{2}\)\s.*'   # ✅ FIX: fehlende schließende Klammer
+            7: r'^\s*\([a-z]\)\s.*',
+            8: r'^\s*\([a-z]{2}\)\s.*'
         }
         self.footnote_pattern = r'\\fn\((.*?)\)'
 
@@ -33,9 +33,6 @@ class KlausurDocument:
                             4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
                             7: "subparagraph", 8: "subparagraph"}
                     cmd = cmds.get(level, "subparagraph")
-                    
-                    # TREPPEN-LOGIK (Minimal-Abstände für Jura-TOC)
-                    # A.(0) -> I.(0.1) -> 1.(0.2) -> a)(0.3) -> aa)(0.4)
                     indent = max(0, (level - 2) * 0.15) if level > 1 else 0
                         
                     latex_output.append(f"\\{cmd}*{{{line_s}}}")
@@ -50,12 +47,16 @@ class KlausurDocument:
             
         return "\\n".join(latex_output)
 
-# --- REST DES CODES IDENTISCH ---
+# --- UI ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
 def main():
     doc_parser = KlausurDocument()
     st.title("⚖️ IustWrite Editor")
+    
+    # === SESSION STATE INITIALISIEREN (OBEN!) ===
+    if "klausur_text" not in st.session_state:
+        st.session_state.klausur_text = ""
     
     c1, c2, c3 = st.columns(3)
     with c1: kl_titel = st.text_input("Klausur-Titel", "Übungsklausur")
@@ -63,9 +64,12 @@ def main():
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "K-123")
 
     st.sidebar.title("📌 Gliederung")
-    user_input = st.text_area("Gutachten-Text", height=500, key="editor")
+    
+    # === TEXTAREA mit SESSION STATE ===
+    user_input = st.text_area("Gutachten-Text", value=st.session_state.klausur_text, height=500, key="main_editor")
+    st.session_state.klausur_text = user_input  # Update nach jeder Eingabe
 
-    # === Zeichenzähler unter Textbox ===
+    # === Zeichenzähler ===
     if user_input:
         char_count = len(user_input)
         col1, col2 = st.columns([4, 1])
@@ -74,6 +78,7 @@ def main():
         with col2:
             st.metric("Zeichen", f"{char_count:,}")
 
+    # === Sidebar Gliederung ===
     if user_input:
         for line in user_input.split('\n'):
             line_s = line.strip()
@@ -126,7 +131,7 @@ def main():
 % --- AKTIVIERUNG FÜR TEXTTEIL ---
 \pagenumbering{arabic}
 \setcounter{page}{1}
-\pagestyle{iustwrite} % Aktiviert unseren eigenen Style
+\pagestyle{iustwrite}
 \setstretch{1.2}
 
 {\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
@@ -159,12 +164,13 @@ def main():
             )
 
     with col_load:
-        uploaded_file = st.file_uploader("📂 Klausur laden", type=['txt'], key="uploader")
+        # === FIX: UPLOADER mit CALLBACK ===
+        uploaded_file = st.file_uploader("📂 Klausur laden", type=['txt'])
         if uploaded_file is not None:
             loaded_text = uploaded_file.read().decode("utf-8")
-            st.session_state.editor = st.session_state.get("editor", "") + "\n\n" + loaded_text
-            st.rerun()
+            st.session_state.klausur_text += "\n\n" + loaded_text
             st.success(f"✅ {uploaded_file.name} geladen ({len(loaded_text)} Zeichen)!")
+            st.rerun()
 
 if __name__ == "__main__":
     main()
