@@ -1,5 +1,4 @@
 import streamlit as st
-from streamlit_ace import st_ace
 import tempfile
 import os
 import subprocess
@@ -7,121 +6,211 @@ import shutil
 import re
 from datetime import datetime
 
-# 1. JURA LOGIK & PARSER (Optimiert für 8 Ebenen)
+# ============================================================
+# PARSER / DOKUMENT
+# ============================================================
+
 class KlausurDocument:
     def __init__(self):
-        self.patterns = {
-            1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\*|\.)',
-            2: r'^\s*[A-H](\*|\.)',
-            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X)(\*|\.)',
-            4: r'^\s*\d+(\*|\.)',
-            5: r'^\s*[a-z]\)',
-            6: r'^\s*[a-z]{2}\)',
-            7: r'^\s*\([a-z]\)',
-            8: r'^\s*\([a-z]{2}\)'
+        self.prefix_patterns = {
+            1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
+            2: r'^\s*[A-H]\.(\s|$)',
+            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.(\s|$)',
+            4: r'^\s*\d+\.(\s|$)',
+            5: r'^\s*[a-z]\)(\s|$)',
+            6: r'^\s*[a-z]{2}\)(\s|$)',
+            7: r'^\s*\([a-z]\)(\s|$)',
+            8: r'^\s*\([a-z]{2}\)(\s|$)'
         }
 
-    def get_toc_with_lines(self, text):
-        toc = []
-        lines = text.split('\n')
+        self.title_patterns = {
+            1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+\*\s*(.*)',
+            2: r'^\s*([A-H])\*\s*(.*)',
+            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\*\s*(.*)',
+            4: r'^\s*(\d+)\*\s*(.*)',
+            5: r'^\s*([a-z])\*\s*(.*)',
+            6: r'^\s*([a-z]{2})\*\s*(.*)',
+            7: r'^\s*\(([a-z])\)\*\s*(.*)',
+            8: r'^\s*\(([a-z]{2})\)\*\s*(.*)'
+        }
+
+        self.footnote_pattern = r'\\fn\(([^)]*)\)'
+
+    # --------------------------------------------------------
+
+    def parse_structure(self, lines):
+        entries = []
         for idx, line in enumerate(lines):
-            clean = line.strip()
-            for level, pattern in self.patterns.items():
-                if re.match(pattern, clean):
-                    toc.append({"level": level, "text": clean, "line": idx + 1})
+            text = line.rstrip()
+            if not text:
+                continue
+
+            for level, pat in self.title_patterns.items():
+                m = re.match(pat, text)
+                if m:
+                    entries.append({
+                        "level": level,
+                        "title": m.group(2).strip(),
+                        "line": idx
+                    })
                     break
-        return toc
+            else:
+                for level, pat in self.prefix_patterns.items():
+                    if re.match(pat, text):
+                        entries.append({
+                            "level": level,
+                            "title": text.strip(),
+                            "line": idx
+                        })
+                        break
+        return entries
 
-# 2. WEB-APP SETUP
-st.set_page_config(page_title="iustWrite PRO", layout="wide")
+    # --------------------------------------------------------
 
-# CSS für Word-Feeling und Sidebar-Fixierung
-st.markdown("""
-<style>
-    .sidebar-content { position: fixed; top: 50px; width: 18%; overflow-y: auto; height: 85vh; }
-    .editor-container { margin-left: 20%; }
-</style>
-""", unsafe_allow_html=True)
+    def to_latex(self, title, date, matrikel, lines):
+        latex = [
+            r"\documentclass[12pt,a4paper]{article}",
+            r"\usepackage[ngerman]{babel}",
+            r"\usepackage[utf8]{inputenc}",
+            r"\usepackage[T1]{fontenc}",
+            r"\usepackage{lmodern}",
+            r"\usepackage[left=2cm,right=6cm,top=2.5cm,bottom=3cm]{geometry}",
+            r"\usepackage{fancyhdr}",
+            r"\pagestyle{fancy}",
+            r"\fancyhf{}",
+            fr"\fancyhead[L]{{{title}}}",
+            r"\fancyfoot[R]{\thepage}",
+            r"\renewcommand{\contentsname}{Gliederung}",
+            r"\begin{document}",
+            r"\pagenumbering{gobble}",
+            r"\tableofcontents",
+            r"\clearpage",
+            r"\pagenumbering{arabic}",
+        ]
+
+        for line in lines:
+            ls = line.strip()
+            if not ls:
+                latex.append("")
+                continue
+
+            handled = False
+            for level, pat in self.title_patterns.items():
+                m = re.match(pat, ls)
+                if m:
+                    t = m.group(2)
+                    cmd = "section" if level == 1 else "subsection"
+                    latex.append(fr"\{cmd}*{{{t}}}")
+                    latex.append(fr"\addcontentsline{{toc}}{{{cmd}}}{{{t}}}")
+                    handled = True
+                    break
+
+            if handled:
+                continue
+
+            if re.search(self.footnote_pattern, ls):
+                fn = re.search(self.footnote_pattern, ls)
+                text = re.sub(self.footnote_pattern, "", ls)
+                latex.append(f"{text}\\footnote{{{fn.group(1)}}}")
+            else:
+                latex.append(ls)
+
+        latex.append(r"\end{document}")
+        return "\n".join(latex)
+
+    # --------------------------------------------------------
+
+    def to_pdf_bytes(self, latex):
+        with tempfile.TemporaryDirectory() as tmp:
+            tex = os.path.join(tmp, "doc.tex")
+            with open(tex, "w", encoding="utf-8") as f:
+                f.write(latex)
+
+            pdflatex = shutil.which("pdflatex")
+            if not pdflatex:
+                raise RuntimeError("pdflatex nicht gefunden")
+
+            subprocess.run([pdflatex, "doc.tex"], cwd=tmp, capture_output=True)
+            subprocess.run([pdflatex, "doc.tex"], cwd=tmp, capture_output=True)
+
+            with open(os.path.join(tmp, "doc.pdf"), "rb") as f:
+                return f.read()
+
+# ============================================================
+# STREAMLIT UI
+# ============================================================
+
+st.set_page_config(layout="wide", page_title="iustWrite")
+
+# ---------------- Sidebar ----------------
+with st.sidebar:
+    st.header("📄 Metadaten")
+    title = st.text_input("Titel", "Zivilrecht I – Klausur")
+    date = st.date_input("Datum", datetime.now())
+    matrikel = st.text_input("Matrikel", "12345678")
+
+    st.divider()
+
+    uploaded = st.file_uploader("📤 TXT laden", type=["txt"])
+    if uploaded:
+        st.session_state.content = uploaded.read().decode("utf-8")
+
+    if st.button("🆕 Neue Klausur"):
+        st.session_state.clear()
+        st.rerun()
+
+# ---------------- Layout ----------------
+col_toc, col_edit = st.columns([1, 3])
 
 doc = KlausurDocument()
 
-# --- SIDEBAR (GLIEDERUNG & METADATEN) ---
-with st.sidebar:
-    st.title("⚖️ iustWrite")
-    titel = st.text_input("Klausurtitel", value="Zivilrechtliche Klausur")
-    matrikel = st.text_input("Matrikel-Nr.")
-    
-    st.divider()
-    st.subheader("📋 Gliederung (Klick springt)")
-    
-    # Text aus Session State holen
-    current_text = st.session_state.get("content", "")
-    toc_data = doc.get_toc_with_lines(current_text)
-    
-    # Navigations-Buttons in der Sidebar
-    for item in toc_data:
-        indent = "&nbsp;" * (item["level"] * 3)
-        if st.button(f"{indent}{item['text']}", key=f"nav_{item['line']}"):
-            st.session_state.jump_to = item["line"]
+content = st.session_state.get(
+    "content",
+    "Teil 1* Zulässigkeit\n\nA* Formelle Voraussetzungen\n\nI* Antrag"
+)
 
-# --- HAUPTBEREICH (EDITOR) ---
-col1, col2 = st.columns([1, 4]) # Abstandshalter
+lines = content.splitlines()
+structure = doc.parse_structure(lines)
 
-with col2:
-    # Speichern / Laden Funktionen
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        uploaded_file = st.file_uploader("Datei laden (.txt)", type="txt")
-        if uploaded_file:
-            st.session_state.content = uploaded_file.read().decode("utf-8")
-    
-    with c2:
-        st.download_button("💾 Text lokal speichern", current_text, file_name="klausur_entwurf.txt")
+# ---------------- TOC ----------------
+with col_toc:
+    st.subheader("📋 Gliederung")
+    for e in structure:
+        indent = " " * (e["level"] - 1)
+        if st.button(f"{indent}{e['title']}", key=f"toc_{e['line']}"):
+            st.session_state.jump = e["line"]
 
-    # DER EDITOR (Ace Editor für Zeilenspringen)
-    content = st_ace(
-        value=st.session_state.get("content", ""),
-        height=700,
-        language="text",
-        theme="chrome",
-        font_size=16,
-        wrap=True,
-        auto_update=True,
-        key="ace_editor"
+# ---------------- Editor ----------------
+with col_edit:
+    st.subheader("✍️ Editor")
+
+    if "jump" in st.session_state:
+        marker = f"\n>>> SPRUNG ZU ZEILE {st.session_state.jump+1} <<<\n"
+        lines.insert(st.session_state.jump, marker)
+        content = "\n".join(lines)
+        del st.session_state.jump
+
+    content = st.text_area(
+        "",
+        value=content,
+        height=650
     )
     st.session_state.content = content
 
-# --- PDF EXPORT LOGIK ---
-if st.button("🚀 PDF EXPORT (6cm Rand + Gliederung)"):
-    with st.spinner("Erzeuge Gliederung und PDF..."):
-        # LaTeX Template (Professionell)
-        latex_header = r"""
-\documentclass[12pt,a4paper]{article}
-\usepackage[ngerman]{babel}
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{lmodern, geometry, setspace, tocloft, fancyhdr}
-\geometry{left=2cm,right=6cm,top=2.5cm,bottom=3cm}
-\onehalfspacing
-\renewcommand{\contentsname}{Gliederung}
-\pagestyle{fancy}
-\fancyhf{}
-\fancyhead[L]{""" + titel + r"""}
-\fancyhead[R]{Seite \thepage}
-\begin{document}
-\tableofcontents\newpage
-"""
-        # (Hier käme deine Parser-Logik für die Umwandlung von Text in \section etc.)
-        latex_body = content.replace("\n", "\n\n") # Minimalbeispiel
-        latex_final = latex_header + latex_body + r"\end{document}"
+# ---------------- Export ----------------
+st.divider()
+c1, c2 = st.columns(2)
 
-        # PDF Erzeugung (2x für TOC)
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = os.path.join(tmpdir, "klausur.tex")
-            with open(path, "w", encoding="utf-8") as f: f.write(latex_final)
-            pdflatex = shutil.which("pdflatex")
-            for _ in range(2):
-                subprocess.run([pdflatex, "-interaction=nonstopmode", "klausur.tex"], cwd=tmpdir)
-            
-            with open(os.path.join(tmpdir, "klausur.pdf"), "rb") as f:
-                st.download_button("⬇️ PDF JETZT HERUNTERLADEN", f, file_name="klausur.pdf")
+with c1:
+    st.download_button(
+        "💾 TXT speichern",
+        content,
+        file_name="klausur.txt"
+    )
+
+with c2:
+    if st.button("🎯 PDF erzeugen"):
+        pdf = doc.to_pdf_bytes(
+            doc.to_latex(title, date.strftime("%d.%m.%Y"), matrikel, content.splitlines())
+        )
+        st.download_button("⬇️ PDF herunterladen", pdf, "klausur.pdf", "application/pdf")
