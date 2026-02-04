@@ -8,21 +8,21 @@ class KlausurDocument:
     def __init__(self):
         self.prefix_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
-            2: r'^\s*[A-H]\.(\s|$)',
-            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.(\s|$)',
-            4: r'^\s*\d+\.(\s|$)',
-            5: r'^\s*[a-z]\)\s.*',
-            6: r'^\s*[a-z]{2}\)\s.*',
-            7: r'^\s*\([a-z]\)\s.*',
-            8: r'^\s*\([a-z]{2}\)\s.*'
+            2: r'^\s*[A-H]\.\s*$',                    # FIX: nur leere Überschriften
+            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.\s*$',
+            4: r'^\s*\d+\.\s*$',
+            5: r'^\s*[a-z]\)\s*$',                   # FIX: nur "a)" ohne Text
+            6: r'^\s*[a-z]{2}\)\s*$',
+            7: r'^\s*\([a-z]\)\s*$',
+            8: r'^\s*\([a-z]{2}\)\s*$'
         }
 
         self.star_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+\*(\s|$)',
-            2: r'^\s*[A-H]\*(\s|$)',
-            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\*(\s|$)',
-            4: r'^\s*\d+\*(\s|$)',
-            5: r'^\s*[a-z]\)\*(\s|$)'
+            2: r'^\s*[A-H]\*\s*$',
+            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\*\s*$',
+            4: r'^\s*\d+\*\s*$',
+            5: r'^\s*[a-z]\)\*\s*$'
         }
 
         self.footnote_pattern = r'\\fn\((.*?)\)'
@@ -45,8 +45,7 @@ class KlausurDocument:
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*", 4: "paragraph*", 5: "subparagraph*"}
                     cmd = cmds.get(level, "subparagraph*")
                     latex_output.append(f"\\{cmd}{{{line_s}}}")
-                    latex_output.append("\\vspace{0.5\\baselineskip}")  # Platz
-                    latex_output.append("\\par\\noindent")              # Neuer Block
+                    latex_output.append("\\vspace{0.5\\baselineskip}\\par\\noindent")
                     found_level = True
                     break
 
@@ -54,28 +53,21 @@ class KlausurDocument:
             if not found_level:
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
-                        cmds = {
-                            1: "section", 2: "subsection", 3: "subsubsection",
-                            4: "paragraph", 5: "subparagraph", 6: "subparagraph",
-                            7: "subparagraph", 8: "subparagraph"
-                        }
+                        cmds = {1: "section", 2: "subsection", 3: "subsubsection", 4: "paragraph", 5: "subparagraph", 6: "subparagraph", 7: "subparagraph", 8: "subparagraph"}
                         cmd = cmds.get(level, "subparagraph")
                         indent = max(0, (level - 2) * 0.15) if level > 1 else 0
                         latex_output.append(f"\\{cmd}*{{{line_s}}}")
                         latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent}cm}}{line_s}}}")
-                        latex_output.append("\\vspace{0.5\\baselineskip}")  # Platz
-                        latex_output.append("\\par\\noindent")              # Neuer Block
+                        latex_output.append("\\vspace{0.5\\baselineskip}\\par\\noindent")
                         found_level = True
                         break
 
-            # --- Normaltext ---
+            # --- Normaltext mit Überschrift-Text ---
             if not found_level:
+                # NEU: Zeilen mit Überschrift-Format + Text werden als normaler Text behandelt
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
-                line_s = (
-                    line_s.replace('§', '\\S~')
-                    .replace('&', '\\&')
-                    .replace('%', '\\%')
-                )
+                line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
+                
                 if not first_block_written:
                     latex_output.append(f"\\noindent {line_s}")
                     first_block_written = True
@@ -84,26 +76,22 @@ class KlausurDocument:
 
         return "\n".join(latex_output)
 
-# --- UI (unverändert) ---
+# --- REST DES CODES UNVERÄNDERT ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
 def load_klausur():
     uploaded_file = st.session_state.uploader_key
     if uploaded_file is not None:
         loaded_text = uploaded_file.read().decode("utf-8")
-        st.session_state.klausur_text = (
-            st.session_state.klausur_text + "\n\n--- NEU GELADETE KLASUR ---\n\n" + loaded_text
-        )
+        st.session_state.klausur_text = st.session_state.klausur_text + "\n\n--- NEU GELADETE KLASUR ---\n\n" + loaded_text
         st.session_state.show_success = True
 
 def main():
     doc_parser = KlausurDocument()
     st.title("⚖️ IustWrite Editor")
 
-    if "klausur_text" not in st.session_state:
-        st.session_state.klausur_text = ""
-    if "show_success" not in st.session_state:
-        st.session_state.show_success = False
+    if "klausur_text" not in st.session_state: st.session_state.klausur_text = ""
+    if "show_success" not in st.session_state: st.session_state.show_success = False
 
     c1, c2, c3 = st.columns(3)
     with c1: kl_titel = st.text_input("Klausur-Titel", "Übungsklausur")
@@ -120,21 +108,21 @@ def main():
         with col1: st.empty()
         with col2: st.metric("Zeichen", f"{char_count:,}")
 
-        # Sidebar Gliederung
-        if user_input:
-            for line in user_input.split('\n'):
-                line_s = line.strip()
-                found = False
-                for level, pattern in doc_parser.star_patterns.items():
+    # Sidebar Gliederung
+    if user_input:
+        for line in user_input.split('\n'):
+            line_s = line.strip()
+            found = False
+            for level, pattern in doc_parser.star_patterns.items():
+                if re.match(pattern, line_s):
+                    st.sidebar.markdown(f"{'&nbsp;' * (level * 4)}**{line_s}**")
+                    found = True
+                    break
+            if not found:
+                for level, pattern in doc_parser.prefix_patterns.items():
                     if re.match(pattern, line_s):
-                        st.sidebar.markdown(f"{'&nbsp;' * (level * 4)}**{line_s}**")
-                        found = True
+                        st.sidebar.markdown("&nbsp;" * (level * 4) + line_s)
                         break
-                if not found:
-                    for level, pattern in doc_parser.prefix_patterns.items():
-                        if re.match(pattern, line_s):
-                            st.sidebar.markdown("&nbsp;" * (level * 4) + line_s)
-                            break
 
     col_pdf, col_save, col_load = st.columns([1, 1, 1])
 
@@ -144,7 +132,7 @@ def main():
                 parsed_content = doc_parser.parse_content(user_input.split('\n'))
                 titel_komplett = f"{kl_titel} ({kl_datum})"
 
-                full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
+                full_latex = r'''\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage{setspace}
@@ -154,33 +142,15 @@ def main():
 \usepackage{fancyhdr}
 \usepackage{tocloft}
 \geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
-\fancypagestyle{iustwrite}{
-  \fancyhf{}
-  \fancyhead[L]{\small """ + kl_kuerzel + r"""}
-  \fancyhead[R]{\small """ + titel_komplett + r"""}
-  \fancyfoot[R]{\thepage}
-  \renewcommand{\headrulewidth}{0.5pt}
-  \renewcommand{\footrulewidth}{0pt}
-}
-\makeatletter
-\renewcommand{\@cfoot}{}
-\makeatother
+\fancypagestyle{iustwrite}{\fancyhf{}\fancyhead[L]{\small ''' + kl_kuerzel + r'''}\fancyhead[R]{\small ''' + titel_komplett + r'''}\fancyfoot[R]{\thepage}\renewcommand{\headrulewidth}{0.5pt}\renewcommand{\footrulewidth}{0pt}}
+\makeatletter\renewcommand{\@cfoot}{}\makeatother
 \begin{document}
-\pagenumbering{gobble}
-\renewcommand{\contentsname}{Gliederung}
-\tableofcontents
-\clearpage
-\pagenumbering{arabic}
-\setcounter{page}{1}
-\pagestyle{iustwrite}
-\setstretch{1.2}
-{\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
-""" + parsed_content + r"""
-\end{document}"""
+\pagenumbering{gobble}\renewcommand{\contentsname}{Gliederung}\tableofcontents\clearpage\pagenumbering{arabic}\setcounter{page}{1}\pagestyle{iustwrite}\setstretch{1.2}
+{\noindent\Large\bfseries ''' + titel_komplett + r''' \par}\bigskip
+''' + parsed_content + r'''
+\end{document}'''
 
-                with open("klausur.tex", "w", encoding="utf-8") as f:
-                    f.write(full_latex)
-
+                with open("klausur.tex", "w", encoding="utf-8") as f: f.write(full_latex)
                 env = os.environ.copy()
                 env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
                 for _ in range(2):
@@ -204,5 +174,4 @@ def main():
         st.success("✅ Klausur geladen!")
         st.session_state.show_success = False
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()
