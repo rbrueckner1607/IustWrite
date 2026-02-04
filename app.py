@@ -3,7 +3,7 @@ import subprocess
 import os
 import re
 
-# --- PARSER KLASSE ---
+# --- KLAUSUR-PARSER ---
 class KlausurDocument:
     def __init__(self):
         # Deine Gliederungsmuster
@@ -19,18 +19,6 @@ class KlausurDocument:
         }
         self.footnote_pattern = r'\\fn\((.*?)\)'
 
-    def get_latex_level_command(self, level, title_text):
-        # Wir mappen die 8 Ebenen auf die jurabook-Ebenen, die du in der Präambel hast
-        # 1=section, 2=subsection, 3=subsubsection, 4=paragraph, 5=subparagraph...
-        commands = {
-            1: "section", 2: "subsection", 3: "subsubsection", 
-            4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
-            7: "subparagraph", 8: "subparagraph"
-        }
-        cmd = commands.get(level, "subparagraph")
-        # Manueller TOC-Eintrag für deine tocloft-Abstände
-        return f"\\{cmd}*{{{title_text}}}\n\\addcontentsline{{toc}}{{{cmd}}}{{{title_text}}}"
-
     def parse_content(self, lines):
         latex_output = []
         for line in lines:
@@ -39,22 +27,28 @@ class KlausurDocument:
                 latex_output.append("\\medskip")
                 continue
             
+            # Gliederungs-Erkennung
             found_level = False
             for level, pattern in self.prefix_patterns.items():
                 if re.match(pattern, line_s):
-                    latex_output.append(self.get_latex_level_command(level, line_s))
+                    # Mapping exakt nach jurabook Ebenen für deine Präambel
+                    commands = {1: "section", 2: "subsection", 3: "subsubsection", 
+                                4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
+                                7: "subparagraph", 8: "subparagraph"}
+                    cmd = commands.get(level, "subparagraph")
+                    latex_output.append(f"\\{cmd}*{{{line_s}}}\n\\addcontentsline{{toc}}{{{cmd}}}{{{line_s}}}")
                     found_level = True
                     break
-            if found_level: continue
-
-            # Fußnoten-Handling
-            line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
-            line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
-            latex_output.append(line_s)
+            
+            if not found_level:
+                # Textbearbeitung (Fußnoten & Sonderzeichen)
+                line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
+                line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
+                latex_output.append(line_s)
             
         return "\n".join(latex_output)
 
-# --- UI SETTINGS ---
+# --- UI ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
 def main():
@@ -72,7 +66,7 @@ def main():
     st.sidebar.title("📌 Gliederung")
     user_input = st.text_area("Gutachten-Text", height=500, key="editor")
 
-    # Live-Sidebar Vorschau
+    # Sidebar Vorschau
     if user_input:
         for line in user_input.split('\n'):
             line_s = line.strip()
@@ -83,16 +77,16 @@ def main():
 
     if st.button("🏁 PDF generieren"):
         if user_input:
-            with st.spinner("Präzisions-Export läuft..."):
-                parsed_latex = doc_parser.parse_content(user_input.split('\n'))
+            with st.spinner("Generiere PDF nach Vorlage..."):
+                parsed_content = doc_parser.parse_content(user_input.split('\n'))
                 
-                # DEINE ORIGINAL-PRÄAMBEL (EINGEFÜGT IN DEN PYTHON-CODE)
+                # --- EXAKTE KOPIE DEINER VORLAGE ---
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage{setspace}
 \usepackage[T1]{fontenc}
-\usepackage{lmodern}
+\usepackage{palatino}
 \usepackage{geometry}
 \usepackage{fancyhdr}
 \usepackage{titlesec}
@@ -103,10 +97,9 @@ def main():
 \setcounter{tocdepth}{6}
 \pagestyle{fancy}
 \fancyhf{}
+\renewcommand{\headrulewidth}{0.5pt}
 \fancyhead[L]{\small """ + kl_kuerzel + r"""}
 \fancyhead[R]{\small """ + kl_titel + r"""}
-\fancyfoot[R]{\thepage}
-\renewcommand{\headrulewidth}{0.5pt}
 \fancypagestyle{plain}{
 	\fancyhf{}
 	\fancyfoot[R]{\thepage}
@@ -141,15 +134,16 @@ def main():
 \titlespacing*{\subsubsection}{0pt}{1.2em}{0.7em}
 \begin{document}
 	\enlargethispage{40pt}
-	\pagenumbering{gobble}
+	\pagenumbering{}
 	\vspace*{-3cm}
 	\renewcommand{\contentsname}{Gliederung}
 	\tableofcontents
 	\clearpage
+    \fancyfoot[R]{\thepage}
 	\pagenumbering{arabic}
 	\setstretch{1.2}
     \section*{""" + kl_titel + " (" + kl_datum + r")}" + """
-""" + parsed_latex + r"\end{document}"
+""" + parsed_content + r"\end{document}"
 
                 with open("klausur.tex", "w", encoding="utf-8") as f:
                     f.write(full_latex)
@@ -157,7 +151,6 @@ def main():
                 env = os.environ.copy()
                 env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
 
-                # 2 Durchläufe für TOC
                 for _ in range(2):
                     subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
                                    env=env, capture_output=True)
@@ -167,7 +160,10 @@ def main():
                     with open("klausur.pdf", "rb") as f:
                         st.download_button("📥 PDF herunterladen", f, f"Klausur_{kl_kuerzel}.pdf")
                 else:
-                    st.error("Fehler bei der PDF-Erstellung.")
+                    st.error("Fehler: Prüfe das Log.")
+                    if os.path.exists("klausur.log"):
+                        with open("klausur.log", "r", encoding="utf-8", errors="replace") as log:
+                            st.code(log.read()[-2000:])
 
 if __name__ == "__main__":
     main()
