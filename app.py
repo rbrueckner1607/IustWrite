@@ -34,14 +34,19 @@ class KlausurDocument:
                             7: "subparagraph", 8: "subparagraph"}
                     cmd = cmds.get(level, "subparagraph")
                     
-                    # INDIVIDUELLE EINRÜCKUNG: Oben minimal, unten etwas mehr
-                    if level <= 3:
-                        indent_val = (level - 1) * 0.1 # Ganz dezent für A. und I.
-                    else:
-                        indent_val = 0.3 + (level - 4) * 0.2 # Etwas mehr für 1., a), aa)
+                    # MIKRO-EINRÜCKUNGEN (Jetzt extrem dezent gestaffelt)
+                    # A. (0) -> I. (0.15) -> 1. (0.3) -> a) (0.4) -> aa) (0.5) ...
+                    if level == 1: indent = 0.0
+                    elif level == 2: indent = 0.0
+                    elif level == 3: indent = 0.15
+                    elif level == 4: indent = 0.3
+                    elif level == 5: indent = 0.4
+                    elif level == 6: indent = 0.5
+                    elif level == 7: indent = 0.6
+                    else: indent = 0.7
                         
                     latex_output.append(f"\\{cmd}*{{{line_s}}}")
-                    latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent_val}cm}}{line_s}}}")
+                    latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent}cm}}{line_s}}}")
                     found_level = True
                     break
             
@@ -86,7 +91,7 @@ def main():
 \usepackage[utf8]{inputenc}
 \usepackage{setspace}
 \usepackage[T1]{fontenc}
-\usepackage{lmodern}
+\usepackage{palatino}
 \usepackage{geometry}
 \usepackage{fancyhdr}
 \usepackage{tocloft}
@@ -100,8 +105,12 @@ def main():
 \fancyfoot[R]{\thepage}
 \renewcommand{\headrulewidth}{0.5pt}
 
+% Diese Befehle verhindern das Überschreiben der Kopfzeile durch jurabook
+\renewcommand{\sectionmark}[1]{}
+\renewcommand{\subsectionmark}[1]{}
+
 \makeatletter
-\renewcommand{\@cfoot}{} % Killt mittige Zahl
+\renewcommand{\@cfoot}{} 
 \makeatother
 
 \begin{document}
@@ -110,10 +119,11 @@ def main():
 \tableofcontents
 \clearpage
 
-% --- ÜBERSCHREIBEN DES KOLUMNENTITELS (WICHTIG!) ---
+% --- START TEXTTEIL ---
 \pagenumbering{arabic}
 \setcounter{page}{1}
-\markboth{""" + titel_komplett + r"""}{""" + titel_komplett + r"""}
+% Explizites Setzen der Marks, um "Gliederung" aus dem Speicher zu werfen
+\markboth{}{} 
 \setstretch{1.2}
 
 {\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
@@ -125,6 +135,7 @@ def main():
                 env = os.environ.copy()
                 env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
 
+                # 2 Durchläufe für TOC
                 for _ in range(2):
                     subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
                                    env=env, capture_output=True)
