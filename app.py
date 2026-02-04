@@ -3,7 +3,7 @@ import subprocess
 import os
 import re
 
-# --- PARSER KLASSE ---
+# --- KLAUSUR-PARSER ---
 class KlausurDocument:
     def __init__(self):
         self.prefix_patterns = {
@@ -29,13 +29,14 @@ class KlausurDocument:
             found_level = False
             for level, pattern in self.prefix_patterns.items():
                 if re.match(pattern, line_s):
-                    # Mapping auf LaTeX-Ebenen
+                    # Zurück zum bewährten Mapping mit Sternchen für jurabook
                     cmds = {1: "section", 2: "subsection", 3: "subsubsection", 
                             4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
                             7: "subparagraph", 8: "subparagraph"}
                     cmd = cmds.get(level, "subparagraph")
-                    # Wir nutzen die normale Form (ohne *), um die Einrückung von tocloft zu nutzen
-                    latex_output.append(f"\\{cmd}{{{line_s}}}")
+                    # Sternchen verhindert jurabook-Automatik, addcontentsline füllt das TOC
+                    latex_output.append(f"\\{cmd}*{{{line_s}}}")
+                    latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{{line_s}}}")
                     found_level = True
                     break
             
@@ -61,6 +62,7 @@ def main():
     st.sidebar.title("📌 Gliederung")
     user_input = st.text_area("Gutachten-Text", height=500, key="editor")
 
+    # Sidebar Vorschau
     if user_input:
         for line in user_input.split('\n'):
             line_s = line.strip()
@@ -75,6 +77,7 @@ def main():
                 parsed_content = doc_parser.parse_content(user_input.split('\n'))
                 titel_komplett = f"{kl_titel} ({kl_datum})"
                 
+                # --- DEINE ORIGINAL-PRÄAMBEL (DIE LOKAL FUNKTIONIERT) ---
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
@@ -83,47 +86,52 @@ def main():
 \usepackage{palatino}
 \usepackage{geometry}
 \usepackage{fancyhdr}
+\usepackage{titlesec}
 \usepackage{tocloft}
-\geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
-
-% --- TOC EINRÜCKUNG VIA TOCLOFT ---
-\setlength{\cftsecindent}{0pt}
-\setlength{\cftsubsecindent}{0.8em}
-\setlength{\cftsubsubsecindent}{1.6em}
-\setlength{\cftparaindent}{2.4em}
-\setlength{\cftsubparaindent}{3.2em}
-
-% Unterdrückt die automatische Nummerierung im Text, da sie in deinem String steht
-\secdef{\oldsection}{\oldsection}
-\makeatletter
-\def\@seccntformat#1{} 
-\makeatother
+\geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm, bindingoffset=0cm}
+\setcounter{secnumdepth}{6}
+\setcounter{tocdepth}{6}
 
 % --- KOPFZEILE & SEITENZAHL ---
-\fancypagestyle{iustwrite}{
-    \fancyhf{}
-    \fancyhead[L]{\small """ + kl_kuerzel + r"""}
-    \fancyhead[R]{\small """ + titel_komplett + r"""}
-    \fancyfoot[R]{\thepage}
-    \renewcommand{\headrulewidth}{0.5pt}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small """ + kl_kuerzel + r"""}
+\fancyhead[R]{\small """ + titel_komplett + r"""}
+\fancyfoot[R]{\thepage}
+\renewcommand{\headrulewidth}{0.5pt}
+\fancypagestyle{plain}{
+	\fancyhf{}
+	\fancyfoot[R]{\thepage}
+	\renewcommand{\headrulewidth}{0pt}
 }
-
 \makeatletter
-\renewcommand{\@cfoot}{} 
+\renewcommand{\@cfoot}{}
 \makeatother
 
+% --- TOC ABSTÄNDE (DEINE WERTE) ---
+\setlength{\cftsecnumwidth}{2em}
+\setlength{\cftsubsecnumwidth}{2.5em}
+\setlength{\cftsubsubsecnumwidth}{3em}
+\setlength{\cftparanumwidth}{3.5em}
+\setlength{\cftsubparanumwidth}{4em}
+\setlength{\cftindent}{0em}
+\setlength{\cftsectionindent}{0em}
+\setlength{\cftsubsectionindent}{1em}
+\setlength{\cftsubsubsectionindent}{2em}
+\setlength{\cftparaindent}{3em}
+\setlength{\cftsubparaindent}{4em}
+
 \begin{document}
-\pagenumbering{gobble}
-\renewcommand{\contentsname}{Gliederung}
-\tableofcontents
-\clearpage
-
-\pagenumbering{arabic}
-\setcounter{page}{1}
-\pagestyle{iustwrite}
-\setstretch{1.2}
-
-{\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
+	\enlargethispage{40pt}
+	\pagenumbering{gobble}
+	\vspace*{-3cm}
+	\renewcommand{\contentsname}{Gliederung}
+	\tableofcontents
+	\clearpage
+	\pagenumbering{arabic}
+    \setcounter{page}{1}
+	\setstretch{1.2}
+    {\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
 """ + parsed_content + r"\end{document}"
 
                 with open("klausur.tex", "w", encoding="utf-8") as f:
@@ -141,7 +149,10 @@ def main():
                     with open("klausur.pdf", "rb") as f:
                         st.download_button("📥 Download", f, f"Klausur_{kl_kuerzel}.pdf")
                 else:
-                    st.error("Fehler beim Erzeugen.")
+                    st.error("Fehler - Log prüfen.")
+                    if os.path.exists("klausur.log"):
+                        with open("klausur.log", "r", encoding="utf-8", errors="replace") as log:
+                            st.code(log.read()[-2000:])
 
 if __name__ == "__main__":
     main()
