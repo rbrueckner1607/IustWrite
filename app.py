@@ -46,7 +46,7 @@ class KlausurDocument:
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*", 4: "paragraph*", 5: "subparagraph*"}
                     cmd = cmds.get(level, "subparagraph*")
                     latex_output.append(f"\\{cmd}{{{line_s}}}")
-                    latex_output.append("\\noindent")  # Blocksatz nach Überschrift
+                    latex_output.append("\\par\\noindent")  # NEU: Neuer Block nach Überschrift
                     found_level = True
                     break
 
@@ -68,7 +68,7 @@ class KlausurDocument:
                         indent = max(0, (level - 2) * 0.15) if level > 1 else 0
                         latex_output.append(f"\\{cmd}*{{{line_s}}}")
                         latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent}cm}}{line_s}}}")
-                        latex_output.append("\\noindent")  # Blocksatz nach Überschrift
+                        latex_output.append("\\par\\noindent")  # NEU: Neuer Block nach Überschrift
                         found_level = True
                         break
 
