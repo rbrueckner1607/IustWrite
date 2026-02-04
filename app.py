@@ -18,9 +18,6 @@ class KlausurDocument:
         }
         self.footnote_pattern = r'\\fn\((.*?)\)'
 
-        # --- Flachere Einrückungen für TOC ---
-        self.toc_indent_cm = {1:0, 2:0.3, 3:0.6, 4:0.9, 5:1.2, 6:1.4, 7:1.6, 8:1.8}
-
     def parse_content(self, lines):
         latex_output = []
         for line in lines:
@@ -28,29 +25,27 @@ class KlausurDocument:
             if not line_s:
                 latex_output.append("\\medskip")
                 continue
-
+            
             found_level = False
             for level, pattern in self.prefix_patterns.items():
                 if re.match(pattern, line_s):
-                    cmds = {1: "section", 2: "subsection", 3: "subsubsection",
-                            4: "paragraph", 5: "subparagraph", 6: "subparagraph",
+                    cmds = {1: "section", 2: "subsection", 3: "subsubsection", 
+                            4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
                             7: "subparagraph", 8: "subparagraph"}
                     cmd = cmds.get(level, "subparagraph")
-
-                    indent = self.toc_indent_cm.get(level, 0)
-
+                    
+                    # Keine hspace mehr, TOC-Indents über tocloft steuern
                     latex_output.append(f"\\{cmd}*{{{line_s}}}")
-                    latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent}cm}}{line_s}}}")
+                    latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{{line_s}}}")
                     found_level = True
                     break
-
+            
             if not found_level:
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
                 line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
                 latex_output.append(line_s)
-
+            
         return "\n".join(latex_output)
-
 
 # --- UI ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
@@ -58,7 +53,7 @@ st.set_page_config(page_title="IustWrite Editor", layout="wide")
 def main():
     doc_parser = KlausurDocument()
     st.title("⚖️ IustWrite Editor")
-
+    
     c1, c2, c3 = st.columns(3)
     with c1: kl_titel = st.text_input("Klausur-Titel", "Übungsklausur")
     with c2: kl_datum = st.text_input("Datum", "04.02.2026")
@@ -67,6 +62,7 @@ def main():
     st.sidebar.title("📌 Gliederung")
     user_input = st.text_area("Gutachten-Text", height=500, key="editor")
 
+    # Sidebar Vorschau
     if user_input:
         for line in user_input.split('\n'):
             line_s = line.strip()
@@ -80,7 +76,7 @@ def main():
             with st.spinner("Präzisions-Kompilierung läuft..."):
                 parsed_content = doc_parser.parse_content(user_input.split('\n'))
                 titel_komplett = f"{kl_titel} ({kl_datum})"
-
+                
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
@@ -92,6 +88,7 @@ def main():
 \usepackage{tocloft}
 \geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
 
+% --- RADIKALE SEITEN-KONTROLLE ---
 \fancypagestyle{iustwrite}{
     \fancyhf{}
     \fancyhead[L]{\small """ + kl_kuerzel + r"""}
@@ -102,8 +99,15 @@ def main():
 }
 
 \makeatletter
-\renewcommand{\@cfoot}{}
+\renewcommand{\@cfoot}{} % Killt die Standard-Zahl in der Mitte
 \makeatother
+
+% --- TOC FLACH EINRÜCKEN ---
+\setlength{\cftsecindent}{0pt}
+\setlength{\cftsubsecindent}{0.5em}
+\setlength{\cftsubsubsecindent}{1em}
+\setlength{\cftparindent}{1.5em}
+\setlength{\cftsubparindent}{2em}
 
 \begin{document}
 \pagenumbering{gobble}
@@ -111,9 +115,10 @@ def main():
 \tableofcontents
 \clearpage
 
+% --- AKTIVIERUNG FÜR TEXTTEIL ---
 \pagenumbering{arabic}
 \setcounter{page}{1}
-\pagestyle{iustwrite}
+\pagestyle{iustwrite} % Aktiviert unseren eigenen Style
 \setstretch{1.2}
 
 {\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
@@ -127,9 +132,9 @@ def main():
                 env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
 
                 for _ in range(2):
-                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"],
+                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
                                    env=env, capture_output=True)
-
+                
                 if os.path.exists("klausur.pdf"):
                     st.success("PDF erfolgreich erstellt!")
                     with open("klausur.pdf", "rb") as f:
