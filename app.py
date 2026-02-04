@@ -18,17 +18,8 @@ class KlausurDocument:
         }
         self.footnote_pattern = r'\\fn\((.*?)\)'
 
-        # --- Feste Einrückungen für TOC in cm ---
-        self.toc_indent_cm = {
-            1: 0.0,   # Teil / Tatkomplex / Aufgabe
-            2: 0.5,   # A., B., C.
-            3: 1.0,   # I., II., III.
-            4: 1.5,   # 1., 2., 3.
-            5: 2.0,   # a), b)
-            6: 2.2,   # aa), bb)
-            7: 2.4,   # (a), (b)
-            8: 2.6    # (aa), (bb)
-        }
+        # --- Flachere Einrückungen für TOC ---
+        self.toc_indent_cm = {1:0, 2:0.3, 3:0.6, 4:0.9, 5:1.2, 6:1.4, 7:1.6, 8:1.8}
 
     def parse_content(self, lines):
         latex_output = []
@@ -46,7 +37,6 @@ class KlausurDocument:
                             7: "subparagraph", 8: "subparagraph"}
                     cmd = cmds.get(level, "subparagraph")
 
-                    # Feste Einrückung pro Ebene für TOC
                     indent = self.toc_indent_cm.get(level, 0)
 
                     latex_output.append(f"\\{cmd}*{{{line_s}}}")
@@ -77,7 +67,6 @@ def main():
     st.sidebar.title("📌 Gliederung")
     user_input = st.text_area("Gutachten-Text", height=500, key="editor")
 
-    # --- Sidebar Vorschau ---
     if user_input:
         for line in user_input.split('\n'):
             line_s = line.strip()
@@ -86,7 +75,6 @@ def main():
                     st.sidebar.markdown("&nbsp;" * (level * 4) + line_s)
                     break
 
-    # --- PDF generieren ---
     if st.button("🏁 PDF generieren"):
         if user_input:
             with st.spinner("Präzisions-Kompilierung läuft..."):
@@ -104,7 +92,6 @@ def main():
 \usepackage{tocloft}
 \geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
 
-% --- RADIKALE SEITEN-KONTROLLE ---
 \fancypagestyle{iustwrite}{
     \fancyhf{}
     \fancyhead[L]{\small """ + kl_kuerzel + r"""}
@@ -124,13 +111,13 @@ def main():
 \tableofcontents
 \clearpage
 
-% --- AKTIVIERUNG FÜR TEXTTEIL ---
 \pagenumbering{arabic}
 \setcounter{page}{1}
 \pagestyle{iustwrite}
 \setstretch{1.2}
 
 {\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
+\noindent
 """ + parsed_content + r"\end{document}"
 
                 with open("klausur.tex", "w", encoding="utf-8") as f:
@@ -139,7 +126,6 @@ def main():
                 env = os.environ.copy()
                 env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
 
-                # pdflatex zweimal ausführen
                 for _ in range(2):
                     subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"],
                                    env=env, capture_output=True)
@@ -153,4 +139,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
