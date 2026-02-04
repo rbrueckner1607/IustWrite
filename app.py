@@ -3,7 +3,7 @@ import subprocess
 import os
 import re
 
-# --- KLAUSUR-PARSER ---
+# --- PARSER KLASSE ---
 class KlausurDocument:
     def __init__(self):
         self.prefix_patterns = {
@@ -20,9 +20,6 @@ class KlausurDocument:
 
     def parse_content(self, lines):
         latex_output = []
-        # Hier: Einrückung pro Ebene für TOC definieren
-        toc_indent = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 4, 7: 5, 8: 5}
-
         for line in lines:
             line_s = line.strip()
             if not line_s:
@@ -32,15 +29,17 @@ class KlausurDocument:
             found_level = False
             for level, pattern in self.prefix_patterns.items():
                 if re.match(pattern, line_s):
-                    # Sternchen für eigene Nummerierung
                     cmds = {1: "section", 2: "subsection", 3: "subsubsection", 
                             4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
                             7: "subparagraph", 8: "subparagraph"}
                     cmd = cmds.get(level, "subparagraph")
-
+                    
+                    # TREPPEN-LOGIK (Minimal-Abstände für Jura-TOC)
+                    # A.(0) -> I.(0.1) -> 1.(0.2) -> a)(0.3) -> aa)(0.4)
+                    indent = max(0, (level - 2) * 0.15) if level > 1 else 0
+                        
                     latex_output.append(f"\\{cmd}*{{{line_s}}}")
-                    # TOC mit passender Einrückung
-                    latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{toc_indent[level]}em}}{line_s}}}")
+                    latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent}cm}}{line_s}}}")
                     found_level = True
                     break
             
@@ -66,7 +65,6 @@ def main():
     st.sidebar.title("📌 Gliederung")
     user_input = st.text_area("Gutachten-Text", height=500, key="editor")
 
-    # Sidebar Vorschau
     if user_input:
         for line in user_input.split('\n'):
             line_s = line.strip()
@@ -81,7 +79,6 @@ def main():
                 parsed_content = doc_parser.parse_content(user_input.split('\n'))
                 titel_komplett = f"{kl_titel} ({kl_datum})"
                 
-                # --- ORIGINAL-PRÄAMBEL ---
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
@@ -90,58 +87,36 @@ def main():
 \usepackage{palatino}
 \usepackage{geometry}
 \usepackage{fancyhdr}
-\usepackage{titlesec}
 \usepackage{tocloft}
-\geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm, bindingoffset=0cm}
-\setcounter{secnumdepth}{6}
-\setcounter{tocdepth}{6}
+\geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
 
-% --- KOPFZEILE & SEITENZAHL ---
-\pagestyle{fancy}
-\fancyhf{}
-\fancyhead[L]{\small """ + kl_kuerzel + r"""}
-\fancyhead[R]{\small """ + titel_komplett + r"""}
-\fancyfoot[R]{\thepage}
-\renewcommand{\headrulewidth}{0.5pt}
-\fancypagestyle{plain}{
-	\fancyhf{}
-	\fancyfoot[R]{\thepage}
-	\renewcommand{\headrulewidth}{0pt}
+% --- RADIKALE SEITEN-KONTROLLE ---
+\fancypagestyle{iustwrite}{
+    \fancyhf{}
+    \fancyhead[L]{\small """ + kl_kuerzel + r"""}
+    \fancyhead[R]{\small """ + titel_komplett + r"""}
+    \fancyfoot[R]{\thepage}
+    \renewcommand{\headrulewidth}{0.5pt}
+    \renewcommand{\footrulewidth}{0pt}
 }
+
 \makeatletter
-\renewcommand{\@cfoot}{}
+\renewcommand{\@cfoot}{} % Killt die Standard-Zahl in der Mitte
 \makeatother
 
-% --- TOC ABSTÄNDE ---
-\setlength{\cftsecnumwidth}{2em}
-\setlength{\cftsubsecnumwidth}{2.5em}
-\setlength{\cftsubsubsecnumwidth}{3em}
-\setlength{\cftparanumwidth}{3.5em}
-\setlength{\cftsubparanumwidth}{4em}
-\setlength{\cftbeforesecskip}{2pt}
-\setlength{\cftbeforesubsecskip}{2pt}
-\setlength{\cftbeforesubsubsecskip}{2pt}
-\setlength{\cftbeforeparaskip}{2pt}
-\setlength{\cftbeforesubparaskip}{2pt}
-\setlength{\cftindent}{0em}
-\setlength{\cftsectionindent}{0em}
-\setlength{\cftsubsectionindent}{0em}
-\setlength{\cftsubsubsectionindent}{0em}
-\setlength{\cftparaindent}{0em}
-\setlength{\cftsubparaindent}{0em}
-\renewcommand{\cftsecfont}{\bfseries}
-\renewcommand{\cftsubsecfont}{\bfseries}
-
 \begin{document}
-	\enlargethispage{40pt}
-	\pagenumbering{gobble}
-	\vspace*{-3cm}
-	\renewcommand{\contentsname}{Gliederung}
-	\tableofcontents
-	\clearpage
-	\pagenumbering{arabic}
-	\setstretch{1.2}
-    {\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
+\pagenumbering{gobble}
+\renewcommand{\contentsname}{Gliederung}
+\tableofcontents
+\clearpage
+
+% --- AKTIVIERUNG FÜR TEXTTEIL ---
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\pagestyle{iustwrite} % Aktiviert unseren eigenen Style
+\setstretch{1.2}
+
+{\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
 """ + parsed_content + r"\end{document}"
 
                 with open("klausur.tex", "w", encoding="utf-8") as f:
@@ -159,11 +134,7 @@ def main():
                     with open("klausur.pdf", "rb") as f:
                         st.download_button("📥 Download", f, f"Klausur_{kl_kuerzel}.pdf")
                 else:
-                    st.error("Fehler - Log prüfen.")
-                    if os.path.exists("klausur.log"):
-                        with open("klausur.log", "r", encoding="utf-8", errors="replace") as log:
-                            st.code(log.read()[-2000:])
+                    st.error("Fehler beim Erzeugen.")
 
 if __name__ == "__main__":
     main()
-
