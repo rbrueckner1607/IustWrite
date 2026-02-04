@@ -6,6 +6,7 @@ import re
 # --- PARSER KLASSE ---
 class KlausurDocument:
     def __init__(self):
+        # Deine Gliederungsmuster
         self.prefix_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
             2: r'^\s*[A-H]\.(\s|$)',
@@ -19,12 +20,15 @@ class KlausurDocument:
         self.footnote_pattern = r'\\fn\((.*?)\)'
 
     def get_latex_level_command(self, level, title_text):
-        # Mapping auf LaTeX-Standardebenen
-        commands = {1: "section", 2: "subsection", 3: "subsubsection", 
-                    4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
-                    7: "subparagraph", 8: "subparagraph"}
+        # Wir mappen die 8 Ebenen auf die jurabook-Ebenen, die du in der Präambel hast
+        # 1=section, 2=subsection, 3=subsubsection, 4=paragraph, 5=subparagraph...
+        commands = {
+            1: "section", 2: "subsection", 3: "subsubsection", 
+            4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
+            7: "subparagraph", 8: "subparagraph"
+        }
         cmd = commands.get(level, "subparagraph")
-        # Jede Ebene erhält einen eigenen addcontentsline-Eintrag
+        # Manueller TOC-Eintrag für deine tocloft-Abstände
         return f"\\{cmd}*{{{title_text}}}\n\\addcontentsline{{toc}}{{{cmd}}}{{{title_text}}}"
 
     def parse_content(self, lines):
@@ -43,6 +47,7 @@ class KlausurDocument:
                     break
             if found_level: continue
 
+            # Fußnoten-Handling
             line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
             line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
             latex_output.append(line_s)
@@ -67,6 +72,7 @@ def main():
     st.sidebar.title("📌 Gliederung")
     user_input = st.text_area("Gutachten-Text", height=500, key="editor")
 
+    # Live-Sidebar Vorschau
     if user_input:
         for line in user_input.split('\n'):
             line_s = line.strip()
@@ -77,61 +83,72 @@ def main():
 
     if st.button("🏁 PDF generieren"):
         if user_input:
-            with st.spinner("Präzisions-Kompilierung läuft..."):
+            with st.spinner("Präzisions-Export läuft..."):
                 parsed_latex = doc_parser.parse_content(user_input.split('\n'))
                 
+                # DEINE ORIGINAL-PRÄAMBEL (EINGEFÜGT IN DEN PYTHON-CODE)
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
+\usepackage{setspace}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
 \usepackage{geometry}
-\usepackage{setspace}
 \usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{enumitem}
 \usepackage{tocloft}
-
-\geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
-
-% --- TOC EINRÜCKUNGEN (Treppen-Logik erzwingen) ---
-\setcounter{tocdepth}{8}
-\setcounter{secnumdepth}{8}
-\setlength{\cftsecindent}{0em}
-\setlength{\cftsubsecindent}{1.5em}
-\setlength{\cftsubsubsecindent}{3em}
-\setlength{\cftparaindent}{4.5em}
-\setlength{\cftsubparaindent}{6em}
-
-% --- DOPPELTE SEITENZAHLEN & KOPFZEILE FIX ---
+\geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm, bindingoffset=0cm}
+\setcounter{secnumdepth}{6}
+\setcounter{tocdepth}{6}
 \pagestyle{fancy}
-\fancyhf{} % Löscht ALLES (Kopf- und Fußzeile)
+\fancyhf{}
 \fancyhead[L]{\small """ + kl_kuerzel + r"""}
 \fancyhead[R]{\small """ + kl_titel + r"""}
-\fancyfoot[R]{\thepage} % Seitenzahl NUR rechts unten
-\renewcommand{\headrulewidth}{0.4pt}
-\renewcommand{\footrulewidth}{0pt}
-
-% Jurabook spezifische Deaktivierung der Standard-Kopfzeilen (wichtig!)
+\fancyfoot[R]{\thepage}
+\renewcommand{\headrulewidth}{0.5pt}
+\fancypagestyle{plain}{
+	\fancyhf{}
+	\fancyfoot[R]{\thepage}
+	\renewcommand{\headrulewidth}{0pt}
+}
 \makeatletter
-\renewcommand{\@evenhead}{}
-\renewcommand{\@oddhead}{\fancyplain{}{\fancyhead[L]{\small """ + kl_kuerzel + r"""}\fancyhead[R]{\small """ + kl_titel + r"""}}}
-\renewcommand{\@evenfoot}{}
-\renewcommand{\@oddfoot}{\fancyplain{}{\fancyfoot[R]{\thepage}}}
+\renewcommand{\@cfoot}{}
 \makeatother
-
+\setlength{\cftsecnumwidth}{2em}
+\setlength{\cftsubsecnumwidth}{2.5em}
+\setlength{\cftsubsubsecnumwidth}{3em}
+\setlength{\cftparanumwidth}{3.5em}
+\setlength{\cftsubparanumwidth}{4em}
+\setlength{\cftbeforesecskip}{2pt}
+\setlength{\cftbeforesubsecskip}{2pt}
+\setlength{\cftbeforesubsubsecskip}{2pt}
+\setlength{\cftbeforeparaskip}{2pt}
+\setlength{\cftbeforesubparaskip}{2pt}
+\setlength{\cftindent}{0em}
+\setlength{\cftsectionindent}{1em}
+\setlength{\cftsubsectionindent}{1.5em}
+\setlength{\cftsubsubsectionindent}{2em}
+\setlength{\cftparaindent}{2.5em}
+\setlength{\cftsubparaindent}{3em}
+\renewcommand{\cftsecfont}{\bfseries}
+\renewcommand{\cftsubsecfont}{\bfseries}
+\titleformat{\section}[block]{\normalfont\Large\bfseries}{\thesection}{1em}{}
+\titlespacing*{\section}{0pt}{2em}{1em}
+\titleformat{\subsection}[block]{\normalfont\large\bfseries}{\thesubsection}{1em}{}
+\titlespacing*{\subsection}{0pt}{1.5em}{0.8em}
+\titleformat{\subsubsection}[block]{\normalfont\normalsize\bfseries}{\thesubsubsection}{1em}{}
+\titlespacing*{\subsubsection}{0pt}{1.2em}{0.7em}
 \begin{document}
-% 1. Gliederung ohne Zahlen
-\pagenumbering{gobble}
-\renewcommand{\contentsname}{Gliederung}
-\tableofcontents
-\clearpage
-
-% 2. Textteil
-\pagenumbering{arabic}
-\setcounter{page}{1}
-\setstretch{1.2}
-
-\section*{""" + kl_titel + " (" + kl_datum + r""")}
-
+	\enlargethispage{40pt}
+	\pagenumbering{gobble}
+	\vspace*{-3cm}
+	\renewcommand{\contentsname}{Gliederung}
+	\tableofcontents
+	\clearpage
+	\pagenumbering{arabic}
+	\setstretch{1.2}
+    \section*{""" + kl_titel + " (" + kl_datum + r")}" + """
 """ + parsed_latex + r"\end{document}"
 
                 with open("klausur.tex", "w", encoding="utf-8") as f:
@@ -146,11 +163,11 @@ def main():
                                    env=env, capture_output=True)
                 
                 if os.path.exists("klausur.pdf"):
-                    st.success("PDF erstellt!")
+                    st.success("PDF erfolgreich erstellt!")
                     with open("klausur.pdf", "rb") as f:
                         st.download_button("📥 PDF herunterladen", f, f"Klausur_{kl_kuerzel}.pdf")
                 else:
-                    st.error("Fehler beim Erzeugen des PDF.")
+                    st.error("Fehler bei der PDF-Erstellung.")
 
 if __name__ == "__main__":
     main()
