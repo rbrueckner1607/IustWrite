@@ -18,6 +18,18 @@ class KlausurDocument:
         }
         self.footnote_pattern = r'\\fn\((.*?)\)'
 
+        # --- Feste Einrückungen für TOC in cm ---
+        self.toc_indent_cm = {
+            1: 0.0,   # Teil / Tatkomplex / Aufgabe
+            2: 0.5,   # A., B., C.
+            3: 1.0,   # I., II., III.
+            4: 1.5,   # 1., 2., 3.
+            5: 2.0,   # a), b)
+            6: 2.2,   # aa), bb)
+            7: 2.4,   # (a), (b)
+            8: 2.6    # (aa), (bb)
+        }
+
     def parse_content(self, lines):
         latex_output = []
         for line in lines:
@@ -25,30 +37,30 @@ class KlausurDocument:
             if not line_s:
                 latex_output.append("\\medskip")
                 continue
-            
+
             found_level = False
             for level, pattern in self.prefix_patterns.items():
                 if re.match(pattern, line_s):
-                    cmds = {1: "section", 2: "subsection", 3: "subsubsection", 
-                            4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
+                    cmds = {1: "section", 2: "subsection", 3: "subsubsection",
+                            4: "paragraph", 5: "subparagraph", 6: "subparagraph",
                             7: "subparagraph", 8: "subparagraph"}
                     cmd = cmds.get(level, "subparagraph")
-                    
-                    # TREPPEN-LOGIK (Minimal-Abstände für Jura-TOC)
-                    # A.(0) -> I.(0.1) -> 1.(0.2) -> a)(0.3) -> aa)(0.4)
-                    indent = max(0, (level - 2) * 0.15) if level > 1 else 0
-                        
+
+                    # Feste Einrückung pro Ebene für TOC
+                    indent = self.toc_indent_cm.get(level, 0)
+
                     latex_output.append(f"\\{cmd}*{{{line_s}}}")
                     latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent}cm}}{line_s}}}")
                     found_level = True
                     break
-            
+
             if not found_level:
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
                 line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
                 latex_output.append(line_s)
-            
+
         return "\n".join(latex_output)
+
 
 # --- UI ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
@@ -56,7 +68,7 @@ st.set_page_config(page_title="IustWrite Editor", layout="wide")
 def main():
     doc_parser = KlausurDocument()
     st.title("⚖️ IustWrite Editor")
-    
+
     c1, c2, c3 = st.columns(3)
     with c1: kl_titel = st.text_input("Klausur-Titel", "Übungsklausur")
     with c2: kl_datum = st.text_input("Datum", "04.02.2026")
@@ -65,6 +77,7 @@ def main():
     st.sidebar.title("📌 Gliederung")
     user_input = st.text_area("Gutachten-Text", height=500, key="editor")
 
+    # --- Sidebar Vorschau ---
     if user_input:
         for line in user_input.split('\n'):
             line_s = line.strip()
@@ -73,12 +86,13 @@ def main():
                     st.sidebar.markdown("&nbsp;" * (level * 4) + line_s)
                     break
 
+    # --- PDF generieren ---
     if st.button("🏁 PDF generieren"):
         if user_input:
             with st.spinner("Präzisions-Kompilierung läuft..."):
                 parsed_content = doc_parser.parse_content(user_input.split('\n'))
                 titel_komplett = f"{kl_titel} ({kl_datum})"
-                
+
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
@@ -101,7 +115,7 @@ def main():
 }
 
 \makeatletter
-\renewcommand{\@cfoot}{} % Killt die Standard-Zahl in der Mitte
+\renewcommand{\@cfoot}{}
 \makeatother
 
 \begin{document}
@@ -113,7 +127,7 @@ def main():
 % --- AKTIVIERUNG FÜR TEXTTEIL ---
 \pagenumbering{arabic}
 \setcounter{page}{1}
-\pagestyle{iustwrite} % Aktiviert unseren eigenen Style
+\pagestyle{iustwrite}
 \setstretch{1.2}
 
 {\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
@@ -125,10 +139,11 @@ def main():
                 env = os.environ.copy()
                 env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
 
+                # pdflatex zweimal ausführen
                 for _ in range(2):
-                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
+                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"],
                                    env=env, capture_output=True)
-                
+
                 if os.path.exists("klausur.pdf"):
                     st.success("PDF erfolgreich erstellt!")
                     with open("klausur.pdf", "rb") as f:
@@ -138,3 +153,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
