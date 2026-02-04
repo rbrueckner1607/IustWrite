@@ -16,7 +16,7 @@ class KlausurDocument:
             7: r'^\s*\([a-z]\)\s.*',
             8: r'^\s*\([a-z]{2}\)\s.*'
         }
-        # NEU: Unnummerierte Sterne-Überschriften (OHNE PUNKT)
+        # Sterne-Überschriften (KEIN TOC, KEINE Nummerierung)
         self.star_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+\*(\s|$)',
             2: r'^\s*[A-H]\*(\s|$)',
@@ -36,7 +36,7 @@ class KlausurDocument:
             
             found_level = False
             
-            # Zuerst Sterne-Überschriften prüfen (unnummeriert)
+            # Sterne-Überschriften (nur visuell, KEIN TOC!)
             for level, pattern in self.star_patterns.items():
                 if re.match(pattern, line_s):
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*", 
@@ -46,7 +46,7 @@ class KlausurDocument:
                     found_level = True
                     break
             
-            # Dann normale Überschriften
+            # Normale Überschriften (IM TOC)
             if not found_level:
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
@@ -62,6 +62,9 @@ class KlausurDocument:
                         break
             
             if not found_level:
+                # Markdown zu LaTeX konvertieren (für Editor-Formatierung)
+                line_s = re.sub(r'\*\*(.*?)\*\*', r'\\textbf{\\1}', line_s)
+                line_s = re.sub(r'\*(.*?)\*', r'\\emph{\\1}', line_s)
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\\1}', line_s)
                 line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
                 latex_output.append(line_s)
@@ -89,6 +92,13 @@ def main():
     if "show_success" not in st.session_state:
         st.session_state.show_success = False
     
+    # === EDITOR EINSTELLUNGEN ===
+    col_font, col_size = st.columns(2)
+    with col_font:
+        font_size = st.selectbox("Schriftgröße", ["small", "medium", "large"], index=1)
+    with col_size:
+        st.caption("Editor-Höhe: 700px (vergrößert)")
+    
     c1, c2, c3 = st.columns(3)
     with c1: kl_titel = st.text_input("Klausur-Titel", "Übungsklausur")
     with c2: kl_datum = st.text_input("Datum", "04.02.2026")
@@ -96,10 +106,10 @@ def main():
 
     st.sidebar.title("📌 Gliederung")
     
-    # === TEXTAREA ===
+    # === GRÖßERES TEXTAREA (700px) ===
     user_input = st.text_area("Gutachten-Text", 
                              value=st.session_state.klausur_text, 
-                             height=500, 
+                             height=700,  # ← Größer!
                              key="klausur_text")
 
     # === Zeichenzähler ===
@@ -111,13 +121,13 @@ def main():
         with col2:
             st.metric("Zeichen", f"{char_count:,}")
 
-    # === Sidebar Gliederung (Sterne erkennen) ===
+    # === Sidebar Gliederung ===
     if user_input:
         for line in user_input.split('\n'):
             line_s = line.strip()
             found = False
             
-            # Sterne zuerst
+            # Sterne (fett, keine Nummer)
             for level, pattern in doc_parser.star_patterns.items():
                 if re.match(pattern, line_s):
                     st.sidebar.markdown(f"{'&nbsp;' * (level * 4)}**{line_s}**")
