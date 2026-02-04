@@ -3,7 +3,7 @@ import subprocess
 import os
 import re
 
-# --- KLAUSUR-PARSER ---
+# ---------------- PARSER ----------------
 class KlausurDocument:
     def __init__(self):
         self.prefix_patterns = {
@@ -11,122 +11,161 @@ class KlausurDocument:
             2: r'^\s*[A-H]\.(\s|$)',
             3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.(\s|$)',
             4: r'^\s*\d+\.(\s|$)',
-            5: r'^\s*[a-z]\)\s.*', 
+            5: r'^\s*[a-z]\)\s.*',
             6: r'^\s*[a-z]{2}\)\s.*',
             7: r'^\s*\([a-z]\)\s.*',
             8: r'^\s*\([a-z]{2}\)\s.*'
         }
-        self.footnote_pattern = r'\\fn\((.*?)\)'
+
+        # FIXE, PLATZSPARENDE TOC-EINRÜCKUNG
+        self.indent_boxes = {
+            1: "0em",
+            2: "0em",
+            3: "0.8em",
+            4: "1.2em",
+            5: "1.6em",
+            6: "2.0em",
+            7: "2.0em",
+            8: "2.0em",
+        }
 
     def parse_content(self, lines):
-        latex_output = []
+        latex = []
+
         for line in lines:
-            line_s = line.strip()
-            if not line_s:
-                latex_output.append("\\medskip")
+            s = line.strip()
+
+            if not s:
+                latex.append("\\medskip")
                 continue
-            
-            found_level = False
+
+            matched = False
             for level, pattern in self.prefix_patterns.items():
-                if re.match(pattern, line_s):
-                    # TRICK: Wir nutzen für ALLE Ebenen \section*, 
-                    # damit der Text danach IMMER in einer neuen Zeile steht.
-                    # Die Einrückung im TOC steuern wir händisch über hspace.
-                    
-                    # Einrückungswerte für die perfekte Jura-Treppe (in cm)
-                    indent_map = {1:0.0, 2:0.0, 3:0.4, 4:0.8, 5:1.2, 6:1.6, 7:2.0, 8:2.4}
-                    indent = indent_map.get(level, 0.0)
-                    
-                    # Wir nutzen im Text \section* für Ebenen 1-3 und \paragraph* für den Rest,
-                    # erzwingen aber nach jeder Überschrift einen Zeilenumbruch.
-                    if level <= 3:
-                        latex_output.append(f"\\section*{{{line_s}}}")
-                    else:
-                        latex_output.append(f"\\noindent\\textbf{{{line_s}}}\\\\")
-                    
-                    # Manueller TOC Eintrag mit erzwungener Einrückung
-                    latex_output.append(f"\\addcontentsline{{toc}}{{section}}{{\\hspace{{{indent}cm}}{line_s}}}")
-                    found_level = True
+                if re.match(pattern, s):
+                    cmd_map = {
+                        1: "section",
+                        2: "section",
+                        3: "subsection",
+                        4: "subsubsection",
+                        5: "paragraph",
+                        6: "subparagraph",
+                        7: "subparagraph",
+                        8: "subparagraph",
+                    }
+                    cmd = cmd_map[level]
+                    box = self.indent_boxes[level]
+
+                    latex.append(f"\\{cmd}*{{{s}}}")
+                    latex.append(
+                        f"\\addcontentsline{{toc}}{{{cmd}}}"
+                        f"{{\\protect\\makebox[{box}][l]{{}}{s}}}"
+                    )
+                    matched = True
                     break
-            
-            if not found_level:
-                line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
-                line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
-                latex_output.append(line_s)
-            
-        return "\n".join(latex_output)
 
-# --- UI ---
+            if not matched:
+                latex.append(
+                    s.replace('&', '\\&')
+                     .replace('%', '\\%')
+                     .replace('§', '\\S~')
+                )
+
+        return "\n".join(latex)
+
+
+# ---------------- UI ----------------
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
+st.title("⚖️ IustWrite Editor")
 
-def main():
-    doc_parser = KlausurDocument()
-    st.title("⚖️ IustWrite Editor")
-    
-    c1, c2, c3 = st.columns(3)
-    with c1: kl_titel = st.text_input("Klausur-Titel", "Übungsklausur")
-    with c2: kl_datum = st.text_input("Datum", "04.02.2026")
-    with c3: kl_kuerzel = st.text_input("Kürzel", "K-123")
+parser = KlausurDocument()
 
-    st.sidebar.title("📌 Gliederung")
-    user_input = st.text_area("Gutachten-Text", height=500, key="editor")
+c1, c2, c3 = st.columns(3)
+with c1:
+    titel = st.text_input("Klausur-Titel", "Übungsklausur")
+with c2:
+    datum = st.text_input("Datum", "04.02.2026")
+with c3:
+    kuerzel = st.text_input("Kürzel / Matrikel", "K-123")
 
-    if st.button("🏁 PDF generieren"):
-        if user_input:
-            with st.spinner("Präzisions-Kompilierung..."):
-                parsed_content = doc_parser.parse_content(user_input.split('\n'))
-                titel_komplett = f"{kl_titel} ({kl_datum})"
-                
-                full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
-\usepackage[ngerman]{babel}
-\usepackage[utf8]{inputenc}
-\usepackage{setspace}
-\usepackage[T1]{fontenc}
-\usepackage{palatino}
-\usepackage{geometry}
-\usepackage{fancyhdr}
-\usepackage{tocloft}
-\geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
+st.sidebar.title("📌 Gliederung")
 
-% Wir nutzen tocloft um die Standard-Nummern-Boxen im TOC zu killen
-\makeatletter
-\renewcommand{\cftsecpresnum}{\begin{lrbox}{\@tempboxa}}
-\renewcommand{\cftsecafterpresnum}{\end{lrbox}}
-\makeatother
-\setlength{\cftsecnumwidth}{0pt}
+text = st.text_area("Gutachten-Text", height=600)
 
-\pagestyle{fancy}
-\fancyhf{}
-\fancyhead[L]{\small """ + kl_kuerzel + r"""}
-\fancyhead[R]{\small """ + titel_komplett + r"""}
-\fancyfoot[R]{\thepage}
-\renewcommand{\headrulewidth}{0.5pt}
+# ---------- LIVE-GLIEDERUNG LINKS ----------
+if text:
+    for line in text.split("\n"):
+        s = line.strip()
+        for lvl, pat in parser.prefix_patterns.items():
+            if re.match(pat, s):
+                st.sidebar.markdown("&nbsp;" * (lvl * 4) + s)
+                break
 
-\makeatletter
-\renewcommand{\@cfoot}{}
-\makeatother
+# ---------- PDF ----------
+if st.button("🏁 PDF generieren"):
+    if not text.strip():
+        st.warning("Kein Text vorhanden.")
+    else:
+        with st.spinner("Kompiliere jurabook-PDF …"):
+            body = parser.parse_content(text.split("\n"))
+            titel_full = f"{titel} ({datum})"
 
-\begin{document}
-	\pagenumbering{gobble}
-	\renewcommand{\contentsname}{Gliederung}
-	\tableofcontents
-	\clearpage
-	\pagenumbering{arabic}
-    \setcounter{page}{1}
-	\setstretch{1.2}
-    {\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
-""" + parsed_content + r"\end{document}"
+            latex = rf"""
+\documentclass[12pt,a4paper,oneside]{{jurabook}}
+\usepackage[ngerman]{{babel}}
+\usepackage[utf8]{{inputenc}}
+\usepackage[T1]{{fontenc}}
+\usepackage{{setspace}}
+\usepackage{{palatino}}
+\usepackage{{geometry}}
+\usepackage{{fancyhdr}}
 
-                with open("klausur.tex", "w", encoding="utf-8") as f:
-                    f.write(full_latex)
+\geometry{{left=2cm,right=6cm,top=2.5cm,bottom=3cm}}
 
-                env = os.environ.copy()
-                env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
+\fancypagestyle{{iustwrite}}{{
+  \fancyhf{{}}
+  \fancyhead[L]{{\small {kuerzel}}}
+  \fancyhead[R]{{\small {titel_full}}}
+  \fancyfoot[R]{{\thepage}}
+  \renewcommand{{\headrulewidth}}{{0.5pt}}
+}}
 
-                for _ in range(2):
-                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
-                
-                if os.path.exists("klausur.pdf"):
-                    st.success("PDF erfolgreich erstellt!")
-                    with open("klausur.pdf", "rb") as f:
-                        st.download_button("📥 Download", f, f"Klausur_{kl_kuerzel}.pdf")
+\begin{{document}}
+\pagenumbering{{gobble}}
+\renewcommand{{\contentsname}}{{Gliederung}}
+\tableofcontents
+\clearpage
+
+\pagestyle{{iustwrite}}
+\pagenumbering{{arabic}}
+\setstretch{{1.2}}
+
+\noindent\Large\bfseries {titel_full}\par\bigskip
+
+{body}
+
+\end{{document}}
+"""
+
+            with open("klausur.tex", "w", encoding="utf-8") as f:
+                f.write(latex)
+
+            env = os.environ.copy()
+            env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
+
+            subprocess.run(
+                ["pdflatex", "-interaction=nonstopmode", "klausur.tex"],
+                env=env,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+
+            if os.path.exists("klausur.pdf"):
+                with open("klausur.pdf", "rb") as f:
+                    st.download_button(
+                        "📥 PDF herunterladen",
+                        f,
+                        file_name=f"Klausur_{kuerzel}.pdf",
+                        mime="application/pdf"
+                    )
+            else:
+                st.error("PDF konnte nicht erzeugt werden.")
