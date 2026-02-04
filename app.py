@@ -6,22 +6,22 @@ import streamlit as st
 class KlausurDocument:
     def __init__(self):
         self.prefix_patterns = {
-            1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
-            2: r'^\s*[A-H]\.\s*($|\W)',
-            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.\s*($|\W)',
-            4: r'^\s*\d+\.\s*($|\W)',
-            5: r'^\s*[a-z]\)\s*($|\W)',      
-            6: r'^\s*[a-z]{2}\)\s*($|\W)',    
-            7: r'^\s*\([a-z]\)\s*($|\W)',     
-            8: r'^\s*\([a-z]{2}\)\s*($|\W)'   
+            1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(?=\s*$|\s+\W)',
+            2: r'^\s*[A-H]\.(?=\s*$|\s+\W)',
+            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.(?=\s*$|\s+\W)',
+            4: r'^\s*\d+\.(?=\s*$|\s+\W)',
+            5: r'^\s*[a-z]\)(?=\s*$|\s+\W)',      
+            6: r'^\s*[a-z]{2}\)(?=\s*$|\s+\W)',    
+            7: r'^\s*\([a-z]\)(?=\s*$|\s+\W)',     
+            8: r'^\s*\([a-z]{2}\)(?=\s*$|\s+\W)'   
         }
 
         self.star_patterns = {
-            1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+\*(\s|$)',
-            2: r'^\s*[A-H]\*\s*($|\W)',
-            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\*\s*($|\W)',
-            4: r'^\s*\d+\*\s*($|\W)',
-            5: r'^\s*[a-z]\)\*\s*($|\W)'
+            1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+\*(?=\s*$)',
+            2: r'^\s*[A-H]\*(?=\s*$)',
+            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\*(?=\s*$)',
+            4: r'^\s*\d+\*(?=\s*$)',
+            5: r'^\s*[a-z]\)\*(?=\s*$)'
         }
 
         self.footnote_pattern = r'\\fn\((.*?)\)'
@@ -52,11 +52,7 @@ class KlausurDocument:
             if not found_level:
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
-                        cmds = {
-                            1: "section", 2: "subsection", 3: "subsubsection",
-                            4: "paragraph", 5: "subparagraph", 6: "subparagraph",
-                            7: "subparagraph", 8: "subparagraph"
-                        }
+                        cmds = {1: "section", 2: "subsection", 3: "subsubsection", 4: "paragraph", 5: "subparagraph", 6: "subparagraph", 7: "subparagraph", 8: "subparagraph"}
                         cmd = cmds.get(level, "subparagraph")
                         indent = max(0, (level - 2) * 0.15) if level > 1 else 0
                         latex_output.append(f"\\{cmd}*{{{line_s}}}")
@@ -76,7 +72,7 @@ class KlausurDocument:
 
         return "\n".join(latex_output)
 
-# REST DES CODES IDENTISCH...
+# REST DES CODES GLEICH...
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
 def load_klausur():
@@ -172,4 +168,3 @@ def main():
         st.session_state.show_success = False
 
 if __name__ == "__main__": main()
-
