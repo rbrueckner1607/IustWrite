@@ -29,17 +29,13 @@ class KlausurDocument:
             found_level = False
             for level, pattern in self.prefix_patterns.items():
                 if re.match(pattern, line_s):
+                    # Mapping auf LaTeX-Ebenen
                     cmds = {1: "section", 2: "subsection", 3: "subsubsection", 
                             4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
                             7: "subparagraph", 8: "subparagraph"}
                     cmd = cmds.get(level, "subparagraph")
-                    
-                    # TREPPEN-LOGIK (Minimal-Abstände für Jura-TOC)
-                    # A.(0) -> I.(-1.) -> 1.(-1) -> a)(-0.5) -> aa)(0.5)
-                    indent = max(0, (level - 2) * 0.15) if level > 1 else 0
-                        
-                    latex_output.append(f"\\{cmd}*{{{line_s}}}")
-                    latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent}cm}}{line_s}}}")
+                    # Wir nutzen die normale Form (ohne *), um die Einrückung von tocloft zu nutzen
+                    latex_output.append(f"\\{cmd}{{{line_s}}}")
                     found_level = True
                     break
             
@@ -90,18 +86,30 @@ def main():
 \usepackage{tocloft}
 \geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
 
-% --- RADIKALE SEITEN-KONTROLLE ---
+% --- TOC EINRÜCKUNG VIA TOCLOFT ---
+\setlength{\cftsecindent}{0pt}
+\setlength{\cftsubsecindent}{0.8em}
+\setlength{\cftsubsubsecindent}{1.6em}
+\setlength{\cftparaindent}{2.4em}
+\setlength{\cftsubparaindent}{3.2em}
+
+% Unterdrückt die automatische Nummerierung im Text, da sie in deinem String steht
+\secdef{\oldsection}{\oldsection}
+\makeatletter
+\def\@seccntformat#1{} 
+\makeatother
+
+% --- KOPFZEILE & SEITENZAHL ---
 \fancypagestyle{iustwrite}{
     \fancyhf{}
     \fancyhead[L]{\small """ + kl_kuerzel + r"""}
     \fancyhead[R]{\small """ + titel_komplett + r"""}
     \fancyfoot[R]{\thepage}
     \renewcommand{\headrulewidth}{0.5pt}
-    \renewcommand{\footrulewidth}{0pt}
 }
 
 \makeatletter
-\renewcommand{\@cfoot}{} % Killt die Standard-Zahl in der Mitte
+\renewcommand{\@cfoot}{} 
 \makeatother
 
 \begin{document}
@@ -110,10 +118,9 @@ def main():
 \tableofcontents
 \clearpage
 
-% --- AKTIVIERUNG FÜR TEXTTEIL ---
 \pagenumbering{arabic}
 \setcounter{page}{1}
-\pagestyle{iustwrite} % Aktiviert unseren eigenen Style
+\pagestyle{iustwrite}
 \setstretch{1.2}
 
 {\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
