@@ -3,7 +3,7 @@ import subprocess
 import os
 import re
 
-# --- KLAUSUR-PARSER ---
+# --- PARSER KLASSE ---
 class KlausurDocument:
     def __init__(self):
         self.prefix_patterns = {
@@ -34,16 +34,9 @@ class KlausurDocument:
                             7: "subparagraph", 8: "subparagraph"}
                     cmd = cmds.get(level, "subparagraph")
                     
-                    # MIKRO-EINRÜCKUNGEN (Jetzt extrem dezent gestaffelt)
-                    # A. (0) -> I. (0.15) -> 1. (0.3) -> a) (0.4) -> aa) (0.5) ...
-                    if level == 1: indent = 0.0
-                    elif level == 2: indent = 0.0
-                    elif level == 3: indent = 0.15
-                    elif level == 4: indent = 0.3
-                    elif level == 5: indent = 0.4
-                    elif level == 6: indent = 0.5
-                    elif level == 7: indent = 0.6
-                    else: indent = 0.7
+                    # TREPPEN-LOGIK (Minimal-Abstände für Jura-TOC)
+                    # A.(0) -> I.(0.1) -> 1.(0.2) -> a)(0.3) -> aa)(0.4)
+                    indent = max(0, (level - 2) * 0.15) if level > 1 else 0
                         
                     latex_output.append(f"\\{cmd}*{{{line_s}}}")
                     latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent}cm}}{line_s}}}")
@@ -97,20 +90,18 @@ def main():
 \usepackage{tocloft}
 \geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
 
-% --- KOPFZEILE & SEITENZAHL FIX ---
-\pagestyle{fancy}
-\fancyhf{}
-\fancyhead[L]{\small """ + kl_kuerzel + r"""}
-\fancyhead[R]{\small """ + titel_komplett + r"""}
-\fancyfoot[R]{\thepage}
-\renewcommand{\headrulewidth}{0.5pt}
-
-% Diese Befehle verhindern das Überschreiben der Kopfzeile durch jurabook
-\renewcommand{\sectionmark}[1]{}
-\renewcommand{\subsectionmark}[1]{}
+% --- RADIKALE SEITEN-KONTROLLE ---
+\fancypagestyle{iustwrite}{
+    \fancyhf{}
+    \fancyhead[L]{\small """ + kl_kuerzel + r"""}
+    \fancyhead[R]{\small """ + titel_komplett + r"""}
+    \fancyfoot[R]{\thepage}
+    \renewcommand{\headrulewidth}{0.5pt}
+    \renewcommand{\footrulewidth}{0pt}
+}
 
 \makeatletter
-\renewcommand{\@cfoot}{} 
+\renewcommand{\@cfoot}{} % Killt die Standard-Zahl in der Mitte
 \makeatother
 
 \begin{document}
@@ -119,11 +110,10 @@ def main():
 \tableofcontents
 \clearpage
 
-% --- START TEXTTEIL ---
+% --- AKTIVIERUNG FÜR TEXTTEIL ---
 \pagenumbering{arabic}
 \setcounter{page}{1}
-% Explizites Setzen der Marks, um "Gliederung" aus dem Speicher zu werfen
-\markboth{}{} 
+\pagestyle{iustwrite} % Aktiviert unseren eigenen Style
 \setstretch{1.2}
 
 {\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
@@ -135,7 +125,6 @@ def main():
                 env = os.environ.copy()
                 env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
 
-                # 2 Durchläufe für TOC
                 for _ in range(2):
                     subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
                                    env=env, capture_output=True)
@@ -145,7 +134,7 @@ def main():
                     with open("klausur.pdf", "rb") as f:
                         st.download_button("📥 Download", f, f"Klausur_{kl_kuerzel}.pdf")
                 else:
-                    st.error("Fehler - Prüfe Log.")
+                    st.error("Fehler beim Erzeugen.")
 
 if __name__ == "__main__":
     main()
