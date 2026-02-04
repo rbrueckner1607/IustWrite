@@ -7,26 +7,26 @@ import streamlit as st
 class KlausurDocument:
     def __init__(self):
         self.prefix_patterns = {
-            1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
-            2: r'^\s*[A-H]\.(\s|$)',
-            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.(\s|$)',
-            4: r'^\s*\d+\.(\s|$)',
-            5: r'^\s*[a-z]\)\s.*',
-            6: r'^\s*[a-z]{2}\)\s.*',
-            7: r'^\s*\([a-z]\)\s.*',
-            8: r'^\s*\([a-z]{2}\)\s.*'
+            1: r'^\\s*(Teil|Tatkomplex|Aufgabe)\\s+\\d+(\\.|)(\\s|$)',
+            2: r'^\\s*[A-H]\\.(\\s|$)',
+            3: r'^\\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\\.(\\s|$)',
+            4: r'^\\s*\\d+\\.(\\s|$)',
+            5: r'^\\s*[a-z]\\)\\s.*',
+            6: r'^\\s*[a-z]{2}\\)\\s.*',
+            7: r'^\\s*\\([a-z]\\)\\s.*',
+            8: r'^\\s*\\([a-z]{2}\\)\\s.*'
         }
 
         # NEU: Unnummerierte Sterne-Überschriften (OHNE PUNKT)
         self.star_patterns = {
-            1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+\*(\s|$)',
-            2: r'^\s*[A-H]\*(\s|$)',
-            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\*(\s|$)',
-            4: r'^\s*\d+\*(\s|$)',
-            5: r'^\s*[a-z]\)\*(\s|$)'
+            1: r'^\\s*(Teil|Tatkomplex|Aufgabe)\\s+\\d+\\*(\\s|$)',
+            2: r'^\\s*[A-H]\\*(\\s|$)',
+            3: r'^\\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\\*(\\s|$)',
+            4: r'^\\s*\\d+\\*(\\s|$)',
+            5: r'^\\s*[a-z]\\)\\*(\\s|$)'
         }
 
-        self.footnote_pattern = r'\\fn\((.*?)\)'
+        self.footnote_pattern = r'\\\\fn\\((.*?)\\)'
 
     def parse_content(self, lines):
         latex_output = []
@@ -35,7 +35,7 @@ class KlausurDocument:
             line_s = line.strip()
 
             if not line_s:
-                latex_output.append("\\medskip")
+                latex_output.append("\\\\medskip")
                 continue
 
             found_level = False
@@ -51,7 +51,8 @@ class KlausurDocument:
                         5: "subparagraph*"
                     }
                     cmd = cmds.get(level, "subparagraph*")
-                    latex_output.append(f"\\{cmd}{{{line_s}}}")
+                    latex_output.append(f"\\\\{cmd}{{{line_s}}}\\\\")
+                    latex_output.append("\\noindent")
                     found_level = True
                     break
 
@@ -72,24 +73,25 @@ class KlausurDocument:
                         cmd = cmds.get(level, "subparagraph")
                         indent = max(0, (level - 2) * 0.15) if level > 1 else 0
 
-                        latex_output.append(f"\\{cmd}*{{{line_s}}}")
+                        latex_output.append(f"\\\\{cmd}*{{{line_s}}}\\\\")
+                        latex_output.append("\\noindent")
                         latex_output.append(
-                            f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent}cm}}{line_s}}}"
+                            f"\\\\addcontentsline{{toc}}{{{cmd}}}{{\\\\hspace{{{indent}cm}}{line_s}}}"
                         )
                         found_level = True
                         break
 
             if not found_level:
-                line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
+                line_s = re.sub(self.footnote_pattern, r'\\\\footnote{\\1}', line_s)
                 line_s = (
                     line_s
-                    .replace('§', '\\S~')
-                    .replace('&', '\\&')
-                    .replace('%', '\\%')
+                    .replace('§', '\\\\S~')
+                    .replace('&', '\\\\&')
+                    .replace('%', '\\\\%')
                 )
                 latex_output.append(line_s)
 
-        return "\n".join(latex_output)
+        return "\\n".join(latex_output)
 
 
 # --- UI ---
@@ -102,7 +104,7 @@ def load_klausur():
         loaded_text = uploaded_file.read().decode("utf-8")
         st.session_state.klausur_text = (
             st.session_state.klausur_text
-            + "\n\n--- NEU GELADETE KLASUR ---\n\n"
+            + "\\n\\n--- NEU GELADETE KLASUR ---\\n\\n"
             + loaded_text
         )
         st.session_state.show_success = True
@@ -128,11 +130,12 @@ def main():
 
     st.sidebar.title("📌 Gliederung")
 
-    # === TEXTAREA (NUR HIER GEAENDERT) ===
+    # === TEXTAREA (BREITER GEMACHT) ===
     user_input = st.text_area(
         "Gutachten-Text",
         value=st.session_state.klausur_text,
-        height=700,  # vorher 500
+        height=700,
+        label_visibility="collapsed",
         key="klausur_text"
     )
 
@@ -147,7 +150,7 @@ def main():
 
     # === Sidebar Gliederung ===
     if user_input:
-        for line in user_input.split('\n'):
+        for line in user_input.split('\\n'):
             line_s = line.strip()
             found = False
 
@@ -169,47 +172,47 @@ def main():
     with col_pdf:
         if st.button("🏁 PDF generieren"):
             with st.spinner("Präzisions-Kompilierung läuft..."):
-                parsed_content = doc_parser.parse_content(user_input.split('\n'))
+                parsed_content = doc_parser.parse_content(user_input.split('\\n'))
                 titel_komplett = f"{kl_titel} ({kl_datum})"
 
-                full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
-\usepackage[ngerman]{babel}
-\usepackage[utf8]{inputenc}
-\usepackage{setspace}
-\usepackage[T1]{fontenc}
-\usepackage{palatino}
-\usepackage{geometry}
-\usepackage{fancyhdr}
-\usepackage{tocloft}
-\geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
+                full_latex = r"""\\documentclass[12pt, a4paper, oneside]{jurabook}
+\\usepackage[ngerman]{babel}
+\\usepackage[utf8]{inputenc}
+\\usepackage{setspace}
+\\usepackage[T1]{fontenc}
+\\usepackage{palatino}
+\\usepackage{geometry}
+\\usepackage{fancyhdr}
+\\usepackage{tocloft}
+\\geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
 
-\fancypagestyle{iustwrite}{
-\fancyhf{}
-\fancyhead[L]{\small """ + kl_kuerzel + r"""}
-\fancyhead[R]{\small """ + titel_komplett + r"""}
-\fancyfoot[R]{\thepage}
-\renewcommand{\headrulewidth}{0.5pt}
-\renewcommand{\footrulewidth}{0pt}
+\\fancypagestyle{iustwrite}{
+\\fancyhf{}
+\\fancyhead[L]{\\small """ + kl_kuerzel + r"""}
+\\fancyhead[R]{\\small """ + titel_komplett + r"""}
+\\fancyfoot[R]{\\thepage}
+\\renewcommand{\\headrulewidth}{0.5pt}
+\\renewcommand{\\footrulewidth}{0pt}
 }
 
-\makeatletter
-\renewcommand{\@cfoot}{}
-\makeatother
+\\makeatletter
+\\renewcommand{\\@cfoot}{}
+\\makeatother
 
-\begin{document}
-\pagenumbering{gobble}
-\renewcommand{\contentsname}{Gliederung}
-\tableofcontents
-\clearpage
+\\begin{document}
+\\pagenumbering{gobble}
+\\renewcommand{\\contentsname}{Gliederung}
+\\tableofcontents
+\\clearpage
 
-\pagenumbering{arabic}
-\setcounter{page}{1}
-\pagestyle{iustwrite}
-\setstretch{1.2}
+\\pagenumbering{arabic}
+\\setcounter{page}{1}
+\\pagestyle{iustwrite}
+\\setstretch{1.2}
 
-{\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
+{\\noindent\\Large\\bfseries """ + titel_komplett + r""" \\par}\\bigskip
 """ + parsed_content + r"""
-\end{document}
+\\end{document}
 """
 
                 with open("klausur.tex", "w", encoding="utf-8") as f:
@@ -256,3 +259,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
