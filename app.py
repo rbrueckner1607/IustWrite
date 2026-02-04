@@ -30,12 +30,14 @@ class KlausurDocument:
 
     def parse_content(self, lines):
         latex_output = []
+        first_paragraph_after_heading = True
 
         for line in lines:
             line_s = line.strip()
 
             if not line_s:
                 latex_output.append("\\\\medskip")
+                first_paragraph_after_heading = True
                 continue
 
             found_level = False
@@ -51,8 +53,8 @@ class KlausurDocument:
                         5: "subparagraph*"
                     }
                     cmd = cmds.get(level, "subparagraph*")
-                    latex_output.append(f"\\\\{cmd}{{{line_s}}}\\\\")
-                    latex_output.append("\\noindent")
+                    latex_output.append(f"\\\\{cmd}{{{line_s}}}")
+                    first_paragraph_after_heading = True
                     found_level = True
                     break
 
@@ -73,15 +75,22 @@ class KlausurDocument:
                         cmd = cmds.get(level, "subparagraph")
                         indent = max(0, (level - 2) * 0.15) if level > 1 else 0
 
-                        latex_output.append(f"\\\\{cmd}*{{{line_s}}}\\\\")
-                        latex_output.append("\\noindent")
+                        latex_output.append(f"\\\\{cmd}*{{{line_s}}}")
                         latex_output.append(
                             f"\\\\addcontentsline{{toc}}{{{cmd}}}{{\\\\hspace{{{indent}cm}}{line_s}}}"
                         )
+                        first_paragraph_after_heading = True
                         found_level = True
                         break
 
             if not found_level:
+                # \noindent NUR beim allerersten Absatz nach Überschrift
+                if first_paragraph_after_heading:
+                    line_s = "\\noindent " + line_s
+                    first_paragraph_after_heading = False
+                else:
+                    first_paragraph_after_heading = False
+
                 line_s = re.sub(self.footnote_pattern, r'\\\\footnote{\\1}', line_s)
                 line_s = (
                     line_s
@@ -197,7 +206,7 @@ def main():
 
 \\makeatletter
 \\renewcommand{\\@cfoot}{}
-\\makeatother
+\\make@other
 
 \\begin{document}
 \\pagenumbering{gobble}
@@ -240,24 +249,4 @@ def main():
             st.download_button(
                 label="📥 Download TXT",
                 data=user_input,
-                file_name=f"Klausur_{kl_kuerzel}_{kl_titel.replace(' ', '_')}.txt",
-                mime="text/plain"
-            )
-
-    with col_load:
-        st.file_uploader(
-            "📂 Klausur laden",
-            type=['txt'],
-            key="uploader_key",
-            on_change=load_klausur
-        )
-
-    if st.session_state.get("show_success", False):
-        st.success("✅ Klausur geladen!")
-        st.session_state.show_success = False
-
-
-if __name__ == "__main__":
-    main()
-
-
+                file_name=f"Klausur
