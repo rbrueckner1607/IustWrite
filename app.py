@@ -34,8 +34,12 @@ class KlausurDocument:
                             7: "subparagraph", 8: "subparagraph"}
                     cmd = cmds.get(level, "subparagraph")
                     
-                    # MINIMALER ABSTAND (0.15cm pro Ebene für maximale Lesbarkeit)
-                    indent_val = (level - 1) * 0.15
+                    # INDIVIDUELLE EINRÜCKUNG: Oben minimal, unten etwas mehr
+                    if level <= 3:
+                        indent_val = (level - 1) * 0.1 # Ganz dezent für A. und I.
+                    else:
+                        indent_val = 0.3 + (level - 4) * 0.2 # Etwas mehr für 1., a), aa)
+                        
                     latex_output.append(f"\\{cmd}*{{{line_s}}}")
                     latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent_val}cm}}{line_s}}}")
                     found_level = True
@@ -60,7 +64,6 @@ def main():
     with c2: kl_datum = st.text_input("Datum", "04.02.2026")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "K-123")
 
-    # SIDEBAR GLIEDERUNG
     st.sidebar.title("📌 Gliederung")
     user_input = st.text_area("Gutachten-Text", height=500, key="editor")
 
@@ -74,30 +77,31 @@ def main():
 
     if st.button("🏁 PDF generieren"):
         if user_input:
-            with st.spinner("PDF wird generiert..."):
+            with st.spinner("Präzisions-Kompilierung läuft..."):
                 parsed_content = doc_parser.parse_content(user_input.split('\n'))
-                
-                titel_zeile = f"{{\\noindent\\Large\\bfseries {kl_titel} ({kl_datum}) \\par}}\\bigskip"
+                titel_komplett = f"{kl_titel} ({kl_datum})"
                 
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage{setspace}
 \usepackage[T1]{fontenc}
-\usepackage{palatino}
+\usepackage{lmodern}
 \usepackage{geometry}
+\usepackage{fancyhdr}
 \usepackage{tocloft}
 \geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
 
-\setcounter{secnumdepth}{8}
-\setcounter{tocdepth}{8}
+% --- KOPFZEILE & SEITENZAHL FIX ---
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small """ + kl_kuerzel + r"""}
+\fancyhead[R]{\small """ + titel_komplett + r"""}
+\fancyfoot[R]{\thepage}
+\renewcommand{\headrulewidth}{0.5pt}
 
 \makeatletter
-\renewcommand{\@cfoot}{}
-\renewcommand{\@oddfoot}{\hfill\thepage}
-\renewcommand{\@evenfoot}{\hfill\thepage}
-\renewcommand{\@oddhead}{}
-\renewcommand{\@evenhead}{}
+\renewcommand{\@cfoot}{} % Killt mittige Zahl
 \makeatother
 
 \begin{document}
@@ -106,10 +110,14 @@ def main():
 \tableofcontents
 \clearpage
 
+% --- ÜBERSCHREIBEN DES KOLUMNENTITELS (WICHTIG!) ---
 \pagenumbering{arabic}
 \setcounter{page}{1}
+\markboth{""" + titel_komplett + r"""}{""" + titel_komplett + r"""}
 \setstretch{1.2}
-""" + titel_zeile + "\n" + parsed_content + r"\end{document}"
+
+{\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
+""" + parsed_content + r"\end{document}"
 
                 with open("klausur.tex", "w", encoding="utf-8") as f:
                     f.write(full_latex)
@@ -124,9 +132,9 @@ def main():
                 if os.path.exists("klausur.pdf"):
                     st.success("PDF erfolgreich erstellt!")
                     with open("klausur.pdf", "rb") as f:
-                        st.download_button("📥 PDF herunterladen", f, f"Klausur_{kl_kuerzel}.pdf")
+                        st.download_button("📥 Download", f, f"Klausur_{kl_kuerzel}.pdf")
                 else:
-                    st.error("Fehler bei der Erstellung.")
+                    st.error("Fehler - Prüfe Log.")
 
 if __name__ == "__main__":
     main()
