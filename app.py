@@ -6,6 +6,9 @@ import shutil
 import re
 from datetime import datetime
 
+# -----------------------------
+# Hilfsklassen
+# -----------------------------
 class HeadingCounter:
     def __init__(self, max_level=13):
         self.max_level = max_level
@@ -158,7 +161,7 @@ class KlausurDocument:
 st.set_page_config(page_title="iustWrite | lexgerm.de", layout="wide")
 st.title("⚖️ iustWrite - Jura Klausur Editor")
 
-# Metadaten
+# Metadaten & Datei-Upload
 with st.sidebar:
     st.header("📄 Metadaten")
     title = st.text_input("Titel", "Zivilrecht I - Klausur")
@@ -166,4 +169,40 @@ with st.sidebar:
     matrikel = st.text_input("Matrikel-Nr.", "12345678")
     uploaded_file = st.file_uploader("📂 .txt Datei laden", type=["txt", "klausur"])
     if uploaded_file:
-        content = uploaded_file.read().de_
+        content = uploaded_file.read().decode("utf-8")
+        st.session_state["content"] = content
+    elif "content" not in st.session_state:
+        st.session_state["content"] = "Teil 1. Beispieltext\nA. Unterpunkt\nI. Subunterpunkt"
+
+# Layout: Sidebar TOC + Editor
+col1, col2 = st.columns([1,3])
+doc = KlausurDocument()
+lines = st.session_state["content"].splitlines()
+toc = doc.generate_toc(lines)
+
+with col1:
+    st.header("📋 Gliederung")
+    for item, lineno in toc:
+        st.text(item)
+
+with col2:
+    st.header("✍️ Editor")
+    content = st.text_area("Hier Text eingeben", value=st.session_state["content"], height=600, key="editor")
+    st.session_state["content"] = content
+
+# PDF Export
+if st.button("🎯 PDF Export"):
+    with st.spinner("Erstelle PDF..."):
+        try:
+            latex = doc.to_latex(title, date.strftime("%d.%m.%Y"), matrikel, st.session_state["content"].splitlines())
+            pdf_bytes = doc.to_pdf_bytes(latex)
+            st.download_button("⬇️ PDF Download", pdf_bytes, f"{title.replace(' ','_')}.pdf")
+            st.success("✅ PDF erstellt!")
+        except Exception as e:
+            st.error(f"❌ LaTeX Fehler: {e}")
+
+# TXT speichern
+if st.button("💾 Speichern .txt"):
+    with open(f"{title.replace(' ','_')}.txt", "w", encoding="utf-8") as f:
+        f.write(st.session_state["content"])
+    st.success("✅ Datei gespeichert!")
