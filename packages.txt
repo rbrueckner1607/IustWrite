@@ -1,5 +1,6 @@
-texlive-latex-recommended
+texlive-latex-base
 texlive-latex-extra
+texlive-latex-recommended
 texlive-fonts-recommended
 texlive-lang-german
-texlive-xetex
+texlive-publishers
