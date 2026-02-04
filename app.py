@@ -11,15 +11,14 @@ class KlausurDocument:
             2: r'^\s*[A-H]\.(\s|$)',
             3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.(\s|$)',
             4: r'^\s*\d+\.(\s|$)',
-            5: r'^\s*[a-z]\)(\s|$)',
-            6: r'^\s*[a-z]{2}\)(\s|$)',
-            7: r'^\s*\([a-z]\)(\s|$)',
-            8: r'^\s*\([a-z]{2}\)(\s|$)'
+            5: r'^\s*[a-z]\)\s.*', 
+            6: r'^\s*[a-z]{2}\)\s.*',
+            7: r'^\s*\([a-z]\)\s.*',
+            8: r'^\s*\([a-z]{2}\)\s.*'
         }
         self.footnote_pattern = r'\\fn\((.*?)\)'
 
     def get_latex_level_command(self, level, title_text):
-        # Ebenen-Mapping für TOC-Einrückungen
         commands = {1: "section", 2: "subsection", 3: "subsubsection", 
                     4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
                     7: "subparagraph", 8: "subparagraph"}
@@ -49,25 +48,23 @@ class KlausurDocument:
         return "\n".join(latex_output)
 
 # --- UI SETTINGS ---
-st.set_page_config(page_title="Jura Klausur-Editor", layout="wide")
+st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
 def main():
     doc_parser = KlausurDocument()
     
-    # --- HEADER EINGABEN (Horizontal) ---
     st.title("⚖️ IustWrite Editor")
-    c1, c2, c3 = st.columns([2, 1, 1])
+    c1, c2, c3 = st.columns(3)
     with c1:
-        kl_titel = st.text_input("Klausur-Titel", "Übungsklausur Öffentliches Recht")
+        kl_titel = st.text_input("Klausur-Titel", "Übungsklausur")
     with c2:
         kl_datum = st.text_input("Datum", "04.02.2026")
     with c3:
-        kl_kuerzel = st.text_input("Kürzel (Matrikel)", "K-123")
+        kl_kuerzel = st.text_input("Kürzel / Matrikel", "K-123")
 
     st.sidebar.title("📌 Gliederung")
     user_input = st.text_area("Gutachten-Text", height=500, key="editor")
 
-    # Live-Sidebar
     if user_input:
         for line in user_input.split('\n'):
             line_s = line.strip()
@@ -78,7 +75,7 @@ def main():
 
     if st.button("🏁 PDF generieren"):
         if user_input:
-            with st.spinner("PDF wird erstellt..."):
+            with st.spinner("Kompiliere PDF..."):
                 parsed_latex = doc_parser.parse_content(user_input.split('\n'))
                 
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
@@ -93,32 +90,37 @@ def main():
 
 \geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
 
-% TOC Einrückungen für jede Ebene (Stufen-Optik)
+% TOC Einrückungen korrigiert (Treppen-Struktur bis Ebene 8)
 \setlength{\cftsecindent}{0em}
 \setlength{\cftsubsecindent}{1.5em}
 \setlength{\cftsubsubsecindent}{3em}
 \setlength{\cftparaindent}{4.5em}
 \setlength{\cftsubparaindent}{6em}
+% Manuelle Korrektur für extrem tiefe Ebenen im TOC (via LaTeX-Trick)
+\makeatletter
+\renewcommand{\l@subparagraph}{\@dottedtocline{5}{7.5em}{5em}}
+\makeatother
 
-% Kopfzeilen-Konfiguration
+% Kopf- und Fußzeile (Seitenzahl NUR Rechts unten)
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{""" + kl_kuerzel + r"""}
-\fancyhead[R]{""" + kl_titel + r"""}
+\fancyhead[L]{\small """ + kl_kuerzel + r"""}
+\fancyhead[R]{\small """ + kl_titel + r"""}
 \fancyfoot[R]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
 
 \begin{document}
-% Gliederung ohne Seitenzahlen
 \pagenumbering{gobble} 
 \renewcommand{\contentsname}{Gliederung}
 \tableofcontents
 \clearpage
 
-% Ab hier Gutachten mit arabischen Zahlen ab 1
 \pagenumbering{arabic}
+\setcounter{page}{1}
 \setstretch{1.2}
 
-\chapter*{""" + kl_titel + " (" + kl_datum + r""")}
+\section*{""" + kl_titel + " (" + kl_datum + r""")}
 
 """ + parsed_latex + r"\end{document}"
 
@@ -135,9 +137,9 @@ def main():
                 if os.path.exists("klausur.pdf"):
                     st.success("PDF erstellt!")
                     with open("klausur.pdf", "rb") as f:
-                        st.download_button("📥 Download Klausur-PDF", f, f"Klausur_{kl_kuerzel}.pdf")
+                        st.download_button("📥 Download Klausur", f, f"Klausur_{kl_kuerzel}.pdf")
                 else:
-                    st.error("Fehler beim Erzeugen.")
+                    st.error("Fehler bei der PDF-Erstellung.")
 
 if __name__ == "__main__":
     main()
