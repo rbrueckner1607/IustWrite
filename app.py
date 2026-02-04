@@ -7,23 +7,23 @@ import re
 class KlausurDocument:
     def __init__(self):
         self.prefix_patterns = {
-            1: r'^\\s*(Teil|Tatkomplex|Aufgabe)\\s+\\d+(\\.|)(\\s|$)',
-            2: r'^\\s*[A-H]\\.(\\s|$)',
-            3: r'^\\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\\.(\\s|$)',
-            4: r'^\\s*\\d+\\.(\\s|$)',
-            5: r'^\\s*[a-z]\\)\\s.*', 
-            6: r'^\\s*[a-z]{2}\\)\\s.*',
-            7: r'^\\s*\\([a-z]\\)\\s.*',
-            8: r'^\\s*\\([a-z]{2}\\)\\s.*'
+            1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
+            2: r'^\s*[A-H]\.(\s|$)',
+            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.(\s|$)',
+            4: r'^\s*\d+\.(\s|$)',
+            5: r'^\s*[a-z]\)\s.*', 
+            6: r'^\s*[a-z]{2}\)\s.*',
+            7: r'^\s*\([a-z]\)\s.*',
+            8: r'^\s*\([a-z]{2}\)\s.*'
         }
-        self.footnote_pattern = r'\\\\fn\\((.*?)\\)'
+        self.footnote_pattern = r'\\fn\((.*?)\)'
 
     def parse_content(self, lines):
         latex_output = []
         for line in lines:
             line_s = line.strip()
             if not line_s:
-                latex_output.append("\\\\medskip")
+                latex_output.append("\\medskip")
                 continue
             
             found_level = False
@@ -34,20 +34,19 @@ class KlausurDocument:
                             7: "subparagraph", 8: "subparagraph"}
                     cmd = cmds.get(level, "subparagraph")
                     
-                    # Vereinfacht - tocloft übernimmt Einrückungen!
-                    latex_output.append(f"\\\\{cmd}*{{{line_s}}}")
-                    latex_output.append(f"\\\\addcontentsline{{toc}}{{{cmd}}}{{{line_s}}}")
+                    latex_output.append(f"\\{cmd}*{{{line_s}}}")
+                    latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{{line_s}}}")
                     found_level = True
                     break
             
             if not found_level:
-                line_s = re.sub(self.footnote_pattern, r'\\\\footnote{{\\1}}', line_s)
-                line_s = line_s.replace('§', '\\\\S~').replace('&', '\\\\&').replace('%', '\\\\%')
+                line_s = re.sub(self.footnote_pattern, r'\\footnote{{\\1}}', line_s)
+                line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
                 latex_output.append(line_s)
             
         return "\\n".join(latex_output)
 
-# --- UI ---
+# --- UI (IDENTISCH) ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
 def main():
@@ -63,7 +62,7 @@ def main():
     user_input = st.text_area("Gutachten-Text", height=500, key="editor")
 
     if user_input:
-        for line in user_input.split('\\n'):
+        for line in user_input.split('\n'):
             line_s = line.strip()
             for level, pattern in doc_parser.prefix_patterns.items():
                 if re.match(pattern, line_s):
@@ -73,7 +72,7 @@ def main():
     if st.button("🏁 PDF generieren"):
         if user_input:
             with st.spinner("Präzisions-Kompilierung läuft..."):
-                parsed_content = doc_parser.parse_content(user_input.split('\\n'))
+                parsed_content = doc_parser.parse_content(user_input.split('\n'))
                 titel_komplett = f"{kl_titel} ({kl_datum})"
                 
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
@@ -160,4 +159,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
