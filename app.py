@@ -105,7 +105,7 @@ def main():
 
     st.sidebar.title("📌 Gliederung")
 
-    user_input = st.text_area("Gutachten-Text", value=st.session_state.klausur_text, height=700, key="klausur_text")
+    user_input = st.text_area("", value=st.session_state.klausur_text, height=700, key="klausur_text")
 
     if user_input:
         char_count = len(user_input)
