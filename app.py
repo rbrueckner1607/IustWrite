@@ -171,6 +171,7 @@ def main():
 \setstretch{1.2}
 
 {\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
+\noindent
 """ + parsed_content + r"""
 \end{document}
 """
