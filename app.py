@@ -62,7 +62,7 @@ class KlausurDocument:
                         break
             
             if not found_level:
-                # Markdown zu LaTeX konvertieren (für Editor-Formatierung)
+                # Markdown zu LaTeX konvertieren
                 line_s = re.sub(r'\*\*(.*?)\*\*', r'\\textbf{\\1}', line_s)
                 line_s = re.sub(r'\*(.*?)\*', r'\\emph{\\1}', line_s)
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\\1}', line_s)
@@ -92,12 +92,10 @@ def main():
     if "show_success" not in st.session_state:
         st.session_state.show_success = False
     
-    # === EDITOR EINSTELLUNGEN ===
+    # === EDITOR EINSTELLUNGEN (mit CSS!) ===
     col_font, col_size = st.columns(2)
     with col_font:
-        font_size = st.selectbox("Schriftgröße", ["small", "medium", "large"], index=1)
-    with col_size:
-        st.caption("Editor-Höhe: 700px (vergrößert)")
+        font_size = st.selectbox("Editor-Schriftgröße", ["12px", "14px", "16px", "18px"], index=2, key="font_size")
     
     c1, c2, c3 = st.columns(3)
     with c1: kl_titel = st.text_input("Klausur-Titel", "Übungsklausur")
@@ -106,10 +104,21 @@ def main():
 
     st.sidebar.title("📌 Gliederung")
     
-    # === GRÖßERES TEXTAREA (700px) ===
+    # === GRÖßERES TEXTAREA mit FORMATIERUNG ===
+    st.markdown(f"""
+    <style>
+    textarea[data-baseweb="base-input"][key="klausur_text"] {{
+        font-size: {font_size} !important;
+        font-family: 'Georgia', serif !important;
+        line-height: 1.5 !important;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+    
     user_input = st.text_area("Gutachten-Text", 
                              value=st.session_state.klausur_text, 
-                             height=700,  # ← Größer!
+                             height=700,
+                             help="**Fett:** **Text** | *Kursiv:* *Text* | Sterne: A*, I*, 1*, a)*",
                              key="klausur_text")
 
     # === Zeichenzähler ===
@@ -121,16 +130,21 @@ def main():
         with col2:
             st.metric("Zeichen", f"{char_count:,}")
 
-    # === Sidebar Gliederung ===
+    # === FIX: Sidebar Gliederung (NUR Kennzeichen, KEIN Text danach) ===
     if user_input:
         for line in user_input.split('\n'):
             line_s = line.strip()
+            if not line_s:
+                continue
+                
             found = False
             
-            # Sterne (fett, keine Nummer)
+            # Sterne zuerst (NUR Kennzeichen fett)
             for level, pattern in doc_parser.star_patterns.items():
                 if re.match(pattern, line_s):
-                    st.sidebar.markdown(f"{'&nbsp;' * (level * 4)}**{line_s}**")
+                    # NUR "A*" zeigen, nicht "A* Text"
+                    prefix = re.match(pattern, line_s).group(0).strip()
+                    st.sidebar.markdown(f"{'&nbsp;' * (level * 4)}**{prefix}**")
                     found = True
                     break
             
@@ -138,11 +152,12 @@ def main():
             if not found:
                 for level, pattern in doc_parser.prefix_patterns.items():
                     if re.match(pattern, line_s):
-                        st.sidebar.markdown("&nbsp;" * (level * 4) + line_s)
+                        prefix = re.match(pattern, line_s).group(0).strip()
+                        st.sidebar.markdown(f"{'&nbsp;' * (level * 4)}{prefix}")
                         found = True
                         break
 
-    # === Buttons nebeneinander ===
+    # === Buttons ===
     col_pdf, col_save, col_load = st.columns([1, 1, 1])
     
     with col_pdf:
