@@ -34,8 +34,8 @@ class KlausurDocument:
                             7: "subparagraph", 8: "subparagraph"}
                     cmd = cmds.get(level, "subparagraph")
                     
-                    # Dezentere Einrückung (0.3cm pro Ebene statt 0.5cm)
-                    indent_val = (level - 1) * 0.3
+                    # MINIMALER ABSTAND (0.15cm pro Ebene für maximale Lesbarkeit)
+                    indent_val = (level - 1) * 0.15
                     latex_output.append(f"\\{cmd}*{{{line_s}}}")
                     latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent_val}cm}}{line_s}}}")
                     found_level = True
@@ -55,13 +55,12 @@ def main():
     doc_parser = KlausurDocument()
     st.title("⚖️ IustWrite Editor")
     
-    # Horizontale Eingabemaske
     c1, c2, c3 = st.columns(3)
     with c1: kl_titel = st.text_input("Klausur-Titel", "Übungsklausur")
     with c2: kl_datum = st.text_input("Datum", "04.02.2026")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "K-123")
 
-    # --- SIDEBAR (GLIEDERUNG LINKS) ---
+    # SIDEBAR GLIEDERUNG
     st.sidebar.title("📌 Gliederung")
     user_input = st.text_area("Gutachten-Text", height=500, key="editor")
 
@@ -70,18 +69,16 @@ def main():
             line_s = line.strip()
             for level, pattern in doc_parser.prefix_patterns.items():
                 if re.match(pattern, line_s):
-                    # Visuelle Einrückung in der Sidebar
                     st.sidebar.markdown("&nbsp;" * (level * 4) + line_s)
                     break
 
     if st.button("🏁 PDF generieren"):
         if user_input:
-            with st.spinner("Kompiliere PDF..."):
+            with st.spinner("PDF wird generiert..."):
                 parsed_content = doc_parser.parse_content(user_input.split('\n'))
                 
                 titel_zeile = f"{{\\noindent\\Large\\bfseries {kl_titel} ({kl_datum}) \\par}}\\bigskip"
                 
-                # --- PRÄAMBEL (OHNE KOPFZEILE, EINFACHE SEITENZAHL) ---
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
@@ -95,7 +92,6 @@ def main():
 \setcounter{secnumdepth}{8}
 \setcounter{tocdepth}{8}
 
-% Seitenzahlen-Style: Nur rechts unten
 \makeatletter
 \renewcommand{\@cfoot}{}
 \renewcommand{\@oddfoot}{\hfill\thepage}
@@ -105,7 +101,7 @@ def main():
 \makeatother
 
 \begin{document}
-\pagenumbering{gobble} % Keine Seitenzahlen in der Gliederung
+\pagenumbering{gobble}
 \renewcommand{\contentsname}{Gliederung}
 \tableofcontents
 \clearpage
@@ -128,7 +124,7 @@ def main():
                 if os.path.exists("klausur.pdf"):
                     st.success("PDF erfolgreich erstellt!")
                     with open("klausur.pdf", "rb") as f:
-                        st.download_button("📥 PDF Download", f, f"Klausur_{kl_kuerzel}.pdf")
+                        st.download_button("📥 PDF herunterladen", f, f"Klausur_{kl_kuerzel}.pdf")
                 else:
                     st.error("Fehler bei der Erstellung.")
 
