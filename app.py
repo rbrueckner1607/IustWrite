@@ -3,7 +3,7 @@ import subprocess
 import os
 import re
 
-# --- PARSER KLASSE ---
+# --- ERWEITERTE PARSER KLASSE ---
 class KlausurDocument:
     def __init__(self):
         self.prefix_patterns = {
@@ -16,6 +16,14 @@ class KlausurDocument:
             7: r'^\s*\([a-z]\)\s.*',
             8: r'^\s*\([a-z]{2}\)\s.*'
         }
+        # NEU: Unnummerierte Sterne-Überschriften (OHNE PUNKT)
+        self.star_patterns = {
+            1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+\*(\s|$)',
+            2: r'^\s*[A-H]\*(\s|$)',
+            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\*(\s|$)',
+            4: r'^\s*\d+\*(\s|$)',
+            5: r'^\s*[a-z]\)\*(\s|$)'
+        }
         self.footnote_pattern = r'\\fn\((.*?)\)'
 
     def parse_content(self, lines):
@@ -27,18 +35,31 @@ class KlausurDocument:
                 continue
             
             found_level = False
-            for level, pattern in self.prefix_patterns.items():
+            
+            # Zuerst Sterne-Überschriften prüfen (unnummeriert)
+            for level, pattern in self.star_patterns.items():
                 if re.match(pattern, line_s):
-                    cmds = {1: "section", 2: "subsection", 3: "subsubsection", 
-                            4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
-                            7: "subparagraph", 8: "subparagraph"}
-                    cmd = cmds.get(level, "subparagraph")
-                    indent = max(0, (level - 2) * 0.15) if level > 1 else 0
-                        
-                    latex_output.append(f"\\{cmd}*{{{line_s}}}")
-                    latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent}cm}}{line_s}}}")
+                    cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*", 
+                           4: "paragraph*", 5: "subparagraph*"}
+                    cmd = cmds.get(level, "subparagraph*")
+                    latex_output.append(f"\\{cmd}{{{line_s}}}")
                     found_level = True
                     break
+            
+            # Dann normale Überschriften
+            if not found_level:
+                for level, pattern in self.prefix_patterns.items():
+                    if re.match(pattern, line_s):
+                        cmds = {1: "section", 2: "subsection", 3: "subsubsection", 
+                               4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
+                               7: "subparagraph", 8: "subparagraph"}
+                        cmd = cmds.get(level, "subparagraph")
+                        indent = max(0, (level - 2) * 0.15) if level > 1 else 0
+                        
+                        latex_output.append(f"\\{cmd}*{{{line_s}}}")
+                        latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent}cm}}{line_s}}}")
+                        found_level = True
+                        break
             
             if not found_level:
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\\1}', line_s)
@@ -52,13 +73,11 @@ st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
 # === CALLBACK FÜR UPLOAD ===
 def load_klausur():
-    """Lädt Datei und aktualisiert Textfeld"""
     uploaded_file = st.session_state.uploader_key
     if uploaded_file is not None:
         loaded_text = uploaded_file.read().decode("utf-8")
         st.session_state.klausur_text = st.session_state.klausur_text + "\n\n--- NEU GELADETE KLASUR ---\n\n" + loaded_text
         st.session_state.show_success = True
-        st.rerun()
 
 def main():
     doc_parser = KlausurDocument()
@@ -77,11 +96,11 @@ def main():
 
     st.sidebar.title("📌 Gliederung")
     
-    # === TEXTAREA (Key = Session State!) ===
+    # === TEXTAREA ===
     user_input = st.text_area("Gutachten-Text", 
                              value=st.session_state.klausur_text, 
                              height=500, 
-                             key="klausur_text")  # ← Key == Session State Name!
+                             key="klausur_text")
 
     # === Zeichenzähler ===
     if user_input:
@@ -92,14 +111,26 @@ def main():
         with col2:
             st.metric("Zeichen", f"{char_count:,}")
 
-    # === Sidebar Gliederung ===
+    # === Sidebar Gliederung (Sterne erkennen) ===
     if user_input:
         for line in user_input.split('\n'):
             line_s = line.strip()
-            for level, pattern in doc_parser.prefix_patterns.items():
+            found = False
+            
+            # Sterne zuerst
+            for level, pattern in doc_parser.star_patterns.items():
                 if re.match(pattern, line_s):
-                    st.sidebar.markdown("&nbsp;" * (level * 4) + line_s)
+                    st.sidebar.markdown(f"{'&nbsp;' * (level * 4)}**{line_s}**")
+                    found = True
                     break
+            
+            # Normale Überschriften
+            if not found:
+                for level, pattern in doc_parser.prefix_patterns.items():
+                    if re.match(pattern, line_s):
+                        st.sidebar.markdown("&nbsp;" * (level * 4) + line_s)
+                        found = True
+                        break
 
     # === Buttons nebeneinander ===
     col_pdf, col_save, col_load = st.columns([1, 1, 1])
@@ -174,14 +205,13 @@ def main():
                 mime="text/plain"
             )
 
-    # === ✅ UPLOADER MIT CALLBACK ===
     with col_load:
         st.file_uploader("📂 Klausur laden", 
                         type=['txt'], 
                         key="uploader_key",
-                        on_change=load_klausur)  # ← CALLBACK!
+                        on_change=load_klausur)
         
-        if st.session_state.show_success:
+        if st.session_state.get("show_success", False):
             st.success("✅ Klausur geladen!")
             st.session_state.show_success = False
 
