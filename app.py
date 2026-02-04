@@ -23,7 +23,7 @@ class KlausurDocument:
         for line in lines:
             line_s = line.strip()
             if not line_s:
-                latex_output.append("\\medskip")
+                latex_output.append(r"\medskip")
                 continue
             
             found_level = False
@@ -42,7 +42,7 @@ class KlausurDocument:
             
             if not found_level:
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{{\\1}}', line_s)
-                line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%').replace('#', '\\#')
+                line_s = line_s.replace('§', r'\S~').replace('&', r'\&').replace('%', r'\%').replace('#', r'\#')
                 latex_output.append(line_s)
         
         return "\\n".join(latex_output)
@@ -69,8 +69,6 @@ def main():
                 if re.match(pattern, line_s):
                     st.sidebar.markdown(" " * (level * 2) + "• " + line_s)
                     break
-            else:
-                continue
 
     if st.button("🏁 PDF generieren"):
         if user_input:
@@ -78,53 +76,50 @@ def main():
                 parsed_content = doc_parser.parse_content(user_input.split('\n'))
                 titel_komplett = f"{kl_titel} ({kl_datum})"
                 
-                full_latex = f"""\\documentclass[12pt,a4paper]{{article}}
-\\usepackage[ngerman]{{babel}}
-\\usepackage[utf8]{{inputenc}}
-\\usepackage[T1]{{fontenc}}
-\\usepackage{{palatino}}
-\\usepackage[margin=2.5cm,right=6cm]{{geometry}}
-\\usepackage{{fancyhdr}}
-\\usepackage{{tocloft}}
-\\pagestyle{{fancy}}
-\\fancyhf{{}}
-\\fancyhead[L]{{{kl_kuerzel}}}
-\\fancyhead[R]{{{titel_komplett}}}
-\\renewcommand{{\\headrulewidth}}{{0.5pt}}
-\\fancyfoot[R]{{{\\thepage}}}
+                # FIX: Triple-Quotes mit korrekten Escapes
+                full_latex = r'''\\documentclass[12pt,a4paper]{article}
+\\usepackage[ngerman]{babel}
+\\usepackage[utf8]{inputenc}
+\\usepackage[T1]{fontenc}
+\\usepackage{palatino}
+\\usepackage[margin=2.5cm,right=6cm]{geometry}
+\\usepackage{fancyhdr}
+\\usepackage{tocloft}
+\\pagestyle{fancy}
+\\fancyhf{}
+\\fancyhead[L]{{''' + kl_kuerzel + r'''}}
+\\fancyhead[R]{{''' + titel_komplett + r'''}}
+\\renewcommand{\\headrulewidth}{0.5pt}
+\\fancyfoot[R]{\\\\thepage}
 
-\\setlength{{\\cftbeforesecskip}}{{3pt}}
-\\setlength{{\\cftbeforesubsecskip}}{{2pt}}
-\\renewcommand{{\\cftsecindent}}{{0em}}
-\\renewcommand{{\\cftsubsecindent}}{{1em}}
-\\renewcommand{{\\cftsubsubsecindent}}{{2em}}
+\\setlength{\\cftbeforesecskip}{3pt}
+\\setlength{\\cftbeforesubsecskip}{2pt}
+\\renewcommand{\\cftsecindent}{0em}
+\\renewcommand{\\cftsubsecindent}{1em}
+\\renewcommand{\\cftsubsubsecindent}{2em}
 
-\\begin{{document}}
-\\pagenumbering{{gobble}}
+\\begin{document}
+\\pagenumbering{gobble}
 \\tableofcontents
 \\clearpage
-\\pagenumbering{{arabic}}
-\\setcounter{{page}}{{1}}
+\\pagenumbering{arabic}
+\\setcounter{page}{1}
 
-\\noindent\\textbf{{\\Large {titel_komplett}}}\\\\ \\vspace{{1em}}
-{parsed_content}
-\\end{{document}}"""
+\\noindent\\textbf{\\Large ''' + titel_komplett + r'''}}\\\\ \\vspace{1em}
+''' + parsed_content + r'''
+\\end{document}'''
 
                 with open("klausur.tex", "w", encoding="utf-8") as f:
                     f.write(full_latex)
 
                 for _ in range(2):
                     subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
-                                 capture_output=True, check=False)
+                                 capture_output=True)
                 
                 if os.path.exists("klausur.pdf"):
                     st.success("✅ PDF erstellt!")
                     with open("klausur.pdf", "rb") as f:
                         st.download_button("📥 Download", f, f"Klausur_{kl_kuerzel}.pdf")
-                    # Cleanup
-                    for file in ["klausur.tex", "klausur.pdf", "klausur.aux", "klausur.log", "klausur.toc"]:
-                        if os.path.exists(file):
-                            os.remove(file)
                 else:
                     st.error("❌ PDF Fehler!")
 
