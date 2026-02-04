@@ -1,65 +1,52 @@
 import streamlit as st
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, TableOfContents
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, TableOfContents
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.lib.enums import TA_LEFT, TA_JUSTIFY
-from reportlab.rl_config import defaultPageSize
 from io import BytesIO
 import re
+from datetime import datetime
 
 st.set_page_config(page_title="iustWrite | lexgerm.de", layout="wide")
 
-# Sidebar (ausklappbar)
-with st.sidebar:
-    st.header("📄 Metadaten")
-    title = st.text_input("**Titel**", value="Zivilrecht I - Klausur")
-    date = st.date_input("**Datum**", value=datetime.now().date())
-    matrikel = st.text_input("**Matrikel-Nr.**", value="12345678")
+# ============================================================================
+# KOMPAKTE METADATEN - GANZ OBEN
+# ============================================================================
+st.markdown("---")
+meta_col1, meta_col2, meta_col3 = st.columns([1, 1, 2])
+with meta_col1:
+    title = st.text_input("**Titel**", value="Zivilrecht I - Klausur", label_visibility="collapsed")
+with meta_col2:
+    date = st.date_input("**Datum**", value=datetime.now().date(), label_visibility="collapsed")
+with meta_col3:
+    matrikel = st.text_input("**Matrikel**", value="12345678", label_visibility="collapsed")
+
+# Hauptlayout - MAXIMALER Schreibplatz rechts
+col_left, col_right = st.columns([0.18, 0.82])  # 18% links, 82% rechts!
+
+# ============================================================================
+# LINKS: KLEINE, EINFACHE GLIEDERUNG (nur Überschriften)
+# ============================================================================
+with col_left:
+    st.markdown("### 📋 Gliederung")
     
-    st.markdown("---")
-    st.caption("**Shortcuts:** Strg+1-8 = Überschriften")
-    if st.button("🆕 Neue Klausur", use_container_width=True):
-        st.session_state.clear()
-        st.rerun()
+    # KOMPAKTE Liste - nur Überschriften
+    if 'toc_compact' in st.session_state:
+        for idx, item in enumerate(st.session_state.toc_compact):
+            level = st.session_state.toc_levels.get(idx, 1)
+            marker = ["▸", "├", "└"][min(level-1, 2)]
+            short_item = item[:35] + "..." if len(item) > 35 else item
+            if st.button(f"{marker} {short_item}", key=f"tocbtn_{idx}", use_container_width=True):
+                st.session_state.selected_line = idx
+                st.rerun()
 
-# Hauptlayout
-header_col1, header_col2 = st.columns([3, 1])
-with header_col1:
-    st.title("⚖️ iustWrite - Jura Klausur Editor")
-with header_col2:
-    if 'elapsed_time' in st.session_state:
-        st.metric("⏱️ Zeit", f"{st.session_state.elapsed_time//60:02d}:{st.session_state.elapsed_time%60:02d}")
-
-col1, col2 = st.columns([0.25, 0.75])
-
-# ════════════════════════════════════════════════════════════════════════════════
-# LINKS: NAVIGIERBARE GLIEDERUNG (Klick springt zur Zeile!)
-# ════════════════════════════════════════════════════════════════════════════════
-with col1:
-    st.markdown("### 📋 **Gliederung**")
+# ============================================================================
+# RECHTS: GIGANTISCHER EDITOR (82% Platz!)
+# ============================================================================
+with col_right:
+    st.markdown("### ✍️ Klausur Editor")
     
-    # Toggle für ein/ausblenden
-    if st.toggle("Gliederung ausblenden", key="toc_toggle"):
-        st.empty()
-    else:
-        if 'toc_items' in st.session_state:
-            for idx, toc_item in enumerate(st.session_state.toc_items):
-                level = st.session_state.toc_levels.get(idx, 1)
-                indent = "  " * (level - 1)
-                display_text = f"{indent}▸ {toc_item}"
-                
-                if st.button(display_text, key=f"toc_{idx}", use_container_width=True):
-                    st.session_state.selected_line = idx
-                    st.rerun()
-
-# ════════════════════════════════════════════════════════════════════════════════
-# RECHTS: EDITOR mit FETTEN ÜBERSCHRIFTEN
-# ════════════════════════════════════════════════════════════════════════════════
-with col2:
-    st.markdown("### ✍️ **Klausur Editor**")
-    
-    # Beispielttext
     default_text = """Teil 1. Zulässigkeit
 
 A. Formelle Voraussetzungen
@@ -70,198 +57,224 @@ I. Antragsbegründung
 
 a) Einreichungsfrist
 
-II. Begründetheit
-
-B. Sachliche Voraussetzungen"""
+II. Begründetheit"""
     
     content = st.text_area(
         "",
         value=st.session_state.get('content', default_text),
-        height=700,
-        key="editor_content"
+        height=850,  # MAXIMAL!
+        label_visibility="collapsed"
     )
 
-# ════════════════════════════════════════════════════════════════════════════════
-# LIVE VERARBEITUNG (wie PyQt on_text_changed)
-# ════════════════════════════════════════════════════════════════════════════════
+# ============================================================================
+# LIVE GLIEDERUNG + TIMER (unsichtbar)
+# ============================================================================
 if content != st.session_state.get('last_content', ''):
     st.session_state.last_content = content
     
-    # 1. TIMER (wie PyQt)
+    # Timer starten
     if 'start_time' not in st.session_state:
-        st.session_state.start_time = time.time()
-    st.session_state.elapsed_time = int(time.time() - st.session_state.start_time)
+        st.session_state.start_time = datetime.now()
+    elapsed = int((datetime.now() - st.session_state.start_time).total_seconds())
+    st.session_state.elapsed_time = elapsed
     
-    # 2. GLIEDERUNG generieren (deine Patterns)
+    # KOMPAKTE Gliederung generieren
     lines = content.split('\n')
-    toc_items = []
+    toc_compact = []
     toc_levels = {}
     
-    patterns = {
-        1: r'^(Teil|Tatkomplex|Aufgabe)\s+\d+\.',
-        2: r'^[A-I]\.',
-        3: r'^(I|II|III|IV|V|VI|VII|VIII|IX|X)',
-        4: r'^\d+\.',
-        5: r'^[a-z]\)',
-        6: r'^[a-z]{2}\)',
-        7: r'^\([a-z]\)',
-        8: r'^\([a-z]{2}\)'
-    }
+    # DEINE Patterns (vereinfacht)
+    patterns = [
+        r'^(Teil|Tatkomplex|Aufgabe)\s+\d+\.',
+        r'^[A-I]\.',
+        r'^(I{1,5}|V?|X{0,3})\.',
+        r'^\d+\.',
+        r'^[a-z]\)',
+        r'^[a-z]{2}\)',
+        r'^\([a-z]\)',
+        r'^\([a-z]{2}\)'
+    ]
     
     for i, line in enumerate(lines):
         text = line.strip()
-        if not text:
-            continue
-            
-        for level, pattern in patterns.items():
+        if not text: continue
+        
+        for level, pattern in enumerate(patterns, 1):
             if re.match(pattern, text):
-                toc_items.append(text[:50] + ('...' if len(text) > 50 else ''))
+                toc_compact.append(text)
                 toc_levels[i] = level
                 break
     
-    st.session_state.toc_items = toc_items
+    st.session_state.toc_compact = toc_compact
     st.session_state.toc_levels = toc_levels
-    
     st.rerun()
 
-# ════════════════════════════════════════════════════════════════════════════════
-# STATUSLEISTE (wie PyQt)
-# ════════════════════════════════════════════════════════════════════════════════
-if content.strip():
-    chars = len(content)
-    words = len(re.findall(r'\w+', content))
-    st.markdown(f"**Status**: {chars:,} Zeichen | {words:,} Wörter | ⏱️ {st.session_state.elapsed_time//60:02d}:{st.session_state.elapsed_time%60:02d}")
+# ============================================================================
+# MINI STATUS (unten rechts)
+# ============================================================================
+st.markdown("---")
+st.markdown(f"""
+<div style='text-align: right; color: #666; font-size: 0.9em;'>
+    {len(content):,} Zeichen | ⏱️ {st.session_state.get('elapsed_time', 0)//60:02d}:{st.session_state.get('elapsed_time', 0)%60:02d}
+</div>
+""", unsafe_allow_html=True)
 
-# ════════════════════════════════════════════════════════════════════════════════
-# BUTTONS
-# ════════════════════════════════════════════════════════════════════════════════
-col1, col2, col3 = st.columns(3)
+# ============================================================================
+# BUTTONS (kompakt)
+# ============================================================================
+col_btn1, col_btn2, col_btn3 = st.columns(3)
+with col_btn1:
+    if st.button("💾 Speichern", use_container_width=True):
+        meta_content = f"Titel: {title}\nDatum: {date}\nMatrikelnummer: {matrikel}\n---\n{content}"
+        st.download_button("📥 .klausur", meta_content, f"{title.replace(' ', '_')}.klausur", "text/plain")
 
-with col1:
-    # SAVE
-    if st.button("💾 **Als .klausur speichern**", use_container_width=True):
-        content_with_meta = f"""Titel: {title}
-Datum: {date}
-Matrikelnummer: {matrikel}
----
-{content}"""
-        st.download_button(
-            "📥 Download .klausur",
-            data=content_with_meta,
-            file_name=f"{title.replace(' ', '_')}.klausur",
-            mime="text/plain"
-        )
-
-with col2:
-    # UPLOAD
-    uploaded_file = st.file_uploader("📤 .klausur laden", type=['klausur', 'txt'])
-    if uploaded_file:
-        content = uploaded_file.read().decode('utf-8')
-        st.session_state.content = content
-        st.success("✅ Datei geladen!")
+with col_btn2:
+    uploaded = st.file_uploader("📤 Laden", type=['klausur', 'txt'], label_visibility="collapsed")
+    if uploaded:
+        st.session_state.content = uploaded.read().decode()
+        st.success("✅ Geladen!")
         st.rerun()
 
-with col3:
-    # PDF EXPORT (EINFACH mit reportlab!)
-    if st.button("🎯 **PDF erstellen**", use_container_width=True):
-        with st.spinner("Erstelle PDF mit Gliederung..."):
-            try:
-                pdf_bytes = create_pdf(title, date, matrikel, content.split('\n'))
-                st.session_state.pdf_bytes = pdf_bytes
-                st.session_state.pdf_name = f"{title.replace(' ', '_')}_{date.strftime('%d%m%Y')}.pdf"
-                st.success("✅ PDF fertig!")
-                st.rerun()
-            except Exception as e:
-                st.error(f"❌ PDF Fehler: {str(e)}")
+with col_btn3:
+    if st.button("🎯 PDF", use_container_width=True):
+        with st.spinner("PDF wird erstellt..."):
+            pdf_bytes = create_perfect_pdf(title, date, matrikel, content)
+            st.session_state.pdf_bytes = pdf_bytes
+            st.session_state.pdf_name = f"{title.replace(' ', '_')}.pdf"
+            st.success("✅ PDF bereit!")
+            st.rerun()
 
-# PDF Download
 if 'pdf_bytes' in st.session_state:
-    st.download_button(
-        "⬇️ **PDF herunterladen**",
-        st.session_state.pdf_bytes,
-        st.session_state.pdf_name,
-        "application/pdf",
-        use_container_width=True
-    )
+    st.download_button("⬇️ PDF", st.session_state.pdf_bytes, st.session_state.pdf_name, "application/pdf")
 
-# ════════════════════════════════════════════════════════════════════════════════
-# PDF GENERIERUNG (EINFACH - KEIN LaTeX!)
-# ════════════════════════════════════════════════════════════════════════════════
-def create_pdf(title, date, matrikel, lines):
+# ============================================================================
+# PERFEKTE PDF GENERIERUNG (GENAU deine Spezifikationen)
+# ============================================================================
+def create_perfect_pdf(title, date, matrikel, content):
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=6*cm)
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4,
+        rightMargin=6*cm,      # 6cm Korrekturrand rechts!
+        leftMargin=2.5*cm,
+        topMargin=2.5*cm,
+        bottomMargin=3*cm
+    )
     story = []
     styles = getSampleStyleSheet()
     
-    # Titel
-    title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=16,
-        spaceAfter=30,
-        alignment=TA_LEFT
+    # 1. STAMMDATEN (ganz oben)
+    meta_style = ParagraphStyle(
+        'Meta', parent=styles['Normal'], fontSize=10, spaceAfter=20,
+        leftIndent=0, alignment=TA_LEFT
     )
-    story.append(Paragraph(f"<b>{title}</b> ({date})", title_style))
-    story.append(Spacer(1, 12))
+    story.append(Paragraph(f"<b>Matrikel-Nr.:</b> {matrikel} | <b>Datum:</b> {date}", meta_style))
     
-    # Gliederung
-    toc = TableOfContents()
-    toc.levelStyles = [
-        ParagraphStyle(fontName='Helvetica-Bold', fontSize=12),
-        ParagraphStyle(fontName='Helvetica-Bold', fontSize=11),
-        ParagraphStyle(fontName='Helvetica', fontSize=10),
+    # 2. TITEL
+    title_style = ParagraphStyle(
+        'Title', parent=styles['Heading1'], fontSize=16, spaceAfter=30,
+        leftIndent=0, alignment=TA_LEFT
+    )
+    story.append(Paragraph(f"<b>{title}</b>", title_style))
+    story.append(Spacer(1, 20))
+    
+    # 3. GLIEDERUNG (keine Seitenzahlen!)
+    gliederung_style = ParagraphStyle(
+        'Gliederung', parent=styles['Heading2'], 
+        fontSize=14, spaceAfter=10, spaceBefore=20
+    )
+    story.append(Paragraph("**Gliederung**", gliederung_style))
+    
+    # Einfache Gliederung (kein TOC - einfacher!)
+    lines = content.split('\n')
+    gliederung_items = []
+    patterns = [
+        r'^(Teil|Tatkomplex|Aufgabe)\s+\d+\.',
+        r'^[A-I]\.',
+        r'^(I{1,5}|V?|X{0,3})\.',
+        r'^\d+\.',
+        r'^[a-z]\)',
+        r'^[a-z]{2}\)',
+        r'^\([a-z]\)',
+        r'^\([a-z]{2}\)'
     ]
-    story.append(Paragraph("Gliederung", styles['Heading2']))
-    story.append(toc)
-    story.append(PageBreak())
-    
-    # Inhalt mit korrekter Nummerierung
-    patterns = {
-        1: r'^(Teil|Tatkomplex|Aufgabe)\s+\d+\.',
-        2: r'^[A-I]\.',
-        3: r'^(I|II|III|IV|V|VI|VII|VIII|IX|X)',
-        4: r'^\d+\.',
-        5: r'^[a-z]\)',
-        6: r'^[a-z]{2}\)',
-        7: r'^\([a-z]\)',
-        8: r'^\([a-z]{2}\)'
-    }
     
     for line in lines:
         text = line.strip()
+        if not text: continue
+        
+        for level, pattern in enumerate(patterns, 1):
+            if re.match(pattern, text):
+                indent = "   " * (level - 1)
+                gliederung_items.append(f"{indent}{text}")
+                break
+    
+    # Gliederung als einfache Liste
+    for item in gliederung_items[:15]:  # Max 15 Einträge
+        story.append(Paragraph(item, styles['Normal']))
+        story.append(Spacer(1, 3))
+    
+    story.append(PageBreak())
+    
+    # 4. KLAUSURTEXT (BlockSatz 1.2 Zeilenabstand)
+    text_style = ParagraphStyle(
+        'KlausurText',
+        parent=styles['Normal'],
+        fontSize=12,
+        leading=14.4,  # 1.2 Zeilenabstand
+        alignment=TA_JUSTIFY,
+        spaceAfter=6,
+        leftIndent=0, rightIndent=0,
+        fontName='Helvetica'
+    )
+    
+    # Überschriften inline fett (keine Einrückung!)
+    for line in lines:
+        text = line.strip()
         if not text:
-            story.append(Spacer(1, 6))
+            story.append(Spacer(1, 8))
             continue
             
-        # Überschrift erkennen → fett
+        # Überschrift? → FETT
         is_heading = False
-        for level, pattern in patterns.items():
+        for pattern in patterns:
             if re.match(pattern, text):
-                style = ParagraphStyle(
-                    f'Heading{level}',
-                    parent=styles['Heading2'],
-                    fontSize=12-level,
-                    spaceAfter=6,
+                heading_style = ParagraphStyle(
+                    'InlineHeading',
+                    parent=text_style,
                     fontName='Helvetica-Bold',
-                    leftIndent=(level-1)*0.5*cm,
-                    alignment=TA_LEFT
+                    fontSize=12,
+                    spaceAfter=8,
+                    alignment=TA_LEFT,
+                    leftIndent=0
                 )
-                story.append(Paragraph(text, style))
-                toc.addEntry(level, text, len(story)-1, 0)
+                story.append(Paragraph(text, heading_style))
                 is_heading = True
                 break
         
         if not is_heading:
-            # Normaltext
-            style = ParagraphStyle(
-                'NormalText',
-                parent=styles['Normal'],
-                alignment=TA_JUSTIFY,
-                spaceAfter=4,
-                leftIndent=1*cm
-            )
-            story.append(Paragraph(re.sub(r'\\\\fn\((.*?)\)', r'<super>\1</super>', text), style))
+            # Normaltext Blocksatz
+            story.append(Paragraph(text, text_style))
     
-    doc.build(story)
+    doc.build(story, onFirstPage=first_page_no_number, onLaterPages=later_pages)
     buffer.seek(0)
     return buffer.getvalue()
+
+# ============================================================================
+# SEITENNUMMERIERUNG (erst ab Klausurtext!)
+# ============================================================================
+def first_page_no_number(canvas, doc):
+    canvas.saveState()
+    canvas.setFont('Helvetica', 10)
+    canvas.drawRightString(A4[0] - 2*cm, 2*cm, f"Matrikel: {matrikel}")
+    canvas.restoreState()
+
+def later_pages(canvas, doc):
+    canvas.saveState()
+    canvas.setFont('Helvetica', 10)
+    canvas.drawRightString(A4[0] - 2*cm, 2*cm, str(doc.page))
+    canvas.restoreState()
+
+# Footer
+st.markdown("---")
+st.markdown("*iustWrite für lexgerm.de • Studentisches Projekt*")
