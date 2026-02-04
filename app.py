@@ -3,10 +3,9 @@ import subprocess
 import os
 import re
 
-# --- PARSER KLASSE (DEINE LOGIK FÜR JURA-GLIEDERUNG) ---
+# --- PARSER KLASSE ---
 class KlausurDocument:
     def __init__(self):
-        # Muster für die Erkennung der Gliederungsebenen
         self.prefix_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
             2: r'^\s*[A-H]\.(\s|$)',
@@ -20,22 +19,11 @@ class KlausurDocument:
         self.footnote_pattern = r'\\fn\((.*?)\)'
 
     def get_latex_level_command(self, level, title_text):
-        """
-        Ordnet die Ebenen den LaTeX-Befehlen zu und erzwingt 
-        den manuellen Eintrag ins Inhaltsverzeichnis (TOC).
-        """
-        commands = {
-            1: "section",       # Teil
-            2: "subsection",    # A.
-            3: "subsubsection", # I.
-            4: "paragraph",     # 1.
-            5: "subparagraph",  # a)
-            6: "subparagraph",  # aa)
-            7: "subparagraph",  # (a)
-            8: "subparagraph"   # (aa)
-        }
+        # Ebenen-Mapping für TOC-Einrückungen
+        commands = {1: "section", 2: "subsection", 3: "subsubsection", 
+                    4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
+                    7: "subparagraph", 8: "subparagraph"}
         cmd = commands.get(level, "subparagraph")
-        # WICHTIG: Manueller TOC-Eintrag für deine Präambel-Makros
         return f"\\{cmd}*{{{title_text}}}\n\\addcontentsline{{toc}}{{{cmd}}}{{{title_text}}}"
 
     def parse_content(self, lines):
@@ -46,7 +34,6 @@ class KlausurDocument:
                 latex_output.append("\\medskip")
                 continue
             
-            # Gliederungs-Check
             found_level = False
             for level, pattern in self.prefix_patterns.items():
                 if re.match(pattern, line_s):
@@ -55,7 +42,6 @@ class KlausurDocument:
                     break
             if found_level: continue
 
-            # Sonderzeichen & Fußnoten
             line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
             line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
             latex_output.append(line_s)
@@ -67,27 +53,34 @@ st.set_page_config(page_title="Jura Klausur-Editor", layout="wide")
 
 def main():
     doc_parser = KlausurDocument()
+    
+    # --- HEADER EINGABEN (Horizontal) ---
+    st.title("⚖️ IustWrite Editor")
+    c1, c2, c3 = st.columns([2, 1, 1])
+    with c1:
+        kl_titel = st.text_input("Klausur-Titel", "Übungsklausur Öffentliches Recht")
+    with c2:
+        kl_datum = st.text_input("Datum", "04.02.2026")
+    with c3:
+        kl_kuerzel = st.text_input("Kürzel (Matrikel)", "K-123")
+
     st.sidebar.title("📌 Gliederung")
-    st.title("Jura Klausur-Editor")
+    user_input = st.text_area("Gutachten-Text", height=500, key="editor")
 
-    user_input = st.text_area("Dein Gutachten...", height=500, key="editor")
-
-    # Live-Vorschau in der Sidebar
+    # Live-Sidebar
     if user_input:
         for line in user_input.split('\n'):
             line_s = line.strip()
             for level, pattern in doc_parser.prefix_patterns.items():
                 if re.match(pattern, line_s):
-                    indent = "&nbsp;" * (level * 4)
-                    st.sidebar.markdown(f"{indent}{line_s}")
+                    st.sidebar.markdown("&nbsp;" * (level * 4) + line_s)
                     break
 
     if st.button("🏁 PDF generieren"):
         if user_input:
-            with st.spinner("PDF wird erstellt (2 Durchläufe)..."):
+            with st.spinner("PDF wird erstellt..."):
                 parsed_latex = doc_parser.parse_content(user_input.split('\n'))
                 
-                # DEINE PRÄAMBEL MIT ALLEN MAKROS
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
@@ -96,51 +89,55 @@ def main():
 \usepackage{geometry}
 \usepackage{setspace}
 \usepackage{fancyhdr}
-\usepackage{titlesec}
 \usepackage{tocloft}
+
 \geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
-\setcounter{secnumdepth}{6}
-\setcounter{tocdepth}{6}
 
-% Makros für das Inhaltsverzeichnis (TOC)
-\setlength{\cftsecnumwidth}{2em}
-\setlength{\cftsubsecnumwidth}{2.5em}
-\setlength{\cftsubsubsecnumwidth}{3em}
-\setlength{\cftparanumwidth}{3.5em}
-\setlength{\cftsubparanumwidth}{4em}
+% TOC Einrückungen für jede Ebene (Stufen-Optik)
+\setlength{\cftsecindent}{0em}
+\setlength{\cftsubsecindent}{1.5em}
+\setlength{\cftsubsubsecindent}{3em}
+\setlength{\cftparaindent}{4.5em}
+\setlength{\cftsubparaindent}{6em}
 
+% Kopfzeilen-Konfiguration
 \pagestyle{fancy}
 \fancyhf{}
+\fancyhead[L]{""" + kl_kuerzel + r"""}
+\fancyhead[R]{""" + kl_titel + r"""}
 \fancyfoot[R]{\thepage}
 
 \begin{document}
+% Gliederung ohne Seitenzahlen
+\pagenumbering{gobble} 
 \renewcommand{\contentsname}{Gliederung}
 \tableofcontents
 \clearpage
+
+% Ab hier Gutachten mit arabischen Zahlen ab 1
+\pagenumbering{arabic}
 \setstretch{1.2}
+
+\chapter*{""" + kl_titel + " (" + kl_datum + r""")}
+
 """ + parsed_latex + r"\end{document}"
 
                 with open("klausur.tex", "w", encoding="utf-8") as f:
                     f.write(full_latex)
 
-                # Pfad zu jurabook.cls
                 env = os.environ.copy()
                 env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
 
-                # 2 Durchläufe für das Inhaltsverzeichnis
                 for _ in range(2):
                     subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
                                    env=env, capture_output=True)
                 
                 if os.path.exists("klausur.pdf"):
-                    st.success("Erfolg! Dein PDF ist fertig.")
+                    st.success("PDF erstellt!")
                     with open("klausur.pdf", "rb") as f:
-                        st.download_button("📥 Jetzt PDF herunterladen", f, "Jura_Klausur.pdf")
+                        st.download_button("📥 Download Klausur-PDF", f, f"Klausur_{kl_kuerzel}.pdf")
                 else:
-                    st.error("Fehler: PDF konnte nicht generiert werden.")
-                    if os.path.exists("klausur.log"):
-                        with open("klausur.log", "r", encoding="utf-8", errors="replace") as log:
-                            st.code(log.read()[-2000:])
+                    st.error("Fehler beim Erzeugen.")
 
 if __name__ == "__main__":
     main()
