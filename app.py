@@ -25,27 +25,42 @@ class KlausurDocument:
             if not line_s:
                 latex_output.append("\\medskip")
                 continue
-            
+
             found_level = False
             for level, pattern in self.prefix_patterns.items():
                 if re.match(pattern, line_s):
-                    cmds = {1: "section", 2: "subsection", 3: "subsubsection", 
-                            4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
-                            7: "subparagraph", 8: "subparagraph"}
-                    cmd = cmds.get(level, "subparagraph")
-                    
-                    # Keine hspace mehr, TOC-Indents über tocloft steuern
+                    cmds = {
+                        1: "section",
+                        2: "subsection",
+                        3: "subsubsection",
+                        4: "paragraph",
+                        5: "subparagraph",
+                        6: "subparagraph",
+                        7: "subparagraph",
+                        8: "subparagraph"
+                    }
+                    cmd = cmds[level]
+
+                    # ⭐ WICHTIG: KEIN hspace im TOC!
                     latex_output.append(f"\\{cmd}*{{{line_s}}}")
-                    latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{{line_s}}}")
+                    latex_output.append(
+                        f"\\addcontentsline{{toc}}{{{cmd}}}{{{line_s}}}"
+                    )
+
                     found_level = True
                     break
-            
+
             if not found_level:
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
-                line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
+                line_s = (
+                    line_s.replace('§', '\\S~')
+                          .replace('&', '\\&')
+                          .replace('%', '\\%')
+                )
                 latex_output.append(line_s)
-            
+
         return "\n".join(latex_output)
+
 
 # --- UI ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
@@ -53,94 +68,83 @@ st.set_page_config(page_title="IustWrite Editor", layout="wide")
 def main():
     doc_parser = KlausurDocument()
     st.title("⚖️ IustWrite Editor")
-    
+
     c1, c2, c3 = st.columns(3)
-    with c1: kl_titel = st.text_input("Klausur-Titel", "Übungsklausur")
-    with c2: kl_datum = st.text_input("Datum", "04.02.2026")
-    with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "K-123")
+    with c1:
+        kl_titel = st.text_input("Klausur-Titel", "Übungsklausur")
+    with c2:
+        kl_datum = st.text_input("Datum", "04.02.2026")
+    with c3:
+        kl_kuerzel = st.text_input("Kürzel / Matrikel", "K-123")
 
     st.sidebar.title("📌 Gliederung")
-    user_input = st.text_area("Gutachten-Text", height=500, key="editor")
+    user_input = st.text_area("Gutachten-Text", height=500)
 
-    # Sidebar Vorschau
-    if user_input:
-        for line in user_input.split('\n'):
-            line_s = line.strip()
-            for level, pattern in doc_parser.prefix_patterns.items():
-                if re.match(pattern, line_s):
-                    st.sidebar.markdown("&nbsp;" * (level * 4) + line_s)
-                    break
+    if st.button("🏁 PDF generieren") and user_input:
+        with st.spinner("Präzisions-Kompilierung läuft..."):
+            parsed_content = doc_parser.parse_content(user_input.splitlines())
+            titel_komplett = f"{kl_titel} ({kl_datum})"
 
-    if st.button("🏁 PDF generieren"):
-        if user_input:
-            with st.spinner("Präzisions-Kompilierung läuft..."):
-                parsed_content = doc_parser.parse_content(user_input.split('\n'))
-                titel_komplett = f"{kl_titel} ({kl_datum})"
-                
-                full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
+            full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
-\usepackage{setspace}
 \usepackage[T1]{fontenc}
 \usepackage{palatino}
 \usepackage{geometry}
+\usepackage{setspace}
 \usepackage{fancyhdr}
 \usepackage{tocloft}
+
 \geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
 
-% --- RADIKALE SEITEN-KONTROLLE ---
-\fancypagestyle{iustwrite}{
-    \fancyhf{}
-    \fancyhead[L]{\small """ + kl_kuerzel + r"""}
-    \fancyhead[R]{\small """ + titel_komplett + r"""}
-    \fancyfoot[R]{\thepage}
-    \renewcommand{\headrulewidth}{0.5pt}
-    \renewcommand{\footrulewidth}{0pt}
-}
+\setcounter{secnumdepth}{6}
+\setcounter{tocdepth}{6}
 
-\makeatletter
-\renewcommand{\@cfoot}{} % Killt die Standard-Zahl in der Mitte
-\makeatother
-
-% --- TOC FLACH EINRÜCKEN ---
-\setlength{\cftsecindent}{0pt}
-\setlength{\cftsubsecindent}{0.5em}
-\setlength{\cftsubsubsecindent}{1em}
-\setlength{\cftparindent}{1.5em}
-\setlength{\cftsubparindent}{2em}
+% --- TOC: FLACH & PLATZSPAREND ---
+\setlength{\cftsectionindent}{0em}
+\setlength{\cftsubsectionindent}{0.8em}
+\setlength{\cftsubsubsectionindent}{1.6em}
+\setlength{\cftparaindent}{2.4em}
+\setlength{\cftsubparaindent}{3.2em}
 
 \begin{document}
+
 \pagenumbering{gobble}
 \renewcommand{\contentsname}{Gliederung}
 \tableofcontents
 \clearpage
 
-% --- AKTIVIERUNG FÜR TEXTTEIL ---
 \pagenumbering{arabic}
 \setcounter{page}{1}
-\pagestyle{iustwrite} % Aktiviert unseren eigenen Style
 \setstretch{1.2}
 
-{\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
-\noindent
-""" + parsed_content + r"\end{document}"
+\noindent{\Large\bfseries """ + titel_komplett + r"""\par}
+\bigskip
 
-                with open("klausur.tex", "w", encoding="utf-8") as f:
-                    f.write(full_latex)
+""" + parsed_content + r"""
+\end{document}
+"""
 
-                env = os.environ.copy()
-                env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
+            with open("klausur.tex", "w", encoding="utf-8") as f:
+                f.write(full_latex)
 
-                for _ in range(2):
-                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
-                                   env=env, capture_output=True)
-                
-                if os.path.exists("klausur.pdf"):
-                    st.success("PDF erfolgreich erstellt!")
-                    with open("klausur.pdf", "rb") as f:
-                        st.download_button("📥 Download", f, f"Klausur_{kl_kuerzel}.pdf")
-                else:
-                    st.error("Fehler beim Erzeugen.")
+            # ⭐ ENTSCHEIDEND: jurabook + jurabase finden
+            env = os.environ.copy()
+            env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
+
+            for _ in range(2):
+                subprocess.run(
+                    ["pdflatex", "-interaction=nonstopmode", "klausur.tex"],
+                    env=env,
+                    capture_output=True
+                )
+
+            if os.path.exists("klausur.pdf"):
+                st.success("PDF erfolgreich erstellt!")
+                with open("klausur.pdf", "rb") as f:
+                    st.download_button("📥 Download", f, "klausur.pdf")
+            else:
+                st.error("PDF nicht erzeugt – bitte Log prüfen.")
 
 if __name__ == "__main__":
     main()
