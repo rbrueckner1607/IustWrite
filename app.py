@@ -75,12 +75,12 @@ class KlausurDocument:
 # --- UI ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
-# CSS: mehr Breite für Editor
+# Mehr Breite
 st.markdown("""
 <style>
 .block-container {
-    padding-left: 2rem;
-    padding-right: 2rem;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
     max-width: 100%;
 }
 </style>
@@ -105,58 +105,79 @@ def load_klausur():
             key, val = line[1:].split(":", 1)
             meta[key.strip()] = val.strip()
 
-    st.session_state.kl_titel = meta.get("TITEL", "")
-    st.session_state.kl_datum = meta.get("DATUM", "")
-    st.session_state.kl_kuerzel = meta.get("KUERZEL", "")
-    st.session_state.klausur_text = "\n".join(lines[body_start:])
-    st.session_state.show_success = True
+    st.session_state["kl_titel"] = meta.get("TITEL", "")
+    st.session_state["kl_datum"] = meta.get("DATUM", "")
+    st.session_state["kl_kuerzel"] = meta.get("KUERZEL", "")
+    st.session_state["klausur_text"] = "\n".join(lines[body_start:])
+    st.session_state["show_success"] = True
 
 
 def main():
     doc_parser = KlausurDocument()
     st.title("⚖️ IustWrite Editor")
 
-    for key, default in {
+    # === SESSION STATE DEFAULTS ===
+    defaults = {
         "klausur_text": "",
         "kl_titel": "Übungsklausur",
         "kl_datum": "04.02.2026",
         "kl_kuerzel": "K-123",
         "show_success": False
-    }.items():
-        st.session_state.setdefault(key, default)
+    }
+    for k, v in defaults.items():
+        st.session_state.setdefault(k, v)
 
     c1, c2, c3 = st.columns(3)
     with c1:
-        kl_titel = st.text_input("Klausur-Titel", st.session_state.kl_titel)
+        st.text_input("Klausur-Titel", key="kl_titel")
     with c2:
-        kl_datum = st.text_input("Datum", st.session_state.kl_datum)
+        st.text_input("Datum", key="kl_datum")
     with c3:
-        kl_kuerzel = st.text_input("Kürzel / Matrikel", st.session_state.kl_kuerzel)
+        st.text_input("Kürzel / Matrikel", key="kl_kuerzel")
 
     st.sidebar.title("📌 Gliederung")
 
+    # === TEXTAREA ===
     user_input = st.text_area(
         "Gutachten-Text",
-        value=st.session_state.klausur_text,
         height=700,
         key="klausur_text"
     )
 
+    # === SIDEBAR GLIEDERUNG ===
+    if user_input:
+        for line in user_input.split("\n"):
+            line_s = line.strip()
+            found = False
+
+            for level, pattern in doc_parser.star_patterns.items():
+                if re.match(pattern, line_s):
+                    st.sidebar.markdown(f"{'&nbsp;' * (level * 4)}**{line_s}**")
+                    found = True
+                    break
+
+            if not found:
+                for level, pattern in doc_parser.prefix_patterns.items():
+                    if re.match(pattern, line_s):
+                        st.sidebar.markdown("&nbsp;" * (level * 4) + line_s)
+                        break
+
+    # === BUTTONS ===
     col_pdf, col_save, col_load = st.columns(3)
 
     with col_save:
         if st.button("💾 Als TXT speichern", type="secondary"):
             txt = (
-                f"# TITEL: {kl_titel}\n"
-                f"# DATUM: {kl_datum}\n"
-                f"# KUERZEL: {kl_kuerzel}\n"
+                f"# TITEL: {st.session_state.kl_titel}\n"
+                f"# DATUM: {st.session_state.kl_datum}\n"
+                f"# KUERZEL: {st.session_state.kl_kuerzel}\n"
                 "---\n"
-                f"{user_input}"
+                f"{st.session_state.klausur_text}"
             )
             st.download_button(
                 "📥 Download TXT",
                 txt,
-                f"Klausur_{kl_kuerzel}.txt",
+                f"Klausur_{st.session_state.kl_kuerzel}.txt",
                 "text/plain"
             )
 
@@ -175,4 +196,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
