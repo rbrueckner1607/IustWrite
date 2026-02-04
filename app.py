@@ -3,7 +3,6 @@ import subprocess
 import os
 import re
 
-# --- PARSER KLASSE ---
 class KlausurDocument:
     def __init__(self):
         self.prefix_patterns = {
@@ -29,13 +28,11 @@ class KlausurDocument:
             found_level = False
             for level, pattern in self.prefix_patterns.items():
                 if re.match(pattern, line_s):
-                    cmds = {1: "section", 2: "subsection", 3: "subsubsection", 
-                            4: "paragraph", 5: "subparagraph", 6: "subparagraph", 
-                            7: "subparagraph", 8: "subparagraph"}
-                    cmd = cmds.get(level, "subparagraph")
-                    
-                    latex_output.append(f"\\{cmd}*{{{line_s}}}")
-                    latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{{line_s}}}")
+                    cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*", 
+                            4: "paragraph*", 5: "subparagraph*", 6: "subparagraph*", 
+                            7: "subparagraph*", 8: "subparagraph*"}
+                    cmd = cmds.get(level, "subparagraph*")
+                    latex_output.append(f"\\{cmd}{{{line_s}}}")
                     found_level = True
                     break
             
@@ -43,10 +40,10 @@ class KlausurDocument:
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{{\\1}}', line_s)
                 line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
                 latex_output.append(line_s)
-            
+        
         return "\\n".join(latex_output)
 
-# --- UI (IDENTISCH) ---
+# Rest identisch...
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
 def main():
@@ -66,7 +63,7 @@ def main():
             line_s = line.strip()
             for level, pattern in doc_parser.prefix_patterns.items():
                 if re.match(pattern, line_s):
-                    st.sidebar.markdown("&nbsp;" * (level * 4) + line_s)
+                    st.sidebar.markdown(" " * (level * 2) + line_s)
                     break
 
     if st.button("🏁 PDF generieren"):
@@ -75,7 +72,7 @@ def main():
                 parsed_content = doc_parser.parse_content(user_input.split('\n'))
                 titel_komplett = f"{kl_titel} ({kl_datum})"
                 
-                full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
+                full_latex = r'''\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage{setspace}
@@ -83,23 +80,21 @@ def main():
 \usepackage{palatino}
 \usepackage{geometry}
 \usepackage{fancyhdr}
-\usepackage{titlesec}
-\usepackage{enumitem}
 \usepackage{tocloft}
 \geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm, bindingoffset=0cm}
 \setcounter{secnumdepth}{6}
 \setcounter{tocdepth}{6}
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{\small """ + kl_kuerzel + r"""}
-\fancyhead[R]{\small """ + titel_komplett + r"""}
+\fancyhead[L]{\small ''' + kl_kuerzel + r'''}
+\fancyhead[R]{\small ''' + titel_komplett + r'''}
 \renewcommand{\headrulewidth}{0.5pt}
 \fancypagestyle{plain}{\fancyhf{} \fancyfoot[R]{\thepage} \renewcommand{\headrulewidth}{0pt}}
 \makeatletter
 \renewcommand{\@cfoot}{}
 \makeatother
 
-% Loka-TOC + Titlesec-Konfiguration
+% Loka-TOC Konfiguration (titlesec entfernt!)
 \setlength{\cftsecnumwidth}{2em}
 \setlength{\cftsubsecnumwidth}{2.5em}
 \setlength{\cftsubsubsecnumwidth}{3em}
@@ -119,13 +114,6 @@ def main():
 \renewcommand{\cftsecfont}{\bfseries}
 \renewcommand{\cftsubsecfont}{\bfseries}
 
-\titleformat{\section}[block]{\normalfont\Large\bfseries}{\thesection}{1em}{}
-\titlespacing*{\section}{0pt}{2em}{1em}
-\titleformat{\subsection}[block]{\normalfont\large\bfseries}{\thesubsection}{1em}{}
-\titlespacing*{\subsection}{0pt}{1.5em}{0.8em}
-\titleformat{\subsubsection}[block]{\normalfont\normalsize\bfseries}{\thesubsubsection}{1em}{}
-\titlespacing*{\subsubsection}{0pt}{1.2em}{0.7em}
-
 \begin{document}
 \enlargethispage{40pt}
 \pagenumbering{gobble}
@@ -137,19 +125,17 @@ def main():
 \setcounter{page}{1}
 \setstretch{1.2}
 
-\noindent\Large\bfseries """ + titel_komplett + r""" \par\bigskip
-""" + parsed_content + r"""\end{document}"""
+\noindent\Large\bfseries ''' + titel_komplett + r''' \par\bigskip
+''' + parsed_content + r'''\end{document}'''
 
+                # Rest identisch...
                 with open("klausur.tex", "w", encoding="utf-8") as f:
                     f.write(full_latex)
-
                 env = os.environ.copy()
                 env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
-
                 for _ in range(2):
                     subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
                                    env=env, capture_output=True)
-                
                 if os.path.exists("klausur.pdf"):
                     st.success("PDF erfolgreich erstellt!")
                     with open("klausur.pdf", "rb") as f:
