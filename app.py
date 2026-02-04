@@ -3,26 +3,25 @@ import os
 import re
 import streamlit as st
 
-# --- ERWEITERTE PARSER KLASSE ---
 class KlausurDocument:
     def __init__(self):
         self.prefix_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
-            2: r'^\s*[A-H]\.\s*$',                    # FIX: nur leere Überschriften
-            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.\s*$',
-            4: r'^\s*\d+\.\s*$',
-            5: r'^\s*[a-z]\)\s*$',                   # FIX: nur "a)" ohne Text
-            6: r'^\s*[a-z]{2}\)\s*$',
-            7: r'^\s*\([a-z]\)\s*$',
-            8: r'^\s*\([a-z]{2}\)\s*$'
+            2: r'^\s*[A-H]\.\s*($|[^a-zA-Z0-9])',  
+            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.\s*($|[^a-zA-Z0-9])',
+            4: r'^\s*\d+\.\s*($|[^a-zA-Z0-9])',
+            5: r'^\s*[a-z]\)\s*($|[^a-zA-Z0-9])',  
+            6: r'^\s*[a-z]{2}\)\s*($|[^a-zA-Z0-9])',
+            7: r'^\s*\([a-z]\)\s*($|[^a-zA-Z0-9])',
+            8: r'^\s*\([a-z]{2}\)\s*($|[^a-zA-Z0-9])'
         }
 
         self.star_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+\*(\s|$)',
-            2: r'^\s*[A-H]\*\s*$',
-            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\*\s*$',
-            4: r'^\s*\d+\*\s*$',
-            5: r'^\s*[a-z]\)\*\s*$'
+            2: r'^\s*[A-H]\*\s*($|[^a-zA-Z0-9])',
+            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\*\s*($|[^a-zA-Z0-9])',
+            4: r'^\s*\d+\*\s*($|[^a-zA-Z0-9])',
+            5: r'^\s*[a-z]\)\*\s*($|[^a-zA-Z0-9])'
         }
 
         self.footnote_pattern = r'\\fn\((.*?)\)'
@@ -39,17 +38,17 @@ class KlausurDocument:
 
             found_level = False
 
-            # --- Sterne-Überschriften ---
+            # Sterne-Überschriften
             for level, pattern in self.star_patterns.items():
                 if re.match(pattern, line_s):
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*", 4: "paragraph*", 5: "subparagraph*"}
                     cmd = cmds.get(level, "subparagraph*")
                     latex_output.append(f"\\{cmd}{{{line_s}}}")
-                    latex_output.append("\\vspace{0.5\\baselineskip}\\par\\noindent")
+                    latex_output.append("\\vspace{\\baselineskip}\\par\\noindent")
                     found_level = True
                     break
 
-            # --- Normale Überschriften ---
+            # Normale Überschriften  
             if not found_level:
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
@@ -58,16 +57,13 @@ class KlausurDocument:
                         indent = max(0, (level - 2) * 0.15) if level > 1 else 0
                         latex_output.append(f"\\{cmd}*{{{line_s}}}")
                         latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent}cm}}{line_s}}}")
-                        latex_output.append("\\vspace{0.5\\baselineskip}\\par\\noindent")
+                        latex_output.append("\\vspace{\\baselineskip}\\par\\noindent")
                         found_level = True
                         break
 
-            # --- Normaltext mit Überschrift-Text ---
             if not found_level:
-                # NEU: Zeilen mit Überschrift-Format + Text werden als normaler Text behandelt
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
                 line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
-                
                 if not first_block_written:
                     latex_output.append(f"\\noindent {line_s}")
                     first_block_written = True
@@ -76,7 +72,7 @@ class KlausurDocument:
 
         return "\n".join(latex_output)
 
-# --- REST DES CODES UNVERÄNDERT ---
+# REST IDENTISCH - nur Patterns geändert
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
 def load_klausur():
@@ -99,7 +95,6 @@ def main():
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "K-123")
 
     st.sidebar.title("📌 Gliederung")
-
     user_input = st.text_area("Gutachten-Text", value=st.session_state.klausur_text, height=700, key="klausur_text")
 
     if user_input:
@@ -108,8 +103,6 @@ def main():
         with col1: st.empty()
         with col2: st.metric("Zeichen", f"{char_count:,}")
 
-    # Sidebar Gliederung
-    if user_input:
         for line in user_input.split('\n'):
             line_s = line.strip()
             found = False
@@ -131,7 +124,7 @@ def main():
             with st.spinner("Präzisions-Kompilierung läuft..."):
                 parsed_content = doc_parser.parse_content(user_input.split('\n'))
                 titel_komplett = f"{kl_titel} ({kl_datum})"
-
+                
                 full_latex = r'''\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
@@ -149,7 +142,7 @@ def main():
 {\noindent\Large\bfseries ''' + titel_komplett + r''' \par}\bigskip
 ''' + parsed_content + r'''
 \end{document}'''
-
+                
                 with open("klausur.tex", "w", encoding="utf-8") as f: f.write(full_latex)
                 env = os.environ.copy()
                 env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
