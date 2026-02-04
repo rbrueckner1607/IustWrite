@@ -139,7 +139,7 @@ def main():
 \usepackage[utf8]{inputenc}
 \usepackage{setspace}
 \usepackage[T1]{fontenc}
-\usepackage{charter}
+\usepackage{ebgaramond}
 \usepackage{geometry}
 \usepackage{fancyhdr}
 \usepackage{tocloft}
