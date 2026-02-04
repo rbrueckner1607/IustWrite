@@ -6,9 +6,6 @@ import shutil
 import re
 from datetime import datetime
 
-# -----------------------------
-# 1. HEADINGCOUNTER
-# -----------------------------
 class HeadingCounter:
     def __init__(self, max_level=13):
         self.max_level = max_level
@@ -24,8 +21,7 @@ class HeadingCounter:
         romans = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII",
                   "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI",
                   "XVII", "XVIII", "XIX", "XX"]
-        def letter(n):
-            return chr(96 + n) if 1 <= n <= 26 else str(n)
+        def letter(n): return chr(96 + n) if 1 <= n <= 26 else str(n)
         parts = []
         for i in range(level):
             n = self.counters[i]
@@ -41,13 +37,9 @@ class HeadingCounter:
             else: parts.append(str(n))
         return " ".join([x for x in parts if x])
 
-# -----------------------------
-# 2. KLAUSURDOCUMENT
-# -----------------------------
 class KlausurDocument:
     def __init__(self):
         self.heading_counter = HeadingCounter()
-        # Muster für Präfixe
         self.prefix_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
             2: r'^\s*[A-H]\.(\s|$)',   
@@ -58,7 +50,6 @@ class KlausurDocument:
             7: r'^\s*\([a-z]\)(\s|$)',
             8: r'^\s*\([a-z]{2}\)(\s|$)'
         }
-        # Muster für reine Titel mit *
         self.title_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+\*\s*(.*)',
             2: r'^\s*([A-H])\*\s*(.*)',                           
@@ -119,52 +110,28 @@ class KlausurDocument:
             r"\pagenumbering{arabic}",
             fr"\section*{{{title} ({date})}}",
         ]
-
         for line in lines:
             line_strip = line.strip()
             if not line_strip:
                 latex.append("")
                 continue
-
-            # Prüfe Title-Patterns
             title_match = False
             for level, pattern in self.title_patterns.items():
                 match = re.match(pattern, line_strip)
                 if match:
                     title_text = match.group(2).strip()
-                    if level == 1:
-                        latex.extend([r"\section*{" + title_text + "}",
-                                      r"\addcontentsline{toc}{section}{" + title_text + "}"])
-                    elif level == 2:
-                        latex.extend([r"\subsection*{" + title_text + "}",
-                                      r"\addcontentsline{toc}{subsection}{" + title_text + "}"])
-                    elif level == 3:
-                        latex.extend([r"\subsubsection*{" + title_text + "}",
-                                      r"\addcontentsline{toc}{subsubsection}{" + title_text + "}"])
+                    latex.extend([r"\section*{" + title_text + "}",
+                                  r"\addcontentsline{toc}{section}{" + title_text + "}"])
                     title_match = True
                     break
-
             if not title_match:
-                # Normale Präfixe
-                if re.match(self.prefix_patterns[1], line_strip):
-                    latex.extend([r"\section*{" + line_strip + "}",
-                                  r"\addcontentsline{toc}{section}{" + line_strip + "}"])
-                elif re.match(self.prefix_patterns[2], line_strip):
-                    latex.extend([r"\subsection*{" + line_strip + "}",
-                                  r"\addcontentsline{toc}{subsection}{" + line_strip + "}"])
+                if re.search(self.footnote_pattern, line_strip):
+                    match = re.search(self.footnote_pattern, line_strip)
+                    footnote_text = match.group(1).strip()
+                    clean_line = re.sub(self.footnote_pattern, '', line_strip).strip()
+                    latex.append(clean_line + f"\\footnote{{{footnote_text}}}" if clean_line else f"\\footnote{{{footnote_text}}}")
                 else:
-                    # Fußnoten
-                    if re.search(self.footnote_pattern, line_strip):
-                        match = re.search(self.footnote_pattern, line_strip)
-                        footnote_text = match.group(1).strip()
-                        clean_line = re.sub(self.footnote_pattern, '', line_strip).strip()
-                        if clean_line:
-                            latex.append(clean_line + f"\\footnote{{{footnote_text}}}")
-                        else:
-                            latex.append(f"\\footnote{{{footnote_text}}}")
-                    else:
-                        latex.append(line_strip)
-
+                    latex.append(line_strip)
         latex.append(r"\end{document}")
         return "\n".join(latex)
 
@@ -173,16 +140,30 @@ class KlausurDocument:
             tex_path = os.path.join(tmpdir, "klausur.tex")
             with open(tex_path, "w", encoding="utf-8") as f:
                 f.write(latex_content)
-
-            # pdflatex im PATH
             pdflatex_bin = shutil.which("pdflatex")
-            if not pdflatex_bin:
-                raise FileNotFoundError("pdflatex nicht im PATH!")
-
-            # 2x kompilieren
+            if not pdflatex_bin: raise FileNotFoundError("pdflatex nicht im PATH!")
             subprocess.run([pdflatex_bin, "-interaction=nonstopmode", "klausur.tex"],
                            cwd=tmpdir, capture_output=True, check=True)
             subprocess.run([pdflatex_bin, "-interaction=nonstopmode", "klausur.tex"],
                            cwd=tmpdir, capture_output=True, check=True)
+            pdf_path = os.path.join(tmpdir, "klausur.pdf")
+            if os.path.exists(pdf_path):
+                with open(pdf_path, "rb") as f:
+                    return f.read()
+            raise FileNotFoundError("PDF nicht erstellt!")
 
-            pdf_path = os.p_
+# -----------------------------
+# STREAMLIT APP
+# -----------------------------
+st.set_page_config(page_title="iustWrite | lexgerm.de", layout="wide")
+st.title("⚖️ iustWrite - Jura Klausur Editor")
+
+# Metadaten
+with st.sidebar:
+    st.header("📄 Metadaten")
+    title = st.text_input("Titel", "Zivilrecht I - Klausur")
+    date = st.date_input("Datum")
+    matrikel = st.text_input("Matrikel-Nr.", "12345678")
+    uploaded_file = st.file_uploader("📂 .txt Datei laden", type=["txt", "klausur"])
+    if uploaded_file:
+        content = uploaded_file.read().de_
