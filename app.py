@@ -17,23 +17,18 @@ st.markdown("""
 
 # --- PARSER-LOGIK ---
 def parse_to_latex(text):
-    # Gefährliche LaTeX-Sonderzeichen automatisch escapen
+    # WICHTIG: { und } werden NICHT escapet, damit Befehle funktionieren
     chars_to_escape = {
         '&': r'\&',
         '%': r'\%',
         '$': r'\$',
         '_': r'\_',
         '#': r'\#',
-        '{': r'\{',
-        '}': r'\}',
     }
-    for char, escaped in chars_to_escape.items():
-        text = text.replace(char, escaped)
-
+    
     lines = text.split('\n')
     latex_lines = []
     
-    # Muster für Jura-Gliederung
     patterns = {
         'haupt': r'^[A-Z]\.\s.*',          # A.
         'roemisch': r'^[IVX]+\.\s.*',       # I.
@@ -48,6 +43,16 @@ def parse_to_latex(text):
             latex_lines.append("\\medskip")
             continue
 
+        # Falls der Nutzer selbst einen LaTeX-Befehl tippt (beginnt mit \)
+        if line.startswith('\\'):
+            latex_lines.append(line)
+            continue
+
+        # Sonderzeichen in normalen Textzeilen escapen
+        for char, escaped in chars_to_escape.items():
+            line = line.replace(char, escaped)
+
+        # Überschriften-Logik
         if re.match(patterns['haupt'], line):
             latex_lines.append(f"\\subsection*{{{line}}}")
             latex_lines.append(f"\\addcontentsline{{toc}}{{subsection}}{{{line}}}")
@@ -97,7 +102,6 @@ def main():
         with st.spinner("Erstelle PDF..."):
             latex_body = parse_to_latex(user_input)
             
-            # Deine Präambel
             full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
@@ -125,15 +129,13 @@ def main():
                 f.write(full_latex)
 
             try:
-                # Umgebungsvariablen für LaTeX setzen, damit Assets gefunden werden
                 env = os.environ.copy()
                 assets_path = os.path.join(os.getcwd(), "latex_assets")
-                # TEXINPUTS: . (aktuell), assets_path, und dann Standardpfade (:)
                 env["TEXINPUTS"] = f".:{assets_path}:"
 
-                # LaTeX Durchläufe (zweimal für Inhaltsverzeichnis)
+                # 2 Durchläufe für Verzeichnisse
                 for _ in range(2):
-                    result = subprocess.run(
+                    subprocess.run(
                         ["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
                         check=True, capture_output=True, env=env
                     )
@@ -144,13 +146,9 @@ def main():
                     st.success("PDF wurde erfolgreich erstellt!")
             except subprocess.CalledProcessError as e:
                 st.error("LaTeX-Fehler beim Kompilieren!")
-                # Sichereres Auslesen des Logs bei Fehlern
                 if os.path.exists("klausur.log"):
                     with open("klausur.log", "r", encoding="utf-8", errors="replace") as log:
-                        log_content = log.read()
-                        st.code(log_content[-2000:], language="text")
-                else:
-                    st.write("Kein Logfile gefunden.")
+                        st.code(log.read()[-2000:], language="text")
 
 if __name__ == "__main__":
     main()
