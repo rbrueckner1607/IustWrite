@@ -58,10 +58,16 @@ class KlausurDocument:
                             7: "subparagraph", 8: "subparagraph"
                         }
                         cmd = cmds.get(level, "subparagraph")
-                        indent = max(0, (level - 2) * 0.15) if level > 1 else 0
-
+                        
+                        # --- OPTIMIERTE TOC EINRÜCKUNG ---
+                        # Teil (1), A. (2), I. (3) -> 0em
+                        # 1. (4) -> 1em, a) (5) -> 2em, aa) (6) -> 3em, etc.
+                        toc_indent = f"{max(0, level - 3)}em" if level > 3 else "0em"
+                        
                         latex_output.append(f"\\{cmd}*{{{line_s}}}")
-                        latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent}cm}}{line_s}}}")
+                        # Wir nutzen subsubsection als Basis im TOC für bessere Ausrichtung ab Ebene 3
+                        toc_cmd = "subsubsection" if level >= 3 else cmd
+                        latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{toc_indent}}}{line_s}}}")
                         found_level = True
                         break
 
