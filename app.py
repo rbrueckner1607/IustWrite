@@ -4,9 +4,6 @@ import os
 import subprocess
 import re
 from datetime import datetime
-import pytinytex
-import io
-import base64
 
 # 1. HEADINGCOUNTER (1:1 aus PyQt)
 class HeadingCounter:
@@ -104,7 +101,7 @@ class KlausurDocument:
     def to_latex(self, title, date, matrikel, lines):
         latex = []
         
-        # Präambel (dein jurabook-Style vereinfacht für Streamlit)
+        # Präambel (Streamlit-kompatibel)
         preamble = [
             r"\documentclass[12pt,a4paper]{article}",
             r"\usepackage[ngerman]{babel}",
@@ -119,6 +116,7 @@ class KlausurDocument:
             r"\fancyhf{}",
             r"\fancyfoot[R]{\thepage}",
             r"\renewcommand{\contentsname}{Gliederung}",
+            r"\setcounter{tocdepth}{4}",
             r"\setlength{\cftbeforesecskip}{2pt}",
             r"\setlength{\cftbeforesubsecskip}{2pt}"
         ]
@@ -143,7 +141,7 @@ class KlausurDocument:
                 continue
             latex.append("")
             
-            # Title-Patterns (ohne Nummerierung)
+            # Title-Patterns
             title_match = False
             for level, pattern in self.title_patterns.items():
                 match = re.match(pattern, line_strip)
@@ -190,145 +188,88 @@ class KlausurDocument:
             with open(tex_path, "w", encoding="utf-8") as f:
                 f.write(latex_content)
             
-            # pdflatex finden (wie in deinem PyQt Code)
-            try:
-                tiny_base = pytinytex.get_tinytex_path()
-                pdflatex_bin = None
-                for root, dirs, files in os.walk(tiny_base):
-                    if "pdflatex" in files:
-                        pdflatex_bin = os.path.join(root, "pdflatex")
+            # pdflatex direkt finden (Streamlit Cloud hat es!)
+            pdflatex_bin = shutil.which("pdflatex")
+            if not pdflatex_bin:
+                # Fallback: PATH durchsuchen
+                for path in os.environ["PATH"].split(os.pathsep):
+                    pdflatex_candidate = os.path.join(path, "pdflatex")
+                    if os.path.isfile(pdflatex_candidate):
+                        pdflatex_bin = pdflatex_candidate
                         break
-                
-                if not pdflatex_bin:
-                    raise FileNotFoundError("pdflatex nicht gefunden")
-                
-                # Zweimal kompilieren (TOC)
-                subprocess.run([pdflatex_bin, "-interaction=nonstopmode", "klausur.tex"], 
-                             cwd=tmpdir, capture_output=True, check=True)
-                subprocess.run([pdflatex_bin, "-interaction=nonstopmode", "klausur.tex"], 
-                             cwd=tmpdir, capture_output=True, check=True)
-                
-                pdf_path = os.path.join(tmpdir, "klausur.pdf")
-                if os.path.exists(pdf_path):
-                    with open(pdf_path, "rb") as f:
-                        return f.read()
-                raise FileNotFoundError("PDF Generation failed")
-            except Exception as e:
-                raise Exception(f"PDF Error: {str(e)}")
+            
+            if not pdflatex_bin:
+                raise FileNotFoundError("pdflatex nicht gefunden!")
+            
+            # Zweimal kompilieren (für TOC)
+            subprocess.run([pdflatex_bin, "-interaction=nonstopmode", "klausur.tex"], 
+                         cwd=tmpdir, capture_output=True, check=True)
+            subprocess.run([pdflatex_bin, "-interaction=nonstopmode", "klausur.tex"], 
+                         cwd=tmpdir, capture_output=True, check=True)
+            
+            pdf_path = os.path.join(tmpdir, "klausur.pdf")
+            if os.path.exists(pdf_path):
+                with open(pdf_path, "rb") as f:
+                    return f.read()
+            raise FileNotFoundError("PDF Generation failed!")
 
-# 3. STREAMLIT APP (Layout wie PyQt Splitter)
-st.set_page_config(
-    page_title="iustWrite | lexgerm.de", 
-    page_icon="⚖️",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Streamlit App (identisch wie vorher)
+st.set_page_config(page_title="iustWrite | lexgerm.de", page_icon="⚖️", layout="wide")
 
 st.title("⚖️ iustWrite - Jura Klausur Editor")
-st.markdown("***Automatische Nummerierung • Live-Gliederung • PDF-Export für lexgerm.de***")
+st.markdown("***Automatische Nummerierung • Live-Gliederung • PDF-Export***")
 
-# Sidebar (Meta-Daten wie PyQt)
+# Sidebar
 with st.sidebar:
     st.header("📄 Metadaten")
-    title = st.text_input("**Titel**", value="Zivilrecht I - Klausur", help="Klausurtitel")
-    date = st.date_input("**Datum**", value=datetime.now())
-    matrikel = st.text_input("**Matrikel-Nr.**", value="12345678")
+    title = st.text_input("Titel", value="Zivilrecht I - Klausur")
+    date = st.date_input("Datum", value=datetime.now())
+    matrikel = st.text_input("Matrikel-Nr.", value="12345678")
     
-    st.markdown("---")
-    st.header("⌨️ **Shortcuts**")
-    st.markdown("""
-    - **Strg+1-8**: Überschriften (automatisch nummeriert)  
-    - **Strg+Shift+1-8**: Titel (mit `*` ohne Nummerierung)  
-    - **\\fn(Text)**: Fußnoten
-    """)
-    
-    if st.button("🆕 **Neue Klausur**", use_container_width=True):
-        if 'content' in st.session_state:
-            del st.session_state.content
+    if st.button("🆕 Neue Klausur"):
+        st.session_state.clear()
         st.rerun()
 
-# Main Layout (TOC | Editor 1:3 wie PyQt Splitter)
 col1, col2 = st.columns([1, 3])
 
 with col1:
-    st.header("📋 **Live-Gliederung**")
-    if 'toc' in st.session_state:
-        for item in st.session_state.toc:
-            st.write(item)
-    else:
-        st.info("👆 Beginne mit Strg+1 für erste Überschrift")
+    st.header("📋 Gliederung")
+    toc = st.session_state.get("toc", [])
+    for item in toc:
+        st.write(item)
 
 with col2:
-    st.header("✍️ **Klausur-Editor**")
+    st.header("✍️ Editor")
     default_content = """Teil 1. Zulässigkeit
 
 A. Formelle Voraussetzungen
 
 I. Antragsbegründung"""
-    
-    content = st.text_area(
-        label="Klausurtext eingeben",
-        value=st.session_state.get('content', default_content),
-        height=650,
-        help="**Tipp**: Strg+1 für 'Teil 1.', Strg+2 für 'A.', \\fn(Quelle) für Fußnoten",
-        key="main_editor"
-    )
+    content = st.text_area("", value=st.session_state.get('content', default_content), height=650, key="editor")
 
-# Live TOC Update (wie PyQt on_text_changed)
+# Live TOC
 if content != st.session_state.get('last_content', ''):
     doc = KlausurDocument()
-    lines = content.splitlines()
-    st.session_state.toc = doc.generate_toc(lines)
+    st.session_state.toc = doc.generate_toc(content.splitlines())
     st.session_state.last_content = content
     st.rerun()
 
-# Statusleiste (wie PyQt)
-if content.strip():
-    char_count = len(content)
-    word_count = len(re.findall(r'\w+', content))
-    st.markdown(f"**Status**: {char_count:,} Zeichen | {word_count:,} Wörter")
-
-# Action Buttons (wie PyQt Toolbar)
-st.markdown("---")
-col1, col2, col3 = st.columns([1, 1, 1])
-
+# Buttons
+col1, col2 = st.columns(2)
 with col1:
-    if st.button("💾 **Als TXT speichern**", use_container_width=True):
-        st.download_button(
-            label="📥 TXT Download",
-            data=content,
-            file_name=f"{title.replace(' ', '_')}.klausur",
-            mime="text/plain",
-            use_container_width=True
-        )
-
-with col2:
-    if st.button("🎯 **PDF Exportieren**", use_container_width=True):
-        with st.spinner("⚙️ Erstelle professionelles PDF (LaTeX)..."):
+    if st.button("🎯 PDF Export"):
+        with st.spinner("Erstelle PDF..."):
             try:
                 doc = KlausurDocument()
                 lines = content.splitlines()
                 latex = doc.to_latex(title, date.strftime("%d.%m.%Y"), matrikel, lines)
                 pdf_bytes = doc.to_pdf_bytes(latex)
-                
                 st.session_state.pdf_bytes = pdf_bytes
-                st.session_state.pdf_filename = f"{title.replace(' ', '_')}_{date.strftime('%Y%m%d')}.pdf"
-                st.success("✅ PDF erfolgreich erstellt!")
+                st.session_state.pdf_name = f"{title}.pdf"
+                st.success("✅ PDF bereit!")
                 st.rerun()
             except Exception as e:
-                st.error(f"❌ PDF-Fehler: {str(e)}")
-                st.info("💡 Prüfe `packages.txt` mit LaTeX-Paketen")
+                st.error(f"PDF Fehler: {str(e)}")
 
-with col3:
-    if 'pdf_bytes' in st.session_state:
-        st.download_button(
-            label="⬇️ **PDF herunterladen**",
-            data=st.session_state.pdf_bytes,
-            file_name=st.session_state.pdf_filename,
-            mime="application/pdf",
-            use_container_width=True
-        )
-
-# Footer
-st.markdown("---")
-st.markdown("***iustWrite** für lexgerm.de • Open Source • Studentisches Projekt*")
+if 'pdf_bytes' in st.session_state:
+    st.download_button("⬇️ PDF Download", st.session_state.pdf_bytes, st.session_state.pdf_name, "application/pdf")
