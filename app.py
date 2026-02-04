@@ -7,23 +7,23 @@ import re
 class KlausurDocument:
     def __init__(self):
         self.prefix_patterns = {
-            1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
-            2: r'^\s*[A-H]\.(\s|$)',
-            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.(\s|$)',
-            4: r'^\s*\d+\.(\s|$)',
-            5: r'^\s*[a-z]\)\s.*', 
-            6: r'^\s*[a-z]{2}\)\s.*',
-            7: r'^\s*\([a-z]\)\s.*',
-            8: r'^\s*\([a-z]{2}\)\s.*'
+            1: r'^\\s*(Teil|Tatkomplex|Aufgabe)\\s+\\d+(\\.|)(\\s|$)',
+            2: r'^\\s*[A-H]\\.(\\s|$)',
+            3: r'^\\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\\.(\\s|$)',
+            4: r'^\\s*\\d+\\.(\\s|$)',
+            5: r'^\\s*[a-z]\\)\\s.*', 
+            6: r'^\\s*[a-z]{2}\\)\\s.*',
+            7: r'^\\s*\\([a-z]\\)\\s.*',
+            8: r'^\\s*\\([a-z]{2}\\)\\s.*'
         }
-        self.footnote_pattern = r'\\fn\((.*?)\)'
+        self.footnote_pattern = r'\\\\fn\\((.*?)\\)'
 
     def parse_content(self, lines):
         latex_output = []
         for line in lines:
             line_s = line.strip()
             if not line_s:
-                latex_output.append("\\medskip")
+                latex_output.append("\\\\medskip")
                 continue
             
             found_level = False
@@ -38,17 +38,17 @@ class KlausurDocument:
                     # A.(0) -> I.(0.1) -> 1.(0.2) -> a)(0.3) -> aa)(0.4)
                     indent = max(0, (level - 2) * 0.15) if level > 1 else 0
                         
-                    latex_output.append(f"\\{cmd}*{{{line_s}}}")
-                    latex_output.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{\\hspace{{{indent}cm}}{line_s}}}")
+                    latex_output.append(f"\\\\{cmd}*{{{line_s}}}")
+                    latex_output.append(f"\\\\addcontentsline{{toc}}{{{cmd}}}{{\\\\hspace{{{indent}cm}}{line_s}}}")
                     found_level = True
                     break
             
             if not found_level:
-                line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
-                line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
+                line_s = re.sub(self.footnote_pattern, r'\\\\footnote{\\1}', line_s)
+                line_s = line_s.replace('§', '\\\\S~').replace('&', '\\\\&').replace('%', '\\\\%')
                 latex_output.append(line_s)
             
-        return "\n".join(latex_output)
+        return "\\n".join(latex_output)
 
 # --- UI ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
@@ -65,77 +65,107 @@ def main():
     st.sidebar.title("📌 Gliederung")
     user_input = st.text_area("Gutachten-Text", height=500, key="editor")
 
+    # === NEU: Zeichenzähler unter Textbox ===
     if user_input:
-        for line in user_input.split('\n'):
+        char_count = len(user_input)
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            st.empty()
+        with col2:
+            st.metric("Zeichen", f"{char_count:,}")
+
+    if user_input:
+        for line in user_input.split('\\n'):
             line_s = line.strip()
             for level, pattern in doc_parser.prefix_patterns.items():
                 if re.match(pattern, line_s):
                     st.sidebar.markdown("&nbsp;" * (level * 4) + line_s)
                     break
 
-    if st.button("🏁 PDF generieren"):
-        if user_input:
-            with st.spinner("Präzisions-Kompilierung läuft..."):
-                parsed_content = doc_parser.parse_content(user_input.split('\n'))
-                titel_komplett = f"{kl_titel} ({kl_datum})"
-                
-                full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
-\usepackage[ngerman]{babel}
-\usepackage[utf8]{inputenc}
-\usepackage{setspace}
-\usepackage[T1]{fontenc}
-\usepackage{palatino}
-\usepackage{geometry}
-\usepackage{fancyhdr}
-\usepackage{tocloft}
-\geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
+    # === NEU: Buttons nebeneinander (PDF + TXT Save + Load) ===
+    col_pdf, col_save, col_load = st.columns([1, 1, 1])
+    
+    with col_pdf:
+        if st.button("🏁 PDF generieren"):
+            if user_input:
+                with st.spinner("Präzisions-Kompilierung läuft..."):
+                    parsed_content = doc_parser.parse_content(user_input.split('\\n'))
+                    titel_komplett = f"{kl_titel} ({kl_datum})"
+                    
+                    full_latex = r"""\\documentclass[12pt, a4paper, oneside]{jurabook}
+\\usepackage[ngerman]{babel}
+\\usepackage[utf8]{inputenc}
+\\usepackage{setspace}
+\\usepackage[T1]{fontenc}
+\\usepackage{palatino}
+\\usepackage{geometry}
+\\usepackage{fancyhdr}
+\\usepackage{tocloft}
+\\geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
 
 % --- RADIKALE SEITEN-KONTROLLE ---
-\fancypagestyle{iustwrite}{
-    \fancyhf{}
-    \fancyhead[L]{\small """ + kl_kuerzel + r"""}
-    \fancyhead[R]{\small """ + titel_komplett + r"""}
-    \fancyfoot[R]{\thepage}
-    \renewcommand{\headrulewidth}{0.5pt}
-    \renewcommand{\footrulewidth}{0pt}
+\\fancypagestyle{iustwrite}{
+    \\fancyhf{}
+    \\fancyhead[L]{\\small """ + kl_kuerzel + r"""}
+    \\fancyhead[R]{\\small """ + titel_komplett + r"""}
+    \\fancyfoot[R]{\\thepage}
+    \\renewcommand{\\headrulewidth}{0.5pt}
+    \\renewcommand{\\footrulewidth}{0pt}
 }
 
-\makeatletter
-\renewcommand{\@cfoot}{} % Killt die Standard-Zahl in der Mitte
-\makeatother
+\\makeatletter
+\\renewcommand{\\@cfoot}{} % Killt die Standard-Zahl in der Mitte
+\\makeatother
 
-\begin{document}
-\pagenumbering{gobble}
-\renewcommand{\contentsname}{Gliederung}
-\tableofcontents
-\clearpage
+\\begin{document}
+\\pagenumbering{gobble}
+\\renewcommand{\\contentsname}{Gliederung}
+\\tableofcontents
+\\clearpage
 
 % --- AKTIVIERUNG FÜR TEXTTEIL ---
-\pagenumbering{arabic}
-\setcounter{page}{1}
-\pagestyle{iustwrite} % Aktiviert unseren eigenen Style
-\setstretch{1.2}
+\\pagenumbering{arabic}
+\\setcounter{page}{1}
+\\pagestyle{iustwrite} % Aktiviert unseren eigenen Style
+\\setstretch{1.2}
 
-{\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
-""" + parsed_content + r"\end{document}"
+{\\noindent\\Large\\bfseries """ + titel_komplett + r""" \\par}\\bigskip
+""" + parsed_content + r"\\end{document}"
 
-                with open("klausur.tex", "w", encoding="utf-8") as f:
-                    f.write(full_latex)
+                    with open("klausur.tex", "w", encoding="utf-8") as f:
+                        f.write(full_latex)
 
-                env = os.environ.copy()
-                env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
+                    env = os.environ.copy()
+                    env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
 
-                for _ in range(2):
-                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
-                                   env=env, capture_output=True)
-                
-                if os.path.exists("klausur.pdf"):
-                    st.success("PDF erfolgreich erstellt!")
-                    with open("klausur.pdf", "rb") as f:
-                        st.download_button("📥 Download", f, f"Klausur_{kl_kuerzel}.pdf")
-                else:
-                    st.error("Fehler beim Erzeugen.")
+                    for _ in range(2):
+                        subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
+                                       env=env, capture_output=True)
+                    
+                    if os.path.exists("klausur.pdf"):
+                        st.success("PDF erfolgreich erstellt!")
+                        with open("klausur.pdf", "rb") as f:
+                            st.download_button("📥 Download", f, f"Klausur_{kl_kuerzel}.pdf")
+                    else:
+                        st.error("Fehler beim Erzeugen.")
+
+    with col_save:
+        # === NEU: TXT speichern ===
+        if st.button("💾 Als TXT speichern", type="secondary"):
+            st.download_button(
+                label="📥 Download TXT",
+                data=user_input,
+                file_name=f"Klausur_{kl_kuerzel}_{kl_titel.replace(' ', '_')}.txt",
+                mime="text/plain"
+            )
+
+    with col_load:
+        # === NEU: Klausur laden ===
+        uploaded_file = st.file_uploader("📂 Klausur laden", type=['txt'], key="uploader")
+        if uploaded_file is not None:
+            loaded_text = uploaded_file.read().decode("utf-8")
+            st.session_state.editor = st.session_state.get("editor", "") + "\n\n" + loaded_text
+            st.success(f"✅ {uploaded_file.name} geladen ({len(loaded_text)} Zeichen)!")
 
 if __name__ == "__main__":
     main()
-
