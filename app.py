@@ -7,26 +7,26 @@ import streamlit as st
 class KlausurDocument:
     def __init__(self):
         self.prefix_patterns = {
-            1: r'^\\s*(Teil|Tatkomplex|Aufgabe)\\s+\\d+(\\.|)(\\s|$)',
-            2: r'^\\s*[A-H]\\.(\\s|$)',
-            3: r'^\\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\\.(\\s|$)',
-            4: r'^\\s*\\d+\\.(\\s|$)',
-            5: r'^\\s*[a-z]\\)\\s.*',
-            6: r'^\\s*[a-z]{2}\\)\\s.*',
-            7: r'^\\s*\\([a-z]\\)\\s.*',
-            8: r'^\\s*\\([a-z]{2}\\)\\s.*'
+            1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
+            2: r'^\s*[A-H]\.(\s|$)',
+            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.(\s|$)',
+            4: r'^\s*\d+\.(\s|$)',
+            5: r'^\s*[a-z]\)\s.*',
+            6: r'^\s*[a-z]{2}\)\s.*',
+            7: r'^\s*\([a-z]\)\s.*',
+            8: r'^\s*\([a-z]{2}\)\s.*'
         }
 
         # NEU: Unnummerierte Sterne-Überschriften (OHNE PUNKT)
         self.star_patterns = {
-            1: r'^\\s*(Teil|Tatkomplex|Aufgabe)\\s+\\d+\\*(\\s|$)',
-            2: r'^\\s*[A-H]\\*(\\s|$)',
-            3: r'^\\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\\*(\\s|$)',
-            4: r'^\\s*\\d+\\*(\\s|$)',
-            5: r'^\\s*[a-z]\\)\\*(\\s|$)'
+            1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+\*(\s|$)',
+            2: r'^\s*[A-H]\*(\s|$)',
+            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\*(\s|$)',
+            4: r'^\s*\d+\*(\s|$)',
+            5: r'^\s*[a-z]\)\*(\s|$)'
         }
 
-        self.footnote_pattern = r'\\\\fn\\((.*?)\\)'
+        self.footnote_pattern = r'\\fn\((.*?)\)'
 
     def parse_content(self, lines):
         latex_output = []
@@ -259,4 +259,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
