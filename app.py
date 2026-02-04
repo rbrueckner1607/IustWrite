@@ -1,110 +1,198 @@
 import streamlit as st
-import re
+import tempfile
 import os
 import subprocess
-import tempfile
+import shutil
+import re
 from datetime import datetime
 
-# 1. Die Jura-Zähl-Logik (Robust nachgebaut)
-class JuraCounter:
-    def __init__(self):
-        self.counts = [0] * 10
+# 1. HEADINGCOUNTER (1:1 aus deiner Vorlage)
+class HeadingCounter:
+    def __init__(self, max_level=13):
+        self.max_level = max_level
+        self.counters = [0] * max_level
+
     def increment(self, level):
-        self.counts[level-1] += 1
-        for i in range(level, 10): self.counts[i] = 0
-    def get_label(self, level):
-        romans = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"]
-        n = self.counts[level-1]
-        if level == 1: return f"Teil {n}."
-        if level == 2: return f"{chr(64 + n)}." # A.
-        if level == 3: return f"{romans[n]}." if n < len(romans) else f"{n}." # I.
-        if level == 4: return f"{n}."
-        if level == 5: return f"{chr(96 + n)}." # a)
-        if level == 6: return f"{chr(96 + n)}{chr(96 + n)}." # aa)
-        return str(n)
+        idx = level - 1
+        self.counters[idx] += 1
+        for i in range(idx + 1, self.max_level):
+            self.counters[i] = 0
 
-# 2. Die Erkennungs-Muster (Deine Sternchen-Logik)
-PATTERNS = {
-    1: r'^(Teil|Tatkomplex|Aufgabe)\s+\d+\*',
-    2: r'^[A-H]\*',
-    3: r'^(I|II|III|IV|V|VI|VII|VIII|IX|X)\*',
-    4: r'^\d+\*',
-    5: r'^[a-z]\*'
-}
+    def get_numbering(self, level):
+        romans = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII",
+                  "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI",
+                  "XVII", "XVIII", "XIX", "XX"]
+        def letter(n):
+            return chr(96 + n) if 1 <= n <= 26 else str(n)
+        parts = []
+        for i in range(level):
+            n = self.counters[i]
+            if n == 0: continue
+            if i == 0: parts.append(f"Teil {n}.")
+            elif i == 1: parts.append(chr(64 + n) + ".")
+            elif i == 2: parts.append(romans[n] + ".") if n < len(romans) else parts.append(str(n)+".") 
+            elif i == 3: parts.append(f"{n}.")
+            elif i == 4: parts.append(f"{letter(n)})")
+            elif i == 5: parts.append(f"{letter(n)*2})")
+            elif i == 6: parts.append(f"({letter(n)})")
+            elif i == 7: parts.append(f"({letter(n)*2})")
+            else: parts.append(str(n))
+        return " ".join([x for x in parts if x])
 
-# 3. Web-Interface Setup
-st.set_page_config(page_title="LexGerm Editor", layout="wide")
-st.title("⚖️ LexGerm | iustWrite Editor")
+# 2. KLAUSURDOCUMENT
+class KlausurDocument:
+    def __init__(self):
+        self.heading_counter = HeadingCounter()
+        self.prefix_patterns = {
+            1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
+            2: r'^\s*[A-H]\.(\s|$)',   
+            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.(\s|$)',
+            4: r'^\s*\d+\.(\s|$)',
+            5: r'^\s*[a-z]\)(\s|$)',
+            6: r'^\s*[a-z]{2}\)(\s|$)',
+            7: r'^\s*\([a-z]\)(\s|$)',
+            8: r'^\s*\([a-z]{2}\)(\s|$)'
+        }
+        self.title_patterns = {
+            1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+\*\s*(.*)',
+            2: r'^\s*([A-H])\*\s*(.*)',                           
+            3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\*\s*(.*)',
+            4: r'^\s*(\d+)\*\s*(.*)',
+            5: r'^\s*([a-z])\*\s*(.*)',
+            6: r'^\s*([a-z]{2})\*\s*(.*)',
+            7: r'^\s*\(([a-z])\)\*\s*(.*)',
+            8: r'^\s*\(([a-z]{2})\)\*\s*(.*)'
+        }
+        self.footnote_pattern = r'\\fn\((.*?)\)'
+        
+    def generate_toc(self, lines):
+        toc = []
+        for line in lines:
+            text = line.strip()
+            if not text: continue
+            for level, pattern in sorted(self.prefix_patterns.items()):
+                if re.match(pattern, text):
+                    indent = "&nbsp;" * (level * 4)
+                    toc.append(f"{indent}{text}")
+                    break
+            for level, pattern in sorted(self.title_patterns.items()):
+                match = re.match(pattern, text)
+                if match:
+                    title_text = match.group(2).strip()
+                    indent = "&nbsp;" * (level * 4)
+                    toc.append(f"{indent}**{title_text}**")
+                    break
+        return toc
+    
+    def to_latex(self, title, date, matrikel, lines):
+        latex = [
+            r"\documentclass[12pt,a4paper]{article}",
+            r"\usepackage[ngerman]{babel}",
+            r"\usepackage[utf8]{inputenc}",
+            r"\usepackage[T1]{fontenc}",
+            r"\usepackage{lmodern}",
+            r"\usepackage[left=2cm,right=6cm,top=2.5cm,bottom=3cm]{geometry}",
+            r"\usepackage{fancyhdr}",
+            r"\usepackage{tocloft}",
+            r"\pagestyle{fancy}",
+            r"\fancyhf{}",
+            r"\fancyfoot[R]{\thepage}",
+            r"\renewcommand{\contentsname}{Gliederung}",
+            r"\begin{document}",
+            r"\enlargethispage{40pt}",
+            r"\pagenumbering{gobble}",
+            r"\vspace*{-3cm}",
+            r"\tableofcontents",
+            r"\clearpage",
+            r"\pagenumbering{arabic}",
+            fr"\section*{{{title} ({date})}}",
+            fr"\noindent Matrikel-Nr.: {matrikel} \vspace{{1cm}}"
+        ]
+        
+        for line in lines:
+            line_strip = line.strip()
+            if not line_strip:
+                latex.append(r"\par\medskip")
+                continue
+            
+            # Fußnoten-Ersetzung
+            line_strip = re.sub(self.footnote_pattern, r"\\footnote{\1}", line_strip)
+            
+            title_match = False
+            for level, pattern in self.title_patterns.items():
+                match = re.match(pattern, line_strip)
+                if match:
+                    title_text = match.group(2).strip()
+                    cmd = "section" if level == 1 else "subsection" if level == 2 else "subsubsection" if level == 3 else "paragraph"
+                    latex.extend([f"\\{cmd}*{{{title_text}}}", f"\\addcontentsline{{toc}}{{{cmd}}}{{{title_text}}}"])
+                    title_match = True
+                    break
+            
+            if not title_match:
+                # Prüfe auf Standard-Präfixe ohne Sternchen
+                found_prefix = False
+                for level, pattern in self.prefix_patterns.items():
+                    if re.match(pattern, line_strip):
+                        cmd = "section" if level == 1 else "subsection" if level == 2 else "subsubsection" if level == 3 else "paragraph"
+                        latex.extend([f"\\{cmd}*{{{line_strip}}}", f"\\addcontentsline{{toc}}{{{cmd}}}{{{line_strip}}}"])
+                        found_prefix = True
+                        break
+                if not found_prefix:
+                    latex.append(line_strip)
+                    
+        latex.append(r"\end{document}")
+        return "\n".join(latex)
+
+# 3. STREAMLIT APP UI
+st.set_page_config(page_title="iustWrite | lexgerm.de", page_icon="⚖️", layout="wide")
+
+# CSS für Jura-Optik
+st.markdown("""<style> .stTextArea textarea { font-family: 'Times New Roman', serif; font-size: 16px; } </style>""", unsafe_allow_html=True)
+
+st.title("⚖️ iustWrite - Jura Klausur Editor")
 
 with st.sidebar:
-    st.header("📄 Klausurdaten")
-    titel = st.text_input("Titel", "Übungsklausur")
-    st.header("📋 Gliederung")
+    st.header("📄 Metadaten")
+    title = st.text_input("Titel", value="Zivilrechtliche Klausur")
+    date = st.text_input("Datum", value=datetime.now().strftime("%d.%m.%Y"))
+    matrikel = st.text_input("Matrikel-Nr.")
+    st.divider()
+    st.header("📋 Live-Gliederung")
     gliederung_area = st.empty()
 
-col1, col2 = st.columns([3, 1]) # Editor bekommt mehr Platz
+col_edit, _ = st.columns([4, 1])
+with col_edit:
+    content = st.text_area("Schreibe hier dein Gutachten...", height=600, key="editor_input")
 
-with col1:
-    content = st.text_area("Schreibe dein Gutachten (Nutze A*, I*, 1* für Überschriften):", height=600)
+# Parser für Sidebar
+doc = KlausurDocument()
+lines = content.split('\n')
+toc = doc.generate_toc(lines)
+with st.sidebar:
+    for item in toc:
+        st.markdown(item, unsafe_allow_html=True)
 
-# 4. Logik-Verarbeitung
-counter = JuraCounter()
-sidebar_content = ""
-latex_body = []
-
-for line in content.split('\n'):
-    line_strip = line.strip()
-    if not line_strip:
-        latex_body.append(r"\par\medskip")
-        continue
-    
-    found = False
-    for level, pattern in PATTERNS.items():
-        if re.match(pattern, line_strip):
-            counter.increment(level)
-            label = counter.get_label(level)
-            text = line_strip.split('*', 1)[1].strip()
-            
-            # Sidebar Anzeige
-            indent = "&nbsp;" * (level * 4)
-            sidebar_content += f"{indent}**{label} {text}**  \n"
-            
-            # LaTeX PDF Logik (mit Gliederungsebenen)
-            cmd = "section" if level == 1 else "subsection" if level == 2 else "subsubsection" if level == 3 else "paragraph"
-            latex_body.append(f"\\{cmd}*{{{label} {text}}}")
-            latex_body.append(f"\\addcontentsline{{toc}}{{{cmd}}}{{{label} {text}}}")
-            found = True
-            break
-    
-    if not found:
-        # Normaler Text und Fußnoten \fn(text)
-        txt = re.sub(r'\\fn\(([^)]*)\)', r'\\footnote{\1}', line_strip)
-        latex_body.append(txt)
-
-# Sidebar füllen
-gliederung_area.markdown(sidebar_content, unsafe_allow_html=True)
-
-# 5. PDF Export
-if st.button("🚀 PDF generieren (6cm Rand)"):
-    latex_full = r"""
-\documentclass[12pt,a4paper]{article}
-\usepackage[ngerman]{babel}
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{lmodern}
-\usepackage[left=2cm,right=6cm,top=2cm,bottom=2cm]{geometry}
-\usepackage{setspace}
-\onehalfspacing
-\renewcommand{\contentsname}{Gliederung}
-\begin{document}
-""" + f"\\section*{{{titel}}} \\tableofcontents \\newpage" + "\n".join(latex_body) + r"\end{document}"
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        with open(os.path.join(tmpdir, "klausur.tex"), "w", encoding="utf-8") as f:
-            f.write(latex_full)
-        try:
-            subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], cwd=tmpdir, check=True)
-            with open(os.path.join(tmpdir, "klausur.pdf"), "rb") as f:
-                st.download_button("⬇️ PDF Download", f, file_name=f"{titel}.pdf")
-        except:
-            st.error("LaTeX-Fehler: Bitte prüfe Sonderzeichen im Text.")
+if st.button("🚀 PDF exportieren"):
+    if content:
+        with st.spinner("PDF wird generiert (2 Durchläufe für Gliederung)..."):
+            latex_code = doc.to_latex(title, date, matrikel, lines)
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tex_path = os.path.join(tmpdir, "klausur.tex")
+                with open(tex_path, "w", encoding="utf-8") as f:
+                    f.write(latex_code)
+                
+                pdflatex_bin = shutil.which("pdflatex")
+                if pdflatex_bin:
+                    try:
+                        # 2x Kompilieren für Inhaltsverzeichnis
+                        subprocess.run([pdflatex_bin, "-interaction=nonstopmode", "klausur.tex"], cwd=tmpdir, check=True, capture_output=True)
+                        subprocess.run([pdflatex_bin, "-interaction=nonstopmode", "klausur.tex"], cwd=tmpdir, check=True, capture_output=True)
+                        
+                        pdf_path = os.path.join(tmpdir, "klausur.pdf")
+                        with open(pdf_path, "rb") as f:
+                            st.download_button("⬇️ PDF herunterladen", f, file_name=f"{title}.pdf", mime="application/pdf")
+                        st.success("Erfolgreich erstellt!")
+                    except Exception as e:
+                        st.error(f"Fehler: {e}")
+    else:
+        st.warning("Bitte erst Text eingeben.")
