@@ -1,2 +1,5 @@
-streamlit
-reportlab
+texlive-latex-extra
+texlive-lang-german
+texlive-fonts-recommended
+texlive-latex-base
+texlive-publishers
