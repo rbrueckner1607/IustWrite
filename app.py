@@ -27,13 +27,14 @@ class KlausurDocument:
         self.footnote_pattern = r'\\\\fn\\((.*?)\\)'
 
     def get_display_text(self, line_s, patterns):
-        """Extrahiert nur den Text nach dem Präfix für Gliederung/TOC"""
+        """Extrahiert nur den Text NACH dem Präfix für Gliederung/TOC"""
         for level, pattern in patterns.items():
             match = re.match(pattern, line_s)
             if match:
-                # Alles nach dem Präfix (inkl. Stern) entfernen
-                return re.sub(pattern, '', line_s, count=1).strip()
-        return line_s
+                # Alles bis zum ersten Leerzeichen nach Präfix entfernen
+                after_prefix = re.sub(pattern, ' ', line_s, count=1)
+                return after_prefix.strip()
+        return line_s.strip()
 
     def parse_content(self, lines):
         latex_output = []
@@ -121,7 +122,7 @@ def main():
         with col2:
             st.metric("Zeichen", f"{char_count:,}")
 
-    # === Sidebar Gliederung (Sterne erkennen + nur Text anzeigen) ===
+    # === Sidebar Gliederung (FIX: Sterne korrekt anzeigen) ===
     if user_input:
         for line in user_input.split('\\n'):
             line_s = line.strip()
@@ -130,11 +131,12 @@ def main():
                 
             found = False
             
-            # Sterne zuerst - nur Text nach Stern anzeigen
+            # Sterne zuerst - nur Text NACH Stern anzeigen
             for level, pattern in doc_parser.star_patterns.items():
                 if re.match(pattern, line_s):
                     display_text = doc_parser.get_display_text(line_s, doc_parser.star_patterns)
-                    st.sidebar.markdown(f"{'&nbsp;' * (level * 4)}**{display_text}**")
+                    if display_text:  # Nur wenn Text vorhanden
+                        st.sidebar.markdown(f"{'&nbsp;' * (level * 4)}**{display_text}**")
                     found = True
                     break
             
@@ -143,7 +145,8 @@ def main():
                 for level, pattern in doc_parser.prefix_patterns.items():
                     if re.match(pattern, line_s):
                         display_text = doc_parser.get_display_text(line_s, doc_parser.prefix_patterns)
-                        st.sidebar.markdown(f"&nbsp;" * (level * 4) + display_text)
+                        if display_text:
+                            st.sidebar.markdown(f"&nbsp;" * (level * 4) + display_text)
                         found = True
                         break
 
