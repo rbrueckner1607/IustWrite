@@ -196,18 +196,18 @@ def main():
 """ + parsed_content + r"""
 \end{document}
 """
-                    with open("klausur.tex", "w", encoding="utf-8") as f:
+                    with open("Gutachten.tex", "w", encoding="utf-8") as f:
                         f.write(full_latex)
                     
                     env = os.environ.copy()
                     env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
                     for _ in range(2):
-                        subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
+                        subprocess.run(["pdflatex", "-interaction=nonstopmode", "Gutachten.tex"], env=env, capture_output=True)
 
                     if os.path.exists("klausur.pdf"):
-                        st.success(f"PDF erstellt (Kopfzeile angepasst)")
-                        with open("klausur.pdf", "rb") as f:
-                            st.download_button("📥 Download PDF", f, f"Klausur.pdf")
+                        st.success(f"PDF erstellt")
+                        with open("Gutachten.pdf", "rb") as f:
+                            st.download_button("📥 Download PDF", f, f"Gutachten.pdf")
 
     with col_save:
         st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Klausur.txt")
