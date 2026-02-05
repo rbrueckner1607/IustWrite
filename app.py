@@ -182,6 +182,10 @@ def main():
 
 % Umschalten auf variablen Korrekturrand für den Text
 \newgeometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm}
+
+% Zwingt fancyhdr dazu, die Kopfzeile an die NEUE Textbreite anzupassen
+\fancyhfoffset[R]{0pt} 
+
 \pagenumbering{arabic}
 \setcounter{page}{1}
 \pagestyle{iustwrite}
@@ -201,7 +205,7 @@ def main():
                         subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
                     if os.path.exists("klausur.pdf"):
-                        st.success(f"PDF erstellt (Gliederung: 3cm / Text: {rand_wert})")
+                        st.success(f"PDF erstellt (Kopfzeile angepasst)")
                         with open("klausur.pdf", "rb") as f:
                             st.download_button("📥 Download PDF", f, f"Klausur.pdf")
 
