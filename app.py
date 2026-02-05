@@ -69,21 +69,18 @@ class KlausurDocument:
 # --- UI SETTINGS ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
-# Session State initialisieren
 if "klausur_text" not in st.session_state:
     st.session_state.klausur_text = ""
 
 def handle_upload():
     if st.session_state.uploader_key is not None:
         content = st.session_state.uploader_key.read().decode("utf-8")
-        # Wir setzen den neuen Inhalt direkt in den State des Editors
         st.session_state["main_editor_key"] = content
         st.session_state.klausur_text = content
 
 def main():
     doc_parser = KlausurDocument()
     
-    # CSS für kompakte Sidebar
     st.markdown("""
         <style>
         [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
@@ -94,14 +91,24 @@ def main():
 
     st.title("⚖️ IustWrite Editor")
 
+    # --- SIDEBAR EINSTELLUNGEN ---
+    st.sidebar.title("⚙️ Layout")
+    # Hier wird der Wert abgefragt (Standard 6cm)
+    rand_input = st.sidebar.text_input("Korrekturrand rechts (in cm)", value="6")
+    
+    # Sicherstellen, dass "cm" dransteht, falls der User es vergisst
+    rand_wert = rand_input.strip()
+    if not any(unit in rand_wert for unit in ['cm', 'mm']):
+        rand_wert += "cm"
+    
+    st.sidebar.markdown("---")
+    st.sidebar.title("📌 Gliederung")
+
     c1, c2, c3 = st.columns(3)
     with c1: kl_titel = st.text_input("Titel", "Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
-    st.sidebar.title("📌 Gliederung")
-
-    # Der Editor: Nutzt den Key zur direkten Steuerung
     current_text = st.text_area(
         "Gutachten", 
         value=st.session_state.klausur_text, 
@@ -109,11 +116,7 @@ def main():
         key="main_editor_key"
     )
 
-    # Gliederung in Sidebar anzeigen (basierend auf sichtbarem Text)
     if current_text:
-        col_m1, col_m2 = st.columns([4, 1])
-        with col_m2: st.metric("Zeichen", f"{len(current_text):,}")
-
         for line in current_text.split('\n'):
             line_s = line.strip()
             if not line_s: continue
@@ -135,23 +138,24 @@ def main():
 
     with col_pdf:
         if st.button("🏁 PDF generieren"):
-            # WICHTIG: Wir nutzen 'current_text', also das, was GERADE im Feld steht
             if not current_text.strip():
                 st.warning("Das Editorfenster ist leer!")
             else:
-                with st.spinner("Kompiliere aktuellen Editorinhalt..."):
+                with st.spinner("Kompiliere..."):
                     parsed_content = doc_parser.parse_content(current_text.split('\n'))
                     titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
 
+                    # HIER wird deine Variable rand_wert direkt eingesetzt
                     full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
-\usepackage{setspace}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
+\usepackage{setspace}
 \usepackage{geometry}
 \usepackage{fancyhdr}
-\geometry{left=2cm, right=2.5cm, top=2.5cm, bottom=3cm}
+
+\geometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm}
 
 \makeatletter
 \renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
@@ -165,48 +169,43 @@ def main():
 \makeatother
 
 \fancypagestyle{iustwrite}{
-\fancyhf{}
-\fancyhead[L]{\small """ + kl_kuerzel + r"""}
-\fancyhead[R]{\small """ + titel_komp + r"""}
-\fancyfoot[R]{\thepage}
-\renewcommand{\headrulewidth}{0.5pt}
-\renewcommand{\footrulewidth}{0pt}
+    \fancyhf{}
+    \fancyhead[L]{\small """ + kl_kuerzel + r"""}
+    \fancyhead[R]{\small """ + titel_komp + r"""}
+    \fancyfoot[R]{\thepage}
+    \renewcommand{\headrulewidth}{0.5pt}
 }
 
 \begin{document}
+\sloppy % Zwingt LaTeX, den Text innerhalb der Ränder zu brechen
 \pagenumbering{gobble}
-\renewcommand{\contentsname}{Gliederung}
 \tableofcontents
 \clearpage
 \pagenumbering{arabic}
 \setcounter{page}{1}
 \pagestyle{iustwrite}
-\setstretch{1.2}
+\setstretch{1.3}
+
 {\noindent\Large\bfseries """ + titel_komp + r""" \par}\bigskip
 \noindent
 """ + parsed_content + r"""
 \end{document}
 """
-                    # Datei schreiben und kompilieren
                     with open("klausur.tex", "w", encoding="utf-8") as f:
                         f.write(full_latex)
                     
                     env = os.environ.copy()
                     env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
-                    
                     for _ in range(2):
                         subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
                     if os.path.exists("klausur.pdf"):
-                        st.success("PDF aus Editor-Inhalt erstellt!")
+                        st.success(f"PDF mit {rand_wert} Rand erstellt.")
                         with open("klausur.pdf", "rb") as f:
-                            st.download_button("📥 Download PDF", f, f"Klausur_{kl_kuerzel}.pdf")
-                    else:
-                        st.error("Fehler bei der PDF-Erstellung.")
+                            st.download_button("📥 Download PDF", f, f"Klausur.pdf")
 
     with col_save:
-        # Auch hier: Download nur vom aktuellen Inhalt
-        st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Klausur_{kl_kuerzel}.txt")
+        st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Klausur.txt")
 
     with col_load:
         st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
