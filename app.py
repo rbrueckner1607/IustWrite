@@ -6,7 +6,6 @@ import streamlit as st
 # --- ERWEITERTE PARSER KLASSE ---
 class KlausurDocument:
     def __init__(self):
-        # Muster für nummerierte Gliederungen
         self.prefix_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
             2: r'^\s*[A-H]\.(\s|$)',
@@ -18,7 +17,6 @@ class KlausurDocument:
             8: r'^\s*\([a-z]{2}\)\s.*'
         }
 
-        # Muster für unnummerierte Gliederungen (mit Sternchen)
         self.star_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+\*(\s|$)',
             2: r'^\s*[A-H]\*(\s|$)',
@@ -38,17 +36,18 @@ class KlausurDocument:
                 continue
 
             found_level = False
-            # Check for Star-Patterns (Unnumbered)
+            # Check for Star-Patterns
             for level, pattern in self.star_patterns.items():
                 if re.match(pattern, line_s):
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*", 4: "paragraph*", 5: "subparagraph*"}
                     cmd = cmds.get(level, "subparagraph*")
-                    # \\mbox{}\\par erzwingt den Umbruch nach dem Header
-                    latex_output.append(f"\\{cmd}{{{line_s}}}\\mbox{{}}\\par")
+                    # Nur bei tiefen Ebenen (4+) den Umbruch erzwingen
+                    suffix = "\\mbox{}\\par" if level >= 4 else ""
+                    latex_output.append(f"\\{cmd}{{{line_s}}}{suffix}")
                     found_level = True
                     break
 
-            # Check for Prefix-Patterns (Numbered/TOC)
+            # Check for Prefix-Patterns
             if not found_level:
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
@@ -59,14 +58,15 @@ class KlausurDocument:
                         }
                         cmd = cmds.get(level, "subparagraph")
                         toc_indent = f"{max(0, level - 3)}em" if level > 3 else "0em"
-                        # Wir nutzen die *-Variante der Commands für das Layout und addcontentsline für das Verzeichnis
-                        latex_output.append(f"\\{cmd}*{{{line_s}}}\\mbox{{}}\\par")
+                        # Nur bei tiefen Ebenen (4+) den Umbruch erzwingen
+                        suffix = "\\mbox{}\\par" if level >= 4 else ""
+                        
+                        latex_output.append(f"\\{cmd}*{{{line_s}}}{suffix}")
                         toc_cmd = "subsubsection" if level >= 3 else cmd
                         latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{toc_indent}}}{line_s}}}")
                         found_level = True
                         break
 
-            # Normaler Text und Sonderzeichen
             if not found_level:
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
                 line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
@@ -77,7 +77,6 @@ class KlausurDocument:
 # --- UI SETTINGS ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
-# Initialisierung des Session States für den Text
 if "klausur_text" not in st.session_state:
     st.session_state.klausur_text = ""
 
@@ -89,22 +88,15 @@ def handle_upload():
 def main():
     doc_parser = KlausurDocument()
     
-    # Custom CSS für die Sidebar-Optik
-    st.markdown("""
-        <style>
-        [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
-        [data-testid="stSidebar"] p { font-size: 0.82rem !important; line-height: 1.1 !important; }
-        [data-testid="stSidebar"] h2 { font-size: 1.1rem; padding-bottom: 5px; }
-        </style>
-        """, unsafe_allow_html=True)
-
     st.title("⚖️ IustWrite Editor")
 
-    # --- SIDEBAR EINSTELLUNGEN ---
+    # --- SIDEBAR ---
     st.sidebar.title("⚙️ Layout")
-    rand_input = st.sidebar.text_input("Korrekturrand rechts (z.B. 7cm)", value="6cm")
+    rand_input = st.sidebar.text_input("Korrekturrand rechts", value="6cm")
     
-    # Schriftarten-Optionen (Bereinigt)
+    # NEU: Zeilenabstand Slider
+    z_abstand = st.sidebar.slider("Zeilenabstand", 1.0, 2.0, 1.3, 0.1)
+    
     font_options = {
         "Latin Modern (Standard)": "\\usepackage{lmodern}",
         "Palatino": "\\usepackage{mathpazo}",
@@ -113,7 +105,6 @@ def main():
     selected_font_label = st.sidebar.selectbox("Schriftart wählen", list(font_options.keys()))
     font_code = font_options[selected_font_label]
 
-    # Korrekturrand Validierung
     rand_wert = rand_input.strip()
     if not any(unit in rand_wert for unit in ['cm', 'mm', 'in', 'pt']):
         rand_wert += "cm"
@@ -121,20 +112,15 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
-    # --- HAUPTBEREICH: EINGABE ---
+    # --- EDITOR ---
     c1, c2, c3 = st.columns(3)
     with c1: kl_titel = st.text_input("Titel", "Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
-    current_text = st.text_area(
-        "Gutachten Text", 
-        value=st.session_state.klausur_text, 
-        height=600, 
-        key="main_editor_key"
-    )
+    current_text = st.text_area("Gutachten Text", value=st.session_state.klausur_text, height=600, key="main_editor_key")
 
-    # Sidebar Live-Vorschau der Gliederung
+    # Gliederungsvorschau
     if current_text:
         for line in current_text.split('\n'):
             line_s = line.strip()
@@ -144,19 +130,16 @@ def main():
                     st.sidebar.markdown(f"{'&nbsp;' * (level * 2)} {line_s}")
                     break
 
-    # --- AKTIONEN: PDF / SPEICHERN ---
-    col_pdf, col_save, col_load = st.columns([1, 1, 1])
+    # --- PDF GENERIERUNG ---
+    if st.button("🏁 PDF generieren"):
+        if not current_text.strip():
+            st.warning("Editor leer!")
+        else:
+            with st.spinner("PDF wird erstellt..."):
+                parsed_content = doc_parser.parse_content(current_text.split('\n'))
+                titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
 
-    with col_pdf:
-        if st.button("🏁 PDF generieren"):
-            if not current_text.strip():
-                st.warning("Das Editorfenster ist leer!")
-            else:
-                with st.spinner("PDF wird erstellt..."):
-                    parsed_content = doc_parser.parse_content(current_text.split('\n'))
-                    titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
-
-                    full_latex = r"""\documentclass[12pt, a4paper]{article}
+                full_latex = r"""\documentclass[12pt, a4paper]{article}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
@@ -166,8 +149,9 @@ def main():
 \usepackage{fancyhdr}
 \usepackage{microtype}
 
-% Erlaubt Dehnung der Wortabstände für Blocksatz trotz breitem Rand
 \sloppy 
+\setlength{\parindent}{0pt} % Verhindert das Einrücken nach Überschriften
+\setlength{\parskip}{6pt}   % Definiert Abstände zwischen Absätzen
 
 \geometry{left=2cm, right=2cm, top=2.5cm, bottom=3cm, headsep=1cm}
 
@@ -190,7 +174,7 @@ def main():
 \pagestyle{iustwrite}
 
 \newgeometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm, includehead}
-\setstretch{1.3}
+\setstretch{""" + str(z_abstand) + r"""}
 \emergencystretch 3em 
 
 {\noindent\Large\bfseries """ + titel_komp + r""" \par}\bigskip
@@ -199,26 +183,18 @@ def main():
 
 \end{document}
 """
-                    # Datei schreiben
-                    with open("klausur.tex", "w", encoding="utf-8") as f:
-                        f.write(full_latex)
-                    
-                    # PDF-Kompilierung (2x für Inhaltsverzeichnis)
-                    for _ in range(2):
-                        subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], capture_output=True)
+                with open("klausur.tex", "w", encoding="utf-8") as f:
+                    f.write(full_latex)
+                
+                for _ in range(2):
+                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], capture_output=True)
 
-                    if os.path.exists("klausur.pdf"):
-                        st.success(f"PDF erstellt (Schriftart: {selected_font_label})")
-                        with open("klausur.pdf", "rb") as f:
-                            st.download_button("📥 Download PDF", f, f"Klausur_{kl_kuerzel}.pdf")
-                    else:
-                        st.error("LaTeX-Kompilierung fehlgeschlagen. Überprüfe deine pdflatex Installation.")
+                if os.path.exists("klausur.pdf"):
+                    st.success("PDF erfolgreich erstellt!")
+                    with open("klausur.pdf", "rb") as f:
+                        st.download_button("📥 Download PDF", f, f"Klausur_{kl_kuerzel}.pdf")
 
-    with col_save:
-        st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Klausur_{kl_kuerzel}.txt")
-
-    with col_load:
-        st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
+    st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
 
 if __name__ == "__main__":
     main()
