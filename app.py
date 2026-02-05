@@ -36,7 +36,6 @@ class KlausurDocument:
                 continue
 
             found_level = False
-            # Sterne-Überschriften
             for level, pattern in self.star_patterns.items():
                 if re.match(pattern, line_s):
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*", 4: "paragraph*", 5: "subparagraph*"}
@@ -45,7 +44,6 @@ class KlausurDocument:
                     found_level = True
                     break
 
-            # Normale Überschriften
             if not found_level:
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
@@ -68,37 +66,43 @@ class KlausurDocument:
                 latex_output.append(line_s)
         return "\n".join(latex_output)
 
-# --- UI ---
+# --- UI SETTINGS ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
+
+# --- SESSION STATE INITIALISIERUNG ---
+if "klausur_text" not in st.session_state:
+    st.session_state.klausur_text = ""
+if "show_success" not in st.session_state:
+    st.session_state.show_success = False
 
 def load_klausur():
     uploaded_file = st.session_state.uploader_key
     if uploaded_file is not None:
-        loaded_text = uploaded_file.read().decode("utf-8")
-        st.session_state.klausur_text = st.session_state.klausur_text + "\n\n--- NEU GELADETE KLASUR ---\n\n" + loaded_text
-        st.session_state.show_success = True
+        try:
+            loaded_text = uploaded_file.read().decode("utf-8")
+            # Setzt den Text direkt in den Session State
+            st.session_state.klausur_text = loaded_text
+            st.session_state.show_success = True
+        except Exception as e:
+            st.error(f"Fehler beim Lesen der Datei: {e}")
 
 def main():
     doc_parser = KlausurDocument()
     
-    # --- STYLING FÜR DIE SIDEBAR (ENGER & KLEINER) ---
+    # --- CSS FÜR COMPACT SIDEBAR ---
     st.markdown(
         """
         <style>
-        /* Reduziert Abstände zwischen Sidebar-Elementen */
         [data-testid="stSidebar"] .stMarkdown {
             margin-bottom: -16px; 
         }
-        /* Verkleinert Schrift und Zeilenhöhe in der Sidebar */
         [data-testid="stSidebar"] p {
             font-size: 0.82rem !important;
             line-height: 1.1 !important;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-        /* Sidebar Titel-Anpassung */
         [data-testid="stSidebar"] h2 {
-            padding-bottom: 10px;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
+            padding-bottom: 5px;
         }
         </style>
         """,
@@ -107,62 +111,58 @@ def main():
 
     st.title("⚖️ IustWrite Editor")
 
-    if "klausur_text" not in st.session_state:
-        st.session_state.klausur_text = ""
-    if "show_success" not in st.session_state:
-        st.session_state.show_success = False
-
+    # Kopfdaten
     c1, c2, c3 = st.columns(3)
-    with c1: kl_titel = st.text_input("Titel", "")
+    with c1: kl_titel = st.text_input("Titel", "Klausur Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
     st.sidebar.title("📌 Gliederung")
 
-    user_input = st.text_area("Gutachten", value=st.session_state.klausur_text, height=700, key="klausur_text_area")
+    # Textfeld - Verknüpft mit st.session_state.klausur_text
+    user_input = st.text_area(
+        "Gutachten", 
+        value=st.session_state.klausur_text, 
+        height=700, 
+        key="main_editor"
+    )
     
-    # Update session state manually to keep it in sync
+    # Synchronisiere State mit Input
     st.session_state.klausur_text = user_input
 
+    # Gliederung generieren
     if user_input:
         char_count = len(user_input)
         col1, col2 = st.columns([4, 1])
         with col2: st.metric("Zeichen", f"{char_count:,}")
 
-        # Gliederungs-Vorschau in der Sidebar
         for line in user_input.split('\n'):
             line_s = line.strip()
-            found = False
+            if not line_s: continue
             
-            # Check Sterne-Überschriften
+            found = False
             for level, pattern in doc_parser.star_patterns.items():
                 if re.match(pattern, line_s):
-                    # Nur Hauptebenen fett
                     weight = "**" if level <= 2 else ""
                     st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}{weight}{line_s}{weight}")
                     found = True
                     break
             
-            # Check Normale Überschriften
             if not found:
                 for level, pattern in doc_parser.prefix_patterns.items():
                     if re.match(pattern, line_s):
-                        # Geringere Einrückung (level * 2 statt 4)
                         weight = "**" if level <= 2 else ""
                         st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}{weight}{line_s}{weight}")
                         break
 
+    # Action Buttons
     col_pdf, col_save, col_load = st.columns([1, 1, 1])
 
     with col_pdf:
         if st.button("🏁 PDF generieren"):
-            with st.spinner("Präzisions-Kompilierung läuft..."):
+            with st.spinner("Kompiliere..."):
                 parsed_content = doc_parser.parse_content(user_input.split('\n'))
-                
-                if kl_datum.strip():
-                    titel_komplett = f"{kl_titel} ({kl_datum})"
-                else:
-                    titel_komplett = kl_titel
+                titel_komplett = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
 
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
@@ -172,7 +172,6 @@ def main():
 \usepackage{lmodern}
 \usepackage{geometry}
 \usepackage{fancyhdr}
-\usepackage{tocloft}
 \geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
 
 \makeatletter
@@ -200,12 +199,10 @@ def main():
 \renewcommand{\contentsname}{Gliederung}
 \tableofcontents
 \clearpage
-
 \pagenumbering{arabic}
 \setcounter{page}{1}
 \pagestyle{iustwrite}
 \setstretch{1.2}
-
 {\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
 \noindent
 """ + parsed_content + r"""
@@ -216,26 +213,23 @@ def main():
 
                 env = os.environ.copy()
                 env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
-
                 for _ in range(2):
                     subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
                 if os.path.exists("klausur.pdf"):
-                    st.success("PDF erfolgreich erstellt!")
+                    st.success("PDF bereit!")
                     with open("klausur.pdf", "rb") as f:
-                        st.download_button("📥 Download", f, f"Klausur_{kl_kuerzel}.pdf")
-                else:
-                    st.error("Fehler beim Erzeugen.")
+                        st.download_button("📥 Download PDF", f, f"Klausur_{kl_kuerzel}.pdf")
 
     with col_save:
-        if st.button("💾 Als TXT speichern", type="secondary"):
-            st.download_button(label="📥 Download TXT", data=user_input, file_name=f"Klausur_{kl_kuerzel}_{kl_titel.replace(' ', '_')}.txt", mime="text/plain")
+        if st.button("💾 Als TXT speichern"):
+            st.download_button(label="📥 Download TXT", data=user_input, file_name=f"Klausur_{kl_kuerzel}.txt", mime="text/plain")
 
     with col_load:
         st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=load_klausur)
 
-    if st.session_state.get("show_success", False):
-        st.success("✅ Klausur geladen!")
+    if st.session_state.show_success:
+        st.toast("✅ Datei erfolgreich geladen!", icon="📂")
         st.session_state.show_success = False
 
 if __name__ == "__main__":
