@@ -66,7 +66,6 @@ class KlausurDocument:
 def load_klausur():
     if st.session_state.uploader_key is not None:
         content = st.session_state.uploader_key.read().decode("utf-8")
-        # Direktes Update des text_area keys
         st.session_state.klausur_editor = content
         st.session_state.show_success = True
 
@@ -77,41 +76,41 @@ def main():
     
     st.title("⚖️ IustWrite Editor")
 
-    # Initialisierung des Session States für das Textfeld
     if "klausur_editor" not in st.session_state:
         st.session_state.klausur_editor = ""
     if "show_success" not in st.session_state:
         st.session_state.show_success = False
 
-    # --- SIDEBAR EINSTELLUNGEN ---
-    st.sidebar.title("⚙️ Dokument-Optionen")
-    kl_titel = st.sidebar.text_input("Titel", "Klausur")
-    kl_datum = st.sidebar.text_input("Datum (optional)", "")
-    kl_kuerzel = st.sidebar.text_input("Kürzel / Matrikel", "")
-    kl_rand = st.sidebar.number_input("Korrekturrand rechts (cm)", min_value=0.0, max_value=15.0, value=6.0, step=0.5)
-    
-    st.sidebar.markdown("---")
-    st.sidebar.title("📌 Gliederung")
+    # --- SIDEBAR EINSTELLUNGEN (KOMPAKTER) ---
+    with st.sidebar:
+        st.subheader("⚙️ Einstellungen")
+        kl_titel = st.text_input("Titel", "Klausur", help="Name der Klausur")
+        kl_datum = st.text_input("Datum (optional)", "")
+        kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
+        # Hier die gewünschte Änderung: Rand (rechts)
+        kl_rand = st.number_input("Rand (rechts) in cm", min_value=0.0, max_value=15.0, value=6.0, step=0.5)
+        
+        st.divider()
+        st.subheader("📌 Gliederung")
+        
+        # Gliederungsvorschau
+        if st.session_state.klausur_editor:
+            for line in st.session_state.klausur_editor.split('\n'):
+                line_s = line.strip()
+                found = False
+                for level, pattern in doc_parser.star_patterns.items():
+                    if re.match(pattern, line_s):
+                        st.markdown(f"{'&nbsp;' * (level * 2)}**{line_s}**")
+                        found = True
+                        break
+                if not found:
+                    for level, pattern in doc_parser.prefix_patterns.items():
+                        if re.match(pattern, line_s):
+                            st.markdown("&nbsp;" * (level * 2) + line_s)
+                            break
 
     # --- HAUPTBEREICH: EDITOR ---
-    # Das Textfeld ist nun fest mit st.session_state.klausur_editor verknüpft
     user_input = st.text_area("Gutachten", height=700, key="klausur_editor")
-
-    # Gliederungsvorschau in der Sidebar
-    if user_input:
-        for line in user_input.split('\n'):
-            line_s = line.strip()
-            found = False
-            for level, pattern in doc_parser.star_patterns.items():
-                if re.match(pattern, line_s):
-                    st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}**{line_s}**")
-                    found = True
-                    break
-            if not found:
-                for level, pattern in doc_parser.prefix_patterns.items():
-                    if re.match(pattern, line_s):
-                        st.sidebar.markdown("&nbsp;" * (level * 2) + line_s)
-                        break
 
     # --- AKTIONEN ---
     col_pdf, col_save, col_load = st.columns([1, 1, 1])
@@ -121,10 +120,11 @@ def main():
             if not user_input.strip():
                 st.error("Bitte gib zuerst Text ein.")
             else:
-                with st.spinner("Präzisions-Kompilierung läuft..."):
+                with st.spinner("Kompilierung läuft..."):
                     parsed_content = doc_parser.parse_content(user_input.split('\n'))
                     titel_komplett = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
 
+                    # Dynamische Einbindung des Rand-Werts
                     full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
@@ -180,21 +180,20 @@ def main():
                         subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
                     if os.path.exists("klausur.pdf"):
-                        st.success("PDF erfolgreich erstellt!")
+                        st.success("PDF erstellt!")
                         with open("klausur.pdf", "rb") as f:
                             st.download_button("📥 Download PDF", f, f"Klausur_{kl_kuerzel}.pdf", use_container_width=True)
                     else:
-                        st.error("Fehler beim Erzeugen der PDF.")
+                        st.error("Fehler beim Erzeugen.")
 
     with col_save:
-        # Direkter Download des aktuellen Inhalts
         st.download_button(label="💾 Als TXT speichern", data=user_input, file_name=f"Klausur_{kl_kuerzel}.txt", mime="text/plain", use_container_width=True)
 
     with col_load:
-        st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=load_klausur)
+        st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=load_klausur, label_visibility="collapsed")
 
     if st.session_state.show_success:
-        st.toast("✅ Klausur erfolgreich geladen!")
+        st.toast("✅ Klausur geladen!")
         st.session_state.show_success = False
 
 if __name__ == "__main__":
