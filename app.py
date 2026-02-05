@@ -151,7 +151,7 @@ def main():
 
     # --- EDITOR ---
     current_text = st.text_area(
-        "Dein Text", 
+        "", 
         value=st.session_state.klausur_text, 
         height=700,
         key="main_editor_key"
