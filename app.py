@@ -32,10 +32,11 @@ class KlausurDocument:
         for line in lines:
             line_s = line.strip()
             if not line_s:
-                latex_output.append("\\medskip")
+                latex_output.append("\\par\\medskip") # Expliziter Absatzabstand
                 continue
 
             found_level = False
+            # Check for Star-Patterns (Unnumbered)
             for level, pattern in self.star_patterns.items():
                 if re.match(pattern, line_s):
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*", 4: "paragraph*", 5: "subparagraph*"}
@@ -44,6 +45,7 @@ class KlausurDocument:
                     found_level = True
                     break
 
+            # Check for Prefix-Patterns (Numbered/TOC)
             if not found_level:
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
@@ -54,36 +56,37 @@ class KlausurDocument:
                         }
                         cmd = cmds.get(level, "subparagraph")
                         toc_indent = f"{max(0, level - 3)}em" if level > 3 else "0em"
+                        # Wir nutzen * zur Formatierung, fügen den Eintrag aber manuell zum TOC hinzu
                         latex_output.append(f"\\{cmd}*{{{line_s}}}")
                         toc_cmd = "subsubsection" if level >= 3 else cmd
                         latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{toc_indent}}}{line_s}}}")
                         found_level = True
                         break
 
+            # Normaler Text
             if not found_level:
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
                 line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
-                latex_output.append(line_s)
+                # WICHTIG: Jede normale Textzeile bekommt ein \par für sauberen Umbruch
+                latex_output.append(f"{line_s}\\par") 
+                
         return "\n".join(latex_output)
 
 # --- UI SETTINGS ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
-# Session State initialisieren
 if "klausur_text" not in st.session_state:
     st.session_state.klausur_text = ""
 
 def handle_upload():
     if st.session_state.uploader_key is not None:
         content = st.session_state.uploader_key.read().decode("utf-8")
-        # Wir setzen den neuen Inhalt direkt in den State des Editors
         st.session_state["main_editor_key"] = content
         st.session_state.klausur_text = content
 
 def main():
     doc_parser = KlausurDocument()
     
-    # CSS für kompakte Sidebar
     st.markdown("""
         <style>
         [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
@@ -94,14 +97,22 @@ def main():
 
     st.title("⚖️ IustWrite Editor")
 
+    # --- SIDEBAR ---
+    st.sidebar.title("⚙️ Layout")
+    rand_input = st.sidebar.text_input("Korrekturrand rechts (z.B. 7cm)", value="6cm")
+    
+    rand_wert = rand_input.strip()
+    if not any(unit in rand_wert for unit in ['cm', 'mm', 'in', 'pt']):
+        rand_wert += "cm"
+    
+    st.sidebar.markdown("---")
+    st.sidebar.title("📌 Gliederung")
+
     c1, c2, c3 = st.columns(3)
     with c1: kl_titel = st.text_input("Titel", "Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
-    st.sidebar.title("📌 Gliederung")
-
-    # Der Editor: Nutzt den Key zur direkten Steuerung
     current_text = st.text_area(
         "Gutachten", 
         value=st.session_state.klausur_text, 
@@ -109,11 +120,8 @@ def main():
         key="main_editor_key"
     )
 
-    # Gliederung in Sidebar anzeigen (basierend auf sichtbarem Text)
+    # Sidebar Gliederungs-Vorschau
     if current_text:
-        col_m1, col_m2 = st.columns([4, 1])
-        with col_m2: st.metric("Zeichen", f"{len(current_text):,}")
-
         for line in current_text.split('\n'):
             line_s = line.strip()
             if not line_s: continue
@@ -135,77 +143,73 @@ def main():
 
     with col_pdf:
         if st.button("🏁 PDF generieren"):
-            # WICHTIG: Wir nutzen 'current_text', also das, was GERADE im Feld steht
             if not current_text.strip():
                 st.warning("Das Editorfenster ist leer!")
             else:
-                with st.spinner("Kompiliere aktuellen Editorinhalt..."):
+                with st.spinner("PDF wird erstellt..."):
                     parsed_content = doc_parser.parse_content(current_text.split('\n'))
                     titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
 
-                    full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
+                    full_latex = r"""\documentclass[12pt, a4paper]{article}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
-\usepackage{setspace}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
+\usepackage{setspace}
 \usepackage{geometry}
 \usepackage{fancyhdr}
-\geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
+\usepackage{microtype}
+\usepackage{ragged2e} % Verhindert Hinausschießen über den Rand bei breiten Rändern
 
-\makeatletter
-\renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
-  {-3.25ex\@plus -1ex \@minus -.2ex}%
-  {1.5ex \@plus .2ex}%
-  {\normalfont\normalsize\bfseries}}
-\renewcommand\subparagraph{\@startsection{subparagraph}{5}{\z@}%
-  {-3.25ex\@plus -1ex \@minus -.2ex}%
-  {1.5ex \@plus .2ex}%
-  {\normalfont\normalsize\bfseries}}
-\makeatother
+\geometry{left=2cm, right=2cm, top=2.5cm, bottom=3cm, headsep=1cm}
 
 \fancypagestyle{iustwrite}{
-\fancyhf{}
-\fancyhead[L]{\small """ + kl_kuerzel + r"""}
-\fancyhead[R]{\small """ + titel_komp + r"""}
-\fancyfoot[R]{\thepage}
-\renewcommand{\headrulewidth}{0.5pt}
-\renewcommand{\footrulewidth}{0pt}
+    \fancyhf{}
+    \fancyhead[L]{\small """ + kl_kuerzel + r"""}
+    \fancyhead[R]{\small """ + titel_komp + r"""}
+    \fancyfoot[R]{\thepage}
+    \renewcommand{\headrulewidth}{0.5pt}
 }
 
 \begin{document}
 \pagenumbering{gobble}
-\renewcommand{\contentsname}{Gliederung}
 \tableofcontents
 \clearpage
+
 \pagenumbering{arabic}
 \setcounter{page}{1}
 \pagestyle{iustwrite}
-\setstretch{1.2}
+
+% Dynamische Geometrie für den Korrekturrand
+\newgeometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm, includehead}
+\setstretch{1.3}
+\emergencystretch 5em % Erlaubt LaTeX mehr Flexibilität beim Umbruch
+
+% Flattersatz aktivieren, damit Wörter bei wenig Platz nicht über den Rand ragen
+\RaggedRight 
+
 {\noindent\Large\bfseries """ + titel_komp + r""" \par}\bigskip
-\noindent
+
 """ + parsed_content + r"""
+
 \end{document}
 """
-                    # Datei schreiben und kompilieren
                     with open("klausur.tex", "w", encoding="utf-8") as f:
                         f.write(full_latex)
                     
                     env = os.environ.copy()
-                    env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
-                    
+                    # PDF zweimal kompilieren für Inhaltsverzeichnis
                     for _ in range(2):
                         subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
                     if os.path.exists("klausur.pdf"):
-                        st.success("PDF aus Editor-Inhalt erstellt!")
+                        st.success(f"PDF erstellt!")
                         with open("klausur.pdf", "rb") as f:
                             st.download_button("📥 Download PDF", f, f"Klausur_{kl_kuerzel}.pdf")
                     else:
-                        st.error("Fehler bei der PDF-Erstellung.")
+                        st.error("LaTeX-Fehler. Bitte Struktur prüfen.")
 
     with col_save:
-        # Auch hier: Download nur vom aktuellen Inhalt
         st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Klausur_{kl_kuerzel}.txt")
 
     with col_load:
