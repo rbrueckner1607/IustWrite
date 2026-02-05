@@ -69,18 +69,21 @@ class KlausurDocument:
 # --- UI SETTINGS ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
+# Session State initialisieren
 if "klausur_text" not in st.session_state:
     st.session_state.klausur_text = ""
 
 def handle_upload():
     if st.session_state.uploader_key is not None:
         content = st.session_state.uploader_key.read().decode("utf-8")
+        # Wir setzen den neuen Inhalt direkt in den State des Editors
         st.session_state["main_editor_key"] = content
         st.session_state.klausur_text = content
 
 def main():
     doc_parser = KlausurDocument()
     
+    # CSS für kompakte Sidebar
     st.markdown("""
         <style>
         [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
@@ -91,22 +94,14 @@ def main():
 
     st.title("⚖️ IustWrite Editor")
 
-    # --- SIDEBAR EINSTELLUNGEN ---
-    st.sidebar.title("⚙️ Layout")
-    rand_input = st.sidebar.text_input("Korrekturrand rechts (z.B. 7cm)", value="6cm")
-    
-    rand_wert = rand_input.strip()
-    if not any(unit in rand_wert for unit in ['cm', 'mm', 'in', 'pt']):
-        rand_wert += "cm"
-    
-    st.sidebar.markdown("---")
-    st.sidebar.title("📌 Gliederung")
-
     c1, c2, c3 = st.columns(3)
     with c1: kl_titel = st.text_input("Titel", "Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
+    st.sidebar.title("📌 Gliederung")
+
+    # Der Editor: Nutzt den Key zur direkten Steuerung
     current_text = st.text_area(
         "Gutachten", 
         value=st.session_state.klausur_text, 
@@ -114,6 +109,7 @@ def main():
         key="main_editor_key"
     )
 
+    # Gliederung in Sidebar anzeigen (basierend auf sichtbarem Text)
     if current_text:
         col_m1, col_m2 = st.columns([4, 1])
         with col_m2: st.metric("Zeichen", f"{len(current_text):,}")
@@ -139,74 +135,59 @@ def main():
 
     with col_pdf:
         if st.button("🏁 PDF generieren"):
+            # WICHTIG: Wir nutzen 'current_text', also das, was GERADE im Feld steht
             if not current_text.strip():
                 st.warning("Das Editorfenster ist leer!")
             else:
-                with st.spinner("PDF wird erstellt..."):
+                with st.spinner("Kompiliere aktuellen Editorinhalt..."):
                     parsed_content = doc_parser.parse_content(current_text.split('\n'))
                     titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
 
-                    full_latex = r"""\documentclass[12pt, a4paper, oneside]{article} % Wechsel auf Article für stabilere Ränder
+                    full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
+\usepackage{setspace}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
-\usepackage{setspace}
 \usepackage{geometry}
 \usepackage{fancyhdr}
-\usepackage{microtype}
-\usepackage{tocloft}
+\geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
 
-% Absolute Geometrie-Festlegung
-\geometry{
-    a4paper,
-    left=2cm,
-    right=""" + rand_wert + r""",
-    top=2.5cm,
-    bottom=3cm,
-    headsep=1cm,
-    footskip=1.5cm
-}
-
-% Simulation der Jurabook-Überschriften in Article
-\setcounter{secnumdepth}{0} % Keine Nummern direkt im Text
-\usepackage{titlesec}
-\titleformat{\section}{\normalfont\Large\bfseries}{}{0pt}{}
-\titleformat{\subsection}{\normalfont\large\bfseries}{}{0pt}{}
+\makeatletter
+\renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
+  {-3.25ex\@plus -1ex \@minus -.2ex}%
+  {1.5ex \@plus .2ex}%
+  {\normalfont\normalsize\bfseries}}
+\renewcommand\subparagraph{\@startsection{subparagraph}{5}{\z@}%
+  {-3.25ex\@plus -1ex \@minus -.2ex}%
+  {1.5ex \@plus .2ex}%
+  {\normalfont\normalsize\bfseries}}
+\makeatother
 
 \fancypagestyle{iustwrite}{
-    \fancyhf{}
-    \fancyhead[L]{\small """ + kl_kuerzel + r"""}
-    \fancyhead[R]{\small """ + titel_komp + r"""}
-    \fancyfoot[R]{\thepage}
-    \renewcommand{\headrulewidth}{0.5pt}
-    \renewcommand{\footrulewidth}{0pt}
+\fancyhf{}
+\fancyhead[L]{\small """ + kl_kuerzel + r"""}
+\fancyhead[R]{\small """ + titel_komp + r"""}
+\fancyfoot[R]{\thepage}
+\renewcommand{\headrulewidth}{0.5pt}
+\renewcommand{\footrulewidth}{0pt}
 }
 
 \begin{document}
 \pagenumbering{gobble}
 \renewcommand{\contentsname}{Gliederung}
-
-% Inhaltsverzeichnis breiter ziehen, damit es trotz Korrekturrand gut aussieht
-\begin{center}
-    \begin{minipage}{1.1\textwidth} % Erlaubt dem TOC etwas breiter zu sein als der Textkörper
-        \tableofcontents
-    \end{minipage}
-\end{center}
-
+\tableofcontents
 \clearpage
 \pagenumbering{arabic}
 \setcounter{page}{1}
 \pagestyle{iustwrite}
-\setstretch{1.3}
-\emergencystretch 3em
-
+\setstretch{1.2}
 {\noindent\Large\bfseries """ + titel_komp + r""" \par}\bigskip
 \noindent
 """ + parsed_content + r"""
-
 \end{document}
 """
+                    # Datei schreiben und kompilieren
                     with open("klausur.tex", "w", encoding="utf-8") as f:
                         f.write(full_latex)
                     
@@ -217,13 +198,14 @@ def main():
                         subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
                     if os.path.exists("klausur.pdf"):
-                        st.success(f"PDF erstellt (Rand: {rand_wert})")
+                        st.success("PDF aus Editor-Inhalt erstellt!")
                         with open("klausur.pdf", "rb") as f:
                             st.download_button("📥 Download PDF", f, f"Klausur_{kl_kuerzel}.pdf")
                     else:
-                        st.error("Fehler beim Kompilieren. Prüfe den Text.")
+                        st.error("Fehler bei der PDF-Erstellung.")
 
     with col_save:
+        # Auch hier: Download nur vom aktuellen Inhalt
         st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Klausur_{kl_kuerzel}.txt")
 
     with col_load:
