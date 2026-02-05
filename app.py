@@ -100,9 +100,14 @@ def main():
     if not any(unit in rand_wert for unit in ['cm', 'mm']):
         rand_wert += "cm"
     
-    # 2. Zeilenabstand (NEU)
+    # 2. Zeilenabstand
     abstand_options = ["1.0", "1.2", "1.5", "2.0"]
-    zeilenabstand = st.sidebar.selectbox("Zeilenabstand", options=abstand_options, index=1) # Standard 1.2
+    zeilenabstand = st.sidebar.selectbox("Zeilenabstand", options=abstand_options, index=1)
+
+    # 3. Schriftart (NEU)
+    font_options = {"lmodern (Standard)": "lmodern", "Palatino": "newpxtext,newpxmath", "Helvetica": "helvet"}
+    font_choice = st.sidebar.selectbox("Schriftart", options=list(font_options.keys()), index=0)
+    selected_font_package = font_options[font_choice]
 
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
@@ -148,11 +153,16 @@ def main():
                     parsed_content = doc_parser.parse_content(current_text.split('\n'))
                     titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
 
+                    # Font LaTeX Logic
+                    font_latex = f"\\usepackage{{{selected_font_package}}}"
+                    if "helvet" in selected_font_package:
+                        font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
+
                     full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{lmodern}
+""" + font_latex + r"""
 \usepackage{setspace}
 \usepackage{geometry}
 \usepackage{fancyhdr}
@@ -208,8 +218,11 @@ def main():
                     for _ in range(2):
                         subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
-                    if os.path.exists("Gutachten.pdf"):
-                        st.success(f"PDF erstellt (Rand: {rand_wert}, Zeilenabstand: {zeilenabstand})")
+                    if os.path.exists("klausur.pdf"):
+                        # Umbenennen für den Download
+                        if os.path.exists("Gutachten.pdf"): os.remove("Gutachten.pdf")
+                        os.rename("klausur.pdf", "Gutachten.pdf")
+                        st.success(f"PDF erstellt ({font_choice}, Rand: {rand_wert}, Zeilenabstand: {zeilenabstand})")
                         with open("Gutachten.pdf", "rb") as f:
                             st.download_button("📥 Download PDF", f, f"Gutachten.pdf")
 
