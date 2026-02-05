@@ -81,11 +81,27 @@ def handle_upload():
 def main():
     doc_parser = KlausurDocument()
     
+    # --- CSS FÜR BREITERES LAYOUT ---
     st.markdown("""
         <style>
+        /* Sidebar Styling */
         [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
         [data-testid="stSidebar"] p { font-size: 0.82rem !important; line-height: 1.1 !important; }
         [data-testid="stSidebar"] h2 { font-size: 1.1rem; padding-bottom: 5px; }
+        
+        /* Maximale Breite ausnutzen */
+        .block-container {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+            padding-left: 3rem;
+            padding-right: 3rem;
+            max-width: 95%; /* Hier wird das Fenster breiter gemacht */
+        }
+        
+        /* Textarea Font */
+        .stTextArea textarea {
+            font-family: 'Courier New', Courier, monospace;
+        }
         </style>
         """, unsafe_allow_html=True)
 
@@ -94,20 +110,29 @@ def main():
     # --- SIDEBAR EINSTELLUNGEN ---
     st.sidebar.title("⚙️ Layout")
     
-    # 1. Korrekturrand
     rand_input = st.sidebar.text_input("Korrekturrand rechts (in cm)", value="6")
     rand_wert = rand_input.strip()
     if not any(unit in rand_wert for unit in ['cm', 'mm']):
         rand_wert += "cm"
     
-    # 2. Zeilenabstand (NEU)
     abstand_options = ["1.0", "1.2", "1.5", "2.0"]
-    zeilenabstand = st.sidebar.selectbox("Zeilenabstand", options=abstand_options, index=1) # Standard 1.2
+    zeilenabstand = st.sidebar.selectbox("Zeilenabstand", options=abstand_options, index=1)
+
+    font_options = {
+        "lmodern (Standard)": "lmodern",
+        "Times (klassisch)": "mathptmx",
+        "Palatino": "mathpazo",
+        "Helvetica": "helvet",
+        "Computer Modern": "" 
+    }
+    font_choice = st.sidebar.selectbox("Schriftart", options=list(font_options.keys()), index=0)
+    selected_font_package = font_options[font_choice]
 
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
-    c1, c2, c3 = st.columns(3)
+    # Eingabefelder oben
+    c1, c2, c3 = st.columns([2, 1, 1]) # Titel etwas breiter
     with c1: kl_titel = st.text_input("Titel", "Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
@@ -115,10 +140,16 @@ def main():
     current_text = st.text_area(
         "Gutachten", 
         value=st.session_state.klausur_text, 
-        height=700, 
+        height=750, # Etwas höher für mehr Schreibkomfort
         key="main_editor_key"
     )
 
+    # --- ZEICHENZÄHLER ---
+    char_count = len(current_text)
+    word_count = len(current_text.split())
+    st.info(f"📊 {char_count} Zeichen | {word_count} Wörter")
+
+    # --- Sidebar Gliederungs-Logik ---
     if current_text:
         for line in current_text.split('\n'):
             line_s = line.strip()
@@ -137,27 +168,52 @@ def main():
                         st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}{weight}{line_s}{weight}")
                         break
 
-    col_pdf, col_save, col_load = st.columns([1, 1, 1])
+    # --- FOOTER / AKTIONEN ---
+    st.markdown("---")
+    col_pdf, col_save, col_load, col_sachverhalt = st.columns([1, 1, 1, 1])
 
     with col_pdf:
-        if st.button("🏁 PDF generieren"):
-            if not current_text.strip():
-                st.warning("Das Editorfenster ist leer!")
-            else:
-                with st.spinner("Kompiliere..."):
-                    parsed_content = doc_parser.parse_content(current_text.split('\n'))
-                    titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
+        pdf_button = st.button("🏁 PDF generieren", use_container_width=True)
 
-                    full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
+    with col_save:
+        st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Gutachten.txt", use_container_width=True)
+
+    with col_load:
+        st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
+
+    with col_sachverhalt:
+        sachverhalt_file = st.file_uploader("📄 Sachverhalt (PDF)", type=['pdf'], key="sachverhalt_key")
+
+    if pdf_button:
+        if not current_text.strip():
+            st.warning("Das Editorfenster ist leer!")
+        else:
+            with st.spinner("Kompiliere..."):
+                parsed_content = doc_parser.parse_content(current_text.split('\n'))
+                titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
+
+                font_latex = ""
+                if selected_font_package:
+                    font_latex = f"\\usepackage{{{selected_font_package}}}"
+                    if "helvet" in selected_font_package:
+                        font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
+
+                sachverhalt_cmd = ""
+                if sachverhalt_file is not None:
+                    with open("temp_sachverhalt.pdf", "wb") as f:
+                        f.write(sachverhalt_file.getbuffer())
+                    sachverhalt_cmd = r"\includepdf[pages=-]{temp_sachverhalt.pdf}"
+
+                full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{lmodern}
+\usepackage{pdfpages}
+""" + font_latex + r"""
 \usepackage{setspace}
 \usepackage{geometry}
 \usepackage{fancyhdr}
 
-% Gliederungs-Layout
 \geometry{left=2cm, right=3cm, top=2.5cm, bottom=3cm}
 
 \makeatletter
@@ -181,12 +237,12 @@ def main():
 
 \begin{document}
 \sloppy
+""" + sachverhalt_cmd + r"""
 \pagenumbering{gobble}
 \renewcommand{\contentsname}{Gliederung}
 \tableofcontents
 \clearpage
 
-% Text-Layout mit Variablen aus der Sidebar
 \newgeometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm}
 \fancyhfoffset[R]{0pt} 
 
@@ -200,24 +256,24 @@ def main():
 """ + parsed_content + r"""
 \end{document}
 """
-                    with open("klausur.tex", "w", encoding="utf-8") as f:
-                        f.write(full_latex)
-                    
-                    env = os.environ.copy()
-                    env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
-                    for _ in range(2):
-                        subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
+                with open("klausur.tex", "w", encoding="utf-8") as f:
+                    f.write(full_latex)
+                
+                env = os.environ.copy()
+                env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
+                
+                for ext in ["pdf", "aux", "log", "toc"]:
+                    if os.path.exists(f"klausur.{ext}"): os.remove(f"klausur.{ext}")
 
-                    if os.path.exists("klausur.pdf"):
-                        st.success(f"PDF erstellt (Rand: {rand_wert}, Zeilenabstand: {zeilenabstand})")
-                        with open("klausur.pdf", "rb") as f:
-                            st.download_button("📥 Download PDF", f, f"Klausur.pdf")
+                for _ in range(2):
+                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
-    with col_save:
-        st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Klausur.txt")
-
-    with col_load:
-        st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
+                if os.path.exists("klausur.pdf"):
+                    st.success("PDF erstellt!")
+                    with open("klausur.pdf", "rb") as f:
+                        st.download_button("📥 Download PDF", f, "Gutachten.pdf", use_container_width=True)
+                else:
+                    st.error("Fehler bei der PDF-Erstellung.")
 
 if __name__ == "__main__":
     main()
