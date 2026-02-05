@@ -124,7 +124,7 @@ def main():
     # --- SIDEBAR EINSTELLUNGEN ---
     st.sidebar.title("⚙️ Layout")
     
-    rand_input = st.sidebar.text_input("Korrekturrand rechts (in cm)", value="6")
+    rand_input = st.sidebar.text_input("Rand rechts (mit . eingeben!)", value="6")
     rand_wert = rand_input.strip()
     if not any(unit in rand_wert for unit in ['cm', 'mm']):
         rand_wert += "cm"
