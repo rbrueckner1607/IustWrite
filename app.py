@@ -81,26 +81,37 @@ def handle_upload():
 def main():
     doc_parser = KlausurDocument()
     
-    # --- CSS FÜR BREITERES LAYOUT ---
+    # --- CSS FÜR MAXIMALE BREITE & STABILE SIDEBAR ---
     st.markdown("""
         <style>
-        /* Sidebar Styling */
-        [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
-        [data-testid="stSidebar"] p { font-size: 0.82rem !important; line-height: 1.1 !important; }
-        [data-testid="stSidebar"] h2 { font-size: 1.1rem; padding-bottom: 5px; }
-        
         /* Maximale Breite ausnutzen */
         .block-container {
-            padding-top: 2rem;
-            padding-bottom: 2rem;
-            padding-left: 3rem;
-            padding-right: 3rem;
-            max-width: 95%; /* Hier wird das Fenster breiter gemacht */
+            padding-top: 1.5rem;
+            padding-bottom: 1rem;
+            padding-left: 2rem;
+            padding-right: 2rem;
+            max-width: 98% !important;
+        }
+
+        /* Sidebar Styling: Textumbruch für lange Überschriften */
+        [data-testid="stSidebar"] .stMarkdown {
+            margin-bottom: -18px;
+            word-wrap: break-word;
+            white-space: normal;
+        }
+        [data-testid="stSidebar"] p {
+            font-size: 0.85rem !important;
+            line-height: 1.2 !important;
+        }
+        [data-testid="stSidebar"] h2 {
+            font-size: 1.1rem;
+            padding-bottom: 5px;
         }
         
         /* Textarea Font */
         .stTextArea textarea {
             font-family: 'Courier New', Courier, monospace;
+            font-size: 1.05rem;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -118,6 +129,7 @@ def main():
     abstand_options = ["1.0", "1.2", "1.5", "2.0"]
     zeilenabstand = st.sidebar.selectbox("Zeilenabstand", options=abstand_options, index=1)
 
+    # Schriftarten-Auswahl (lmodern als Standard)
     font_options = {
         "lmodern (Standard)": "lmodern",
         "Times (klassisch)": "mathptmx",
@@ -131,36 +143,39 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
-    # Eingabefelder oben
-    c1, c2, c3 = st.columns([2, 1, 1]) # Titel etwas breiter
+    # --- LAYOUT OBEN: TITELZEILE ---
+    c1, c2, c3 = st.columns([2, 1, 1])
     with c1: kl_titel = st.text_input("Titel", "Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
+    # --- EDITOR ---
     current_text = st.text_area(
-        "Gutachten", 
+        "Dein Text", 
         value=st.session_state.klausur_text, 
-        height=750, # Etwas höher für mehr Schreibkomfort
+        height=700,
         key="main_editor_key"
     )
 
-    # --- ZEICHENZÄHLER ---
+    # Zeichenzähler
     char_count = len(current_text)
     word_count = len(current_text.split())
     st.info(f"📊 {char_count} Zeichen | {word_count} Wörter")
 
-    # --- Sidebar Gliederungs-Logik ---
+    # --- SIDEBAR GLIEDERUNGS-VORSCHAU ---
     if current_text:
         for line in current_text.split('\n'):
             line_s = line.strip()
             if not line_s: continue
             found = False
+            # Check Star Patterns
             for level, pattern in doc_parser.star_patterns.items():
                 if re.match(pattern, line_s):
                     weight = "**" if level <= 2 else ""
                     st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}{weight}{line_s}{weight}")
                     found = True
                     break
+            # Check Regular Patterns
             if not found:
                 for level, pattern in doc_parser.prefix_patterns.items():
                     if re.match(pattern, line_s):
@@ -168,7 +183,7 @@ def main():
                         st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}{weight}{line_s}{weight}")
                         break
 
-    # --- FOOTER / AKTIONEN ---
+    # --- AKTIONEN / FOOTER ---
     st.markdown("---")
     col_pdf, col_save, col_load, col_sachverhalt = st.columns([1, 1, 1, 1])
 
@@ -188,7 +203,7 @@ def main():
         if not current_text.strip():
             st.warning("Das Editorfenster ist leer!")
         else:
-            with st.spinner("Kompiliere..."):
+            with st.spinner("Kompiliere PDF..."):
                 parsed_content = doc_parser.parse_content(current_text.split('\n'))
                 titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
 
@@ -204,6 +219,7 @@ def main():
                         f.write(sachverhalt_file.getbuffer())
                     sachverhalt_cmd = r"\includepdf[pages=-]{temp_sachverhalt.pdf}"
 
+                # Das komplette LaTeX Template
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
@@ -256,6 +272,7 @@ def main():
 """ + parsed_content + r"""
 \end{document}
 """
+                # Datei schreiben und kompilieren
                 with open("klausur.tex", "w", encoding="utf-8") as f:
                     f.write(full_latex)
                 
@@ -265,15 +282,16 @@ def main():
                 for ext in ["pdf", "aux", "log", "toc"]:
                     if os.path.exists(f"klausur.{ext}"): os.remove(f"klausur.{ext}")
 
+                # Zweimaliges Ausführen für Inhaltsverzeichnis
                 for _ in range(2):
                     subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
                 if os.path.exists("klausur.pdf"):
-                    st.success("PDF erstellt!")
+                    st.success("PDF erfolgreich erstellt!")
                     with open("klausur.pdf", "rb") as f:
-                        st.download_button("📥 Download PDF", f, "Gutachten.pdf", use_container_width=True)
+                        st.download_button("📥 Jetzt PDF herunterladen", f, "Gutachten.pdf", use_container_width=True)
                 else:
-                    st.error("Fehler bei der PDF-Erstellung.")
+                    st.error("Fehler: Die PDF konnte nicht generiert werden. Prüfe deinen Text auf LaTeX-unverträgliche Sonderzeichen.")
 
 if __name__ == "__main__":
     main()
