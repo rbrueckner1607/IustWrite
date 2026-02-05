@@ -81,19 +81,18 @@ def main():
     if "show_success" not in st.session_state:
         st.session_state.show_success = False
 
-    # --- SIDEBAR EINSTELLUNGEN (KOMPAKTER) ---
+    # --- SIDEBAR EINSTELLUNGEN ---
     with st.sidebar:
-        st.subheader("⚙️ Einstellungen")
-        kl_titel = st.text_input("Titel", "Klausur", help="Name der Klausur")
+        st.markdown("### ⚙️ Einstellungen")
+        kl_titel = st.text_input("Titel", "Klausur")
         kl_datum = st.text_input("Datum (optional)", "")
         kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
-        # Hier die gewünschte Änderung: Rand (rechts)
+        # Korrekte Beschriftung und Variable
         kl_rand = st.number_input("Rand (rechts) in cm", min_value=0.0, max_value=15.0, value=6.0, step=0.5)
         
         st.divider()
-        st.subheader("📌 Gliederung")
+        st.markdown("### 📌 Gliederung")
         
-        # Gliederungsvorschau
         if st.session_state.klausur_editor:
             for line in st.session_state.klausur_editor.split('\n'):
                 line_s = line.strip()
@@ -109,8 +108,8 @@ def main():
                             st.markdown("&nbsp;" * (level * 2) + line_s)
                             break
 
-    # --- HAUPTBEREICH: EDITOR ---
-    user_input = st.text_area("Gutachten", height=700, key="klausur_editor")
+    # --- EDITOR ---
+    user_input = st.text_area("Gutachten", height=650, key="klausur_editor")
 
     # --- AKTIONEN ---
     col_pdf, col_save, col_load = st.columns([1, 1, 1])
@@ -118,13 +117,18 @@ def main():
     with col_pdf:
         if st.button("🏁 PDF generieren", use_container_width=True):
             if not user_input.strip():
-                st.error("Bitte gib zuerst Text ein.")
+                st.error("Text fehlt.")
             else:
                 with st.spinner("Kompilierung läuft..."):
                     parsed_content = doc_parser.parse_content(user_input.split('\n'))
-                    titel_komplett = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
+                    
+                    # LOGIK: Klammern nur, wenn Datum vorhanden
+                    if kl_datum.strip():
+                        titel_anzeige = f"{kl_titel} ({kl_datum})"
+                    else:
+                        titel_anzeige = kl_titel
 
-                    # Dynamische Einbindung des Rand-Werts
+                    # LaTeX Code mit kl_rand und titel_anzeige
                     full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
@@ -150,7 +154,7 @@ def main():
 \fancypagestyle{iustwrite}{
 \fancyhf{}
 \fancyhead[L]{\small """ + kl_kuerzel + r"""}
-\fancyhead[R]{\small """ + titel_komplett + r"""}
+\fancyhead[R]{\small """ + titel_anzeige + r"""}
 \fancyfoot[R]{\thepage}
 \renewcommand{\headrulewidth}{0.5pt}
 \renewcommand{\footrulewidth}{0pt}
@@ -167,7 +171,7 @@ def main():
 \pagestyle{iustwrite}
 \setstretch{1.2}
 
-{\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
+{\noindent\Large\bfseries """ + titel_anzeige + r""" \par}\bigskip
 \noindent
 """ + parsed_content + r"""
 \end{document}
@@ -180,21 +184,17 @@ def main():
                         subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
                     if os.path.exists("klausur.pdf"):
-                        st.success("PDF erstellt!")
+                        st.success("PDF fertig!")
                         with open("klausur.pdf", "rb") as f:
-                            st.download_button("📥 Download PDF", f, f"Klausur_{kl_kuerzel}.pdf", use_container_width=True)
+                            st.download_button("📥 Download", f, f"Klausur.pdf", use_container_width=True)
                     else:
-                        st.error("Fehler beim Erzeugen.")
+                        st.error("Fehler bei PDF-Erstellung.")
 
     with col_save:
-        st.download_button(label="💾 Als TXT speichern", data=user_input, file_name=f"Klausur_{kl_kuerzel}.txt", mime="text/plain", use_container_width=True)
+        st.download_button("💾 Als TXT speichern", data=user_input, file_name="Klausur.txt", use_container_width=True)
 
     with col_load:
-        st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=load_klausur, label_visibility="collapsed")
-
-    if st.session_state.show_success:
-        st.toast("✅ Klausur geladen!")
-        st.session_state.show_success = False
+        st.file_uploader("📂 Laden", type=['txt'], key="uploader_key", on_change=load_klausur, label_visibility="collapsed")
 
 if __name__ == "__main__":
     main()
