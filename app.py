@@ -69,61 +69,54 @@ class KlausurDocument:
 # --- UI SETTINGS ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
-# --- SESSION STATE INITIALISIERUNG ---
+# Session State initialisieren
 if "klausur_text" not in st.session_state:
     st.session_state.klausur_text = ""
 
 def handle_upload():
     if st.session_state.uploader_key is not None:
         content = st.session_state.uploader_key.read().decode("utf-8")
-        st.session_state.klausur_text = content
-        # Der Trick: Wir setzen das Widget-Value direkt im Session State
+        # Wir setzen den neuen Inhalt direkt in den State des Editors
         st.session_state["main_editor_key"] = content
+        st.session_state.klausur_text = content
 
 def main():
     doc_parser = KlausurDocument()
     
-    # --- CSS FÜR COMPACT SIDEBAR ---
-    st.markdown(
-        """
+    # CSS für kompakte Sidebar
+    st.markdown("""
         <style>
         [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
         [data-testid="stSidebar"] p { font-size: 0.82rem !important; line-height: 1.1 !important; }
         [data-testid="stSidebar"] h2 { font-size: 1.1rem; padding-bottom: 5px; }
         </style>
-        """,
-        unsafe_allow_html=True
-    )
+        """, unsafe_allow_html=True)
 
     st.title("⚖️ IustWrite Editor")
 
     c1, c2, c3 = st.columns(3)
-    with c1: kl_titel = st.text_input("Titel", "Klausur Gutachten")
+    with c1: kl_titel = st.text_input("Titel", "Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
     st.sidebar.title("📌 Gliederung")
 
-    # WICHTIG: Die text_area nutzt einen stabilen Key aus dem Session State
-    user_input = st.text_area(
+    # Der Editor: Nutzt den Key zur direkten Steuerung
+    current_text = st.text_area(
         "Gutachten", 
         value=st.session_state.klausur_text, 
         height=700, 
-        key="main_editor_key" 
+        key="main_editor_key"
     )
-    
-    # Textänderungen zurückschreiben
-    st.session_state.klausur_text = user_input
 
-    # Gliederungsvorschau
-    if user_input:
-        col1, col2 = st.columns([4, 1])
-        with col2: st.metric("Zeichen", f"{len(user_input):,}")
+    # Gliederung in Sidebar anzeigen (basierend auf sichtbarem Text)
+    if current_text:
+        col_m1, col_m2 = st.columns([4, 1])
+        with col_m2: st.metric("Zeichen", f"{len(current_text):,}")
 
-        for line in user_input.split('\n'):
+        for line in current_text.split('\n'):
             line_s = line.strip()
             if not line_s: continue
-            
             found = False
             for level, pattern in doc_parser.star_patterns.items():
                 if re.match(pattern, line_s):
@@ -131,7 +124,6 @@ def main():
                     st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}{weight}{line_s}{weight}")
                     found = True
                     break
-            
             if not found:
                 for level, pattern in doc_parser.prefix_patterns.items():
                     if re.match(pattern, line_s):
@@ -139,38 +131,84 @@ def main():
                         st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}{weight}{line_s}{weight}")
                         break
 
-    # Action Buttons
     col_pdf, col_save, col_load = st.columns([1, 1, 1])
 
     with col_pdf:
         if st.button("🏁 PDF generieren"):
-            with st.spinner("Kompiliere..."):
-                parsed_content = doc_parser.parse_content(user_input.split('\n'))
-                titel_komplett = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
-                full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
+            # WICHTIG: Wir nutzen 'current_text', also das, was GERADE im Feld steht
+            if not current_text.strip():
+                st.warning("Das Editorfenster ist leer!")
+            else:
+                with st.spinner("Kompiliere aktuellen Editorinhalt..."):
+                    parsed_content = doc_parser.parse_content(current_text.split('\n'))
+                    titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
+
+                    full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage{setspace}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
 \usepackage{geometry}
+\usepackage{fancyhdr}
 \geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
+
+\makeatletter
+\renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
+  {-3.25ex\@plus -1ex \@minus -.2ex}%
+  {1.5ex \@plus .2ex}%
+  {\normalfont\normalsize\bfseries}}
+\renewcommand\subparagraph{\@startsection{subparagraph}{5}{\z@}%
+  {-3.25ex\@plus -1ex \@minus -.2ex}%
+  {1.5ex \@plus .2ex}%
+  {\normalfont\normalsize\bfseries}}
+\makeatother
+
+\fancypagestyle{iustwrite}{
+\fancyhf{}
+\fancyhead[L]{\small """ + kl_kuerzel + r"""}
+\fancyhead[R]{\small """ + titel_komp + r"""}
+\fancyfoot[R]{\thepage}
+\renewcommand{\headrulewidth}{0.5pt}
+\renewcommand{\footrulewidth}{0pt}
+}
+
 \begin{document}
-\tableofcontents\clearpage
+\pagenumbering{gobble}
+\renewcommand{\contentsname}{Gliederung}
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\pagestyle{iustwrite}
 \setstretch{1.2}
-{\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
+{\noindent\Large\bfseries """ + titel_komp + r""" \par}\bigskip
+\noindent
 """ + parsed_content + r"""
-\end{document}"""
-                with open("klausur.tex", "w", encoding="utf-8") as f: f.write(full_latex)
-                for _ in range(2): subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], capture_output=True)
-                if os.path.exists("klausur.pdf"):
-                    with open("klausur.pdf", "rb") as f: st.download_button("📥 Download PDF", f, "Klausur.pdf")
+\end{document}
+"""
+                    # Datei schreiben und kompilieren
+                    with open("klausur.tex", "w", encoding="utf-8") as f:
+                        f.write(full_latex)
+                    
+                    env = os.environ.copy()
+                    env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
+                    
+                    for _ in range(2):
+                        subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
+
+                    if os.path.exists("klausur.pdf"):
+                        st.success("PDF aus Editor-Inhalt erstellt!")
+                        with open("klausur.pdf", "rb") as f:
+                            st.download_button("📥 Download PDF", f, f"Klausur_{kl_kuerzel}.pdf")
+                    else:
+                        st.error("Fehler bei der PDF-Erstellung.")
 
     with col_save:
-        st.download_button("💾 Als TXT speichern", data=user_input, file_name="Klausur.txt")
+        # Auch hier: Download nur vom aktuellen Inhalt
+        st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Klausur_{kl_kuerzel}.txt")
 
     with col_load:
-        # Hier triggert on_change die Funktion handle_upload
         st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
 
 if __name__ == "__main__":
