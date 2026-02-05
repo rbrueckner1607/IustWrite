@@ -60,12 +60,9 @@ class KlausurDocument:
                         cmd = cmds.get(level, "subparagraph")
                         
                         # --- OPTIMIERTE TOC EINRÜCKUNG ---
-                        # Teil (1), A. (2), I. (3) -> 0em
-                        # 1. (4) -> 1em, a) (5) -> 2em, aa) (6) -> 3em, etc.
                         toc_indent = f"{max(0, level - 3)}em" if level > 3 else "0em"
                         
                         latex_output.append(f"\\{cmd}*{{{line_s}}}")
-                        # Wir nutzen subsubsection als Basis im TOC für bessere Ausrichtung ab Ebene 3
                         toc_cmd = "subsubsection" if level >= 3 else cmd
                         latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{toc_indent}}}{line_s}}}")
                         found_level = True
@@ -132,7 +129,12 @@ def main():
         if st.button("🏁 PDF generieren"):
             with st.spinner("Präzisions-Kompilierung läuft..."):
                 parsed_content = doc_parser.parse_content(user_input.split('\n'))
-                titel_komplett = f"{kl_titel} ({kl_datum})"
+                
+                # --- DYNAMISCHE TITEL-LOGIK ---
+                if kl_datum.strip():
+                    titel_komplett = f"{kl_titel} ({kl_datum})"
+                else:
+                    titel_komplett = kl_titel
 
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
