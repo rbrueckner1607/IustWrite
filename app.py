@@ -25,7 +25,12 @@ class KlausurDocument:
             5: r'^\s*[a-z]\)\*(\s|$)'
         }
 
-        self.footnote_pattern = r'\\fn\((.*?)\)'
+        # Neue Kurz-Patterns
+        self.shortcut_patterns = [
+            (r'\\bf\((.*?)\)', r'\\textbf{\1}'), # \bf(text) -> \textbf{text}
+            (r'\\it\((.*?)\)', r'\\textit{\1}'), # \it(text) -> \textit{text}
+            (r'\\fn\((.*?)\)', r'\\footnote{\1}') # \fn(text) -> \footnote{text}
+        ]
 
     def parse_content(self, lines):
         latex_output = []
@@ -36,6 +41,7 @@ class KlausurDocument:
                 continue
 
             found_level = False
+            # 1. Überschriften (mit Stern)
             for level, pattern in self.star_patterns.items():
                 if re.match(pattern, line_s):
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*", 4: "paragraph*", 5: "subparagraph*"}
@@ -45,6 +51,7 @@ class KlausurDocument:
                     break
 
             if not found_level:
+                # 2. Überschriften (normal mit Inhaltsverzeichnis)
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
                         cmds = {
@@ -61,9 +68,15 @@ class KlausurDocument:
                         break
 
             if not found_level:
-                line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
+                # 3. Fließtext & Shortcuts
+                # Erst die Shortcuts ersetzen
+                for pattern, replacement in self.shortcut_patterns:
+                    line_s = re.sub(pattern, replacement, line_s)
+                
+                # Dann Sonderzeichen & Paragraphen
                 line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
                 latex_output.append(line_s)
+                
         return "\n".join(latex_output)
 
 # --- UI SETTINGS ---
@@ -81,24 +94,15 @@ def handle_upload():
 def main():
     doc_parser = KlausurDocument()
     
-    # --- CSS FÜR BREITERES LAYOUT ---
     st.markdown("""
         <style>
-        /* Sidebar Styling */
         [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
         [data-testid="stSidebar"] p { font-size: 0.82rem !important; line-height: 1.1 !important; }
         [data-testid="stSidebar"] h2 { font-size: 1.1rem; padding-bottom: 5px; }
-        
-        /* Maximale Breite ausnutzen */
         .block-container {
             padding-top: 2rem;
-            padding-bottom: 2rem;
-            padding-left: 3rem;
-            padding-right: 3rem;
-            max-width: 95%; /* Hier wird das Fenster breiter gemacht */
+            max-width: 95%;
         }
-        
-        /* Textarea Font */
         .stTextArea textarea {
             font-family: 'Courier New', Courier, monospace;
         }
@@ -115,8 +119,7 @@ def main():
     if not any(unit in rand_wert for unit in ['cm', 'mm']):
         rand_wert += "cm"
     
-    abstand_options = ["1.0", "1.2", "1.5", "2.0"]
-    zeilenabstand = st.sidebar.selectbox("Zeilenabstand", options=abstand_options, index=1)
+    zeilenabstand = st.sidebar.selectbox("Zeilenabstand", options=["1.0", "1.2", "1.5", "2.0"], index=1)
 
     font_options = {
         "lmodern (Standard)": "lmodern",
@@ -131,8 +134,7 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
-    # Eingabefelder oben
-    c1, c2, c3 = st.columns([2, 1, 1]) # Titel etwas breiter
+    c1, c2, c3 = st.columns([2, 1, 1])
     with c1: kl_titel = st.text_input("Titel", "Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
@@ -140,16 +142,14 @@ def main():
     current_text = st.text_area(
         "Gutachten", 
         value=st.session_state.klausur_text, 
-        height=750, # Etwas höher für mehr Schreibkomfort
+        height=750, 
         key="main_editor_key"
     )
 
-    # --- ZEICHENZÄHLER ---
     char_count = len(current_text)
     word_count = len(current_text.split())
     st.info(f"📊 {char_count} Zeichen | {word_count} Wörter")
 
-    # --- Sidebar Gliederungs-Logik ---
     if current_text:
         for line in current_text.split('\n'):
             line_s = line.strip()
@@ -168,7 +168,6 @@ def main():
                         st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}{weight}{line_s}{weight}")
                         break
 
-    # --- FOOTER / AKTIONEN ---
     st.markdown("---")
     col_pdf, col_save, col_load, col_sachverhalt = st.columns([1, 1, 1, 1])
 
@@ -249,7 +248,7 @@ def main():
 \pagenumbering{arabic}
 \setcounter{page}{1}
 \pagestyle{iustwrite}
-\setstretch{""" + zeilenabstand + r"""}
+\setstretch{""" + str(zeilenabstand) + r"""}
 
 {\noindent\Large\bfseries """ + titel_komp + r""" \par}\bigskip
 \noindent
