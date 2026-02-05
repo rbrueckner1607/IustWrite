@@ -208,13 +208,13 @@ def main():
                     for _ in range(2):
                         subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
-                    if os.path.exists("klausur.pdf"):
+                    if os.path.exists("Gutachten.pdf"):
                         st.success(f"PDF erstellt (Rand: {rand_wert}, Zeilenabstand: {zeilenabstand})")
-                        with open("klausur.pdf", "rb") as f:
-                            st.download_button("📥 Download PDF", f, f"Klausur.pdf")
+                        with open("Gutachten.pdf", "rb") as f:
+                            st.download_button("📥 Download PDF", f, f"Gutachten.pdf")
 
     with col_save:
-        st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Klausur.txt")
+        st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Gutachten.txt")
 
     with col_load:
         st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
