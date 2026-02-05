@@ -81,11 +81,27 @@ def handle_upload():
 def main():
     doc_parser = KlausurDocument()
     
+    # --- CSS FÜR BREITERES LAYOUT ---
     st.markdown("""
         <style>
+        /* Sidebar Styling */
         [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
         [data-testid="stSidebar"] p { font-size: 0.82rem !important; line-height: 1.1 !important; }
         [data-testid="stSidebar"] h2 { font-size: 1.1rem; padding-bottom: 5px; }
+        
+        /* Maximale Breite ausnutzen */
+        .block-container {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+            padding-left: 3rem;
+            padding-right: 3rem;
+            max-width: 95%; /* Hier wird das Fenster breiter gemacht */
+        }
+        
+        /* Textarea Font */
+        .stTextArea textarea {
+            font-family: 'Courier New', Courier, monospace;
+        }
         </style>
         """, unsafe_allow_html=True)
 
@@ -115,7 +131,8 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
-    c1, c2, c3 = st.columns(3)
+    # Eingabefelder oben
+    c1, c2, c3 = st.columns([2, 1, 1]) # Titel etwas breiter
     with c1: kl_titel = st.text_input("Titel", "Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
@@ -123,15 +140,16 @@ def main():
     current_text = st.text_area(
         "Gutachten", 
         value=st.session_state.klausur_text, 
-        height=700, 
+        height=750, # Etwas höher für mehr Schreibkomfort
         key="main_editor_key"
     )
 
     # --- ZEICHENZÄHLER ---
     char_count = len(current_text)
     word_count = len(current_text.split())
-    st.markdown(f"**Statistik:** {char_count} Zeichen | {word_count} Wörter")
+    st.info(f"📊 {char_count} Zeichen | {word_count} Wörter")
 
+    # --- Sidebar Gliederungs-Logik ---
     if current_text:
         for line in current_text.split('\n'):
             line_s = line.strip()
@@ -151,13 +169,14 @@ def main():
                         break
 
     # --- FOOTER / AKTIONEN ---
+    st.markdown("---")
     col_pdf, col_save, col_load, col_sachverhalt = st.columns([1, 1, 1, 1])
 
     with col_pdf:
-        pdf_button = st.button("🏁 PDF generieren")
+        pdf_button = st.button("🏁 PDF generieren", use_container_width=True)
 
     with col_save:
-        st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Gutachten.txt")
+        st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Gutachten.txt", use_container_width=True)
 
     with col_load:
         st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
@@ -250,9 +269,9 @@ def main():
                     subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
                 if os.path.exists("klausur.pdf"):
-                    st.success("PDF erfolgreich erstellt!")
+                    st.success("PDF erstellt!")
                     with open("klausur.pdf", "rb") as f:
-                        st.download_button("📥 Download PDF", f, "Gutachten.pdf")
+                        st.download_button("📥 Download PDF", f, "Gutachten.pdf", use_container_width=True)
                 else:
                     st.error("Fehler bei der PDF-Erstellung.")
 
