@@ -94,21 +94,21 @@ def main():
     # --- SIDEBAR EINSTELLUNGEN ---
     st.sidebar.title("⚙️ Layout")
     
-    # 1. Korrekturrand
     rand_input = st.sidebar.text_input("Korrekturrand rechts (in cm)", value="6")
     rand_wert = rand_input.strip()
     if not any(unit in rand_wert for unit in ['cm', 'mm']):
         rand_wert += "cm"
     
-    # 2. Zeilenabstand
     abstand_options = ["1.0", "1.2", "1.5", "2.0"]
     zeilenabstand = st.sidebar.selectbox("Zeilenabstand", options=abstand_options, index=1)
 
-    # 3. Schriftart (FIX: mathpazo für Palatino)
+    # Schriftart Auswahl (lmodern ist Standard durch Index 0)
     font_options = {
-        "lmodern (Standard)": "lmodern", 
-        "Palatino": "mathpazo", 
-        "Helvetica": "helvet"
+        "lmodern (Standard)": "lmodern",
+        "Times (klassisch)": "mathptmx",
+        "Palatino": "mathpazo",
+        "Helvetica": "helvet",
+        "Computer Modern": "" # Standard LaTeX Font
     }
     font_choice = st.sidebar.selectbox("Schriftart", options=list(font_options.keys()), index=0)
     selected_font_package = font_options[font_choice]
@@ -157,10 +157,11 @@ def main():
                     parsed_content = doc_parser.parse_content(current_text.split('\n'))
                     titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
 
-                    # Font LaTeX Logic
-                    font_latex = f"\\usepackage{{{selected_font_package}}}"
-                    if "helvet" in selected_font_package:
-                        font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
+                    font_latex = ""
+                    if selected_font_package:
+                        font_latex = f"\\usepackage{{{selected_font_package}}}"
+                        if "helvet" in selected_font_package:
+                            font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
 
                     full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
@@ -171,7 +172,6 @@ def main():
 \usepackage{geometry}
 \usepackage{fancyhdr}
 
-% Gliederungs-Layout
 \geometry{left=2cm, right=3cm, top=2.5cm, bottom=3cm}
 
 \makeatletter
@@ -200,7 +200,6 @@ def main():
 \tableofcontents
 \clearpage
 
-% Text-Layout mit Variablen aus der Sidebar
 \newgeometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm}
 \fancyhfoffset[R]{0pt} 
 
@@ -220,7 +219,6 @@ def main():
                     env = os.environ.copy()
                     env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
                     
-                    # Bereinigen alter Dateien vor dem Kompilieren
                     for ext in ["pdf", "aux", "log", "toc"]:
                         if os.path.exists(f"klausur.{ext}"): os.remove(f"klausur.{ext}")
 
@@ -228,11 +226,11 @@ def main():
                         subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
                     if os.path.exists("klausur.pdf"):
-                        st.success(f"PDF erstellt ({font_choice}, Rand: {rand_wert}, Zeilenabstand: {zeilenabstand})")
+                        st.success(f"PDF erstellt ({font_choice})")
                         with open("klausur.pdf", "rb") as f:
                             st.download_button("📥 Download PDF", f, "Gutachten.pdf")
                     else:
-                        st.error("Fehler bei der PDF-Erstellung. Bitte LaTeX-Syntax prüfen.")
+                        st.error("Fehler bei der PDF-Erstellung.")
 
     with col_save:
         st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Gutachten.txt")
