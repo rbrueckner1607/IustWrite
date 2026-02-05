@@ -3,7 +3,7 @@ import os
 import re
 import streamlit as st
 
-# --- ERWEITERTE PARSER KLASSE (unverändert) ---
+# --- ERWEITERTE PARSER KLASSE ---
 class KlausurDocument:
     def __init__(self):
         self.prefix_patterns = {
@@ -31,10 +31,14 @@ class KlausurDocument:
         latex_output = []
         for line in lines:
             line_s = line.strip()
+
             if not line_s:
                 latex_output.append("\\medskip")
                 continue
+
             found_level = False
+
+            # Sterne-Überschriften
             for level, pattern in self.star_patterns.items():
                 if re.match(pattern, line_s):
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*", 4: "paragraph*", 5: "subparagraph*"}
@@ -42,82 +46,102 @@ class KlausurDocument:
                     latex_output.append(f"\\{cmd}{{{line_s}}}")
                     found_level = True
                     break
+
+            # Normale Überschriften
             if not found_level:
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
-                        cmds = {1: "section", 2: "subsection", 3: "subsubsection", 4: "paragraph", 5: "subparagraph", 6: "subparagraph", 7: "subparagraph", 8: "subparagraph"}
+                        cmds = {
+                            1: "section", 2: "subsection", 3: "subsubsection",
+                            4: "paragraph", 5: "subparagraph", 6: "subparagraph",
+                            7: "subparagraph", 8: "subparagraph"
+                        }
                         cmd = cmds.get(level, "subparagraph")
+                        
+                        # TOC Einrückung
                         toc_indent = f"{max(0, level - 3)}em" if level > 3 else "0em"
+                        
                         latex_output.append(f"\\{cmd}*{{{line_s}}}")
                         toc_cmd = "subsubsection" if level >= 3 else cmd
                         latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{toc_indent}}}{line_s}}}")
                         found_level = True
                         break
+
             if not found_level:
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
                 line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
                 latex_output.append(line_s)
+
         return "\n".join(latex_output)
 
-# --- UI ---
-st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
+# --- UI HILFSFUNKTIONEN ---
 def load_klausur():
     uploaded_file = st.session_state.uploader_key
     if uploaded_file is not None:
         loaded_text = uploaded_file.read().decode("utf-8")
-        st.session_state.klausur_text = st.session_state.klausur_text + "\n\n--- NEU GELADETE KLASUR ---\n\n" + loaded_text
+        st.session_state.klausur_text = loaded_text
         st.session_state.show_success = True
 
+# --- MAIN APP ---
 def main():
+    st.set_page_config(page_title="IustWrite Editor", layout="wide")
     doc_parser = KlausurDocument()
+    
     st.title("⚖️ IustWrite Editor")
 
+    # Session State Initialisierung
     if "klausur_text" not in st.session_state:
         st.session_state.klausur_text = ""
     if "show_success" not in st.session_state:
         st.session_state.show_success = False
 
-    # Header-Bereich mit Rand-Einstellung
-    c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
-    with c1: kl_titel = st.text_input("Titel", "Übungsklausur")
-    with c2: kl_datum = st.text_input("Datum (optional)", "")
-    with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
-    with c4: kl_rand = st.number_input("Korrekturrand (cm)", min_value=0.0, max_value=15.0, value=6.0, step=0.5)
-
+    # --- SIDEBAR EINSTELLUNGEN ---
+    st.sidebar.title("⚙️ Dokument-Optionen")
+    kl_titel = st.sidebar.text_input("Titel", "Klausur")
+    kl_datum = st.sidebar.text_input("Datum (optional)", "")
+    kl_kuerzel = st.sidebar.text_input("Kürzel / Matrikel", "")
+    kl_rand = st.sidebar.number_input("Korrekturrand rechts (cm)", min_value=0.0, max_value=15.0, value=6.0, step=0.5)
+    
+    st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
-    user_input = st.text_area("Gutachten", value=st.session_state.klausur_text, height=600, key="klausur_text")
 
-    # Gliederung in Sidebar (Logik wie vorher)
+    # --- HAUPTBEREICH: EDITOR ---
+    user_input = st.text_area("Gutachten", value=st.session_state.klausur_text, height=700, key="klausur_text_area")
+    # Synchronisiere text_area mit session_state
+    st.session_state.klausur_text = user_input
+
+    # Gliederungsvorschau in der Sidebar
     if user_input:
         for line in user_input.split('\n'):
             line_s = line.strip()
             found = False
             for level, pattern in doc_parser.star_patterns.items():
                 if re.match(pattern, line_s):
-                    st.sidebar.markdown(f"{'&nbsp;' * (level * 4)}**{line_s}**")
+                    st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}**{line_s}**")
                     found = True
                     break
             if not found:
                 for level, pattern in doc_parser.prefix_patterns.items():
                     if re.match(pattern, line_s):
-                        st.sidebar.markdown("&nbsp;" * (level * 4) + line_s)
+                        st.sidebar.markdown("&nbsp;" * (level * 2) + line_s)
                         break
 
+    # --- AKTIONEN ---
     col_pdf, col_save, col_load = st.columns([1, 1, 1])
 
     with col_pdf:
-        if st.button("🏁 PDF generieren"):
-            with st.spinner("Präzisions-Kompilierung läuft..."):
-                parsed_content = doc_parser.parse_content(user_input.split('\n'))
-                
-                # --- LOGIK FÜR BEDINGTE DATUMS-KLAMMERN ---
-                if kl_datum.strip():
-                    titel_komplett = f"{kl_titel} ({kl_datum})"
-                else:
-                    titel_komplett = kl_titel
+        if st.button("🏁 PDF generieren", use_container_width=True):
+            if not user_input.strip():
+                st.error("Bitte gib zuerst Text ein.")
+            else:
+                with st.spinner("Präzisions-Kompilierung läuft..."):
+                    parsed_content = doc_parser.parse_content(user_input.split('\n'))
+                    
+                    # Bedingte Datumsanzeige (Klammern nur bei Inhalt)
+                    titel_komplett = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
 
-                full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
+                    full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage{setspace}
@@ -165,28 +189,31 @@ def main():
 \end{document}
 """
 
-                with open("klausur.tex", "w", encoding="utf-8") as f:
-                    f.write(full_latex)
+                    with open("klausur.tex", "w", encoding="utf-8") as f:
+                        f.write(full_latex)
 
-                env = os.environ.copy()
-                env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
-                for _ in range(2):
-                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
+                    env = os.environ.copy()
+                    # PDF zweimal kompilieren für Inhaltsverzeichnis
+                    for _ in range(2):
+                        subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
-                if os.path.exists("klausur.pdf"):
-                    st.success("PDF erfolgreich erstellt!")
-                    with open("klausur.pdf", "rb") as f:
-                        st.download_button("📥 Download", f, f"Klausur_{kl_kuerzel}.pdf")
-                else:
-                    st.error("Fehler beim Erzeugen.")
+                    if os.path.exists("klausur.pdf"):
+                        st.success("PDF erfolgreich erstellt!")
+                        with open("klausur.pdf", "rb") as f:
+                            st.download_button("📥 Download PDF", f, f"Klausur_{kl_kuerzel}.pdf", use_container_width=True)
+                    else:
+                        st.error("Fehler beim Erzeugen der PDF. Überprüfe ggf. Sonderzeichen.")
 
-    # Restliche Buttons (unverändert)
     with col_save:
-        if st.button("💾 Als TXT speichern", type="secondary"):
-            st.download_button(label="📥 Download TXT", data=user_input, file_name=f"Klausur_{kl_kuerzel}.txt", mime="text/plain")
+        if st.button("💾 Als TXT speichern", type="secondary", use_container_width=True):
+            st.download_button(label="📥 Download TXT", data=user_input, file_name=f"Klausur_{kl_kuerzel}.txt", mime="text/plain", use_container_width=True)
 
     with col_load:
         st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=load_klausur)
+
+    if st.session_state.get("show_success", False):
+        st.success("✅ Klausur geladen!")
+        st.session_state.show_success = False
 
 if __name__ == "__main__":
     main()
