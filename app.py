@@ -127,6 +127,11 @@ def main():
         key="main_editor_key"
     )
 
+    # --- ZEICHENZÄHLER ---
+    char_count = len(current_text)
+    word_count = len(current_text.split())
+    st.markdown(f"**Statistik:** {char_count} Zeichen | {word_count} Wörter")
+
     if current_text:
         for line in current_text.split('\n'):
             line_s = line.strip()
@@ -174,7 +179,6 @@ def main():
                     if "helvet" in selected_font_package:
                         font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
 
-                # Handling Sachverhalt
                 sachverhalt_cmd = ""
                 if sachverhalt_file is not None:
                     with open("temp_sachverhalt.pdf", "wb") as f:
@@ -250,7 +254,7 @@ def main():
                     with open("klausur.pdf", "rb") as f:
                         st.download_button("📥 Download PDF", f, "Gutachten.pdf")
                 else:
-                    st.error("Fehler bei der PDF-Erstellung. Hast du pdflatex installiert?")
+                    st.error("Fehler bei der PDF-Erstellung.")
 
 if __name__ == "__main__":
     main()
