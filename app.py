@@ -92,10 +92,8 @@ def main():
     st.title("⚖️ IustWrite Editor")
 
     # --- SIDEBAR EINSTELLUNGEN ---
-    st.sidebar.title("⚙️ Einstellungen")
-    # Neues Feld für den Korrekturrand
+    st.sidebar.title("⚙️ Layout")
     rand_rechts = st.sidebar.text_input("Korrekturrand rechts (z.B. 7cm)", placeholder="Standard: 6cm")
-    # Validierung: Wenn leer, dann 6cm
     rand_wert = rand_rechts.strip() if rand_rechts.strip() else "6cm"
     
     st.sidebar.markdown("---")
@@ -113,7 +111,6 @@ def main():
         key="main_editor_key"
     )
 
-    # Gliederung in Sidebar
     if current_text:
         col_m1, col_m2 = st.columns([4, 1])
         with col_m2: st.metric("Zeichen", f"{len(current_text):,}")
@@ -142,7 +139,7 @@ def main():
             if not current_text.strip():
                 st.warning("Das Editorfenster ist leer!")
             else:
-                with st.spinner("Kompiliere aktuellen Editorinhalt..."):
+                with st.spinner("Kompiliere..."):
                     parsed_content = doc_parser.parse_content(current_text.split('\n'))
                     titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
 
@@ -154,7 +151,10 @@ def main():
 \usepackage{lmodern}
 \usepackage{geometry}
 \usepackage{fancyhdr}
-\geometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm}
+\usepackage{microtype}
+
+% Globale Standard-Ränder (für Gliederung etc.)
+\geometry{left=2cm, right=2cm, top=2.5cm, bottom=3cm}
 
 \makeatletter
 \renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
@@ -181,13 +181,20 @@ def main():
 \renewcommand{\contentsname}{Gliederung}
 \tableofcontents
 \clearpage
+
+% Dynamische Ränder für das eigentliche Gutachten
+\newgeometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm}
 \pagenumbering{arabic}
 \setcounter{page}{1}
 \pagestyle{iustwrite}
-\setstretch{1.2}
+\setstretch{1.3}
+\emergencystretch 3em 
+
 {\noindent\Large\bfseries """ + titel_komp + r""" \par}\bigskip
 \noindent
 """ + parsed_content + r"""
+
+\restoregeometry
 \end{document}
 """
                     with open("klausur.tex", "w", encoding="utf-8") as f:
@@ -196,15 +203,16 @@ def main():
                     env = os.environ.copy()
                     env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
                     
+                    # Zweimaliges Kompilieren für das Inhaltsverzeichnis
                     for _ in range(2):
                         subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
                     if os.path.exists("klausur.pdf"):
-                        st.success(f"PDF erstellt (Rand: {rand_wert})")
+                        st.success(f"PDF fertig! (Rand: {rand_wert})")
                         with open("klausur.pdf", "rb") as f:
                             st.download_button("📥 Download PDF", f, f"Klausur_{kl_kuerzel}.pdf")
                     else:
-                        st.error("Fehler bei der PDF-Erstellung.")
+                        st.error("LaTeX-Fehler. Prüfe den Text auf Sonderzeichen.")
 
     with col_save:
         st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Klausur_{kl_kuerzel}.txt")
