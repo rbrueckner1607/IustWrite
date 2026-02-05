@@ -91,12 +91,9 @@ def main():
 
     st.title("⚖️ IustWrite Editor")
 
-    # --- SIDEBAR EINSTELLUNGEN ---
     st.sidebar.title("⚙️ Layout")
-    # Hier wird der Wert abgefragt (Standard 6cm)
     rand_input = st.sidebar.text_input("Korrekturrand rechts (in cm)", value="6")
     
-    # Sicherstellen, dass "cm" dransteht, falls der User es vergisst
     rand_wert = rand_input.strip()
     if not any(unit in rand_wert for unit in ['cm', 'mm']):
         rand_wert += "cm"
@@ -145,7 +142,6 @@ def main():
                     parsed_content = doc_parser.parse_content(current_text.split('\n'))
                     titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
 
-                    # HIER wird deine Variable rand_wert direkt eingesetzt
                     full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
@@ -155,7 +151,8 @@ def main():
 \usepackage{geometry}
 \usepackage{fancyhdr}
 
-\geometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm}
+% Start-Layout für die Gliederung (Fester Rand 3cm)
+\geometry{left=2cm, right=3cm, top=2.5cm, bottom=3cm}
 
 \makeatletter
 \renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
@@ -177,10 +174,14 @@ def main():
 }
 
 \begin{document}
-\sloppy % Zwingt LaTeX, den Text innerhalb der Ränder zu brechen
+\sloppy
 \pagenumbering{gobble}
+\renewcommand{\contentsname}{Gliederung}
 \tableofcontents
 \clearpage
+
+% Umschalten auf variablen Korrekturrand für den Text
+\newgeometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm}
 \pagenumbering{arabic}
 \setcounter{page}{1}
 \pagestyle{iustwrite}
@@ -200,7 +201,7 @@ def main():
                         subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
                     if os.path.exists("klausur.pdf"):
-                        st.success(f"PDF mit {rand_wert} Rand erstellt.")
+                        st.success(f"PDF erstellt (Gliederung: 3cm / Text: {rand_wert})")
                         with open("klausur.pdf", "rb") as f:
                             st.download_button("📥 Download PDF", f, f"Klausur.pdf")
 
