@@ -108,10 +108,13 @@ def main():
             padding-bottom: 5px;
         }
         
-        /* Textarea Font */
+        /* EDITOR SCHRIFTART: Georgia (Serifen, sehr gut lesbar) */
         .stTextArea textarea {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 1.05rem;
+            font-family: 'Georgia', 'Times New Roman', serif;
+            font-size: 1.15rem; /* Etwas größer für bessere Lesbarkeit */
+            line-height: 1.6;
+            padding: 20px;
+            background-color: #fcfcfc;
         }
         </style>
         """, unsafe_allow_html=True)
