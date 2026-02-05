@@ -93,8 +93,12 @@ def main():
 
     # --- SIDEBAR EINSTELLUNGEN ---
     st.sidebar.title("⚙️ Layout")
-    rand_rechts = st.sidebar.text_input("Korrekturrand rechts (z.B. 7cm)", placeholder="Standard: 6cm")
-    rand_wert = rand_rechts.strip() if rand_rechts.strip() else "6cm"
+    rand_input = st.sidebar.text_input("Korrekturrand rechts (z.B. 7cm)", value="6cm")
+    
+    # Sicherstellen, dass eine Einheit dabei ist
+    rand_wert = rand_input.strip()
+    if not any(unit in rand_wert for unit in ['cm', 'mm', 'in', 'pt']):
+        rand_wert += "cm"
     
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
@@ -139,22 +143,22 @@ def main():
             if not current_text.strip():
                 st.warning("Das Editorfenster ist leer!")
             else:
-                with st.spinner("Kompiliere..."):
+                with st.spinner("PDF wird erstellt..."):
                     parsed_content = doc_parser.parse_content(current_text.split('\n'))
                     titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
 
                     full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
-\usepackage{setspace}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
+\usepackage{setspace}
 \usepackage{geometry}
 \usepackage{fancyhdr}
 \usepackage{microtype}
 
-% Globale Standard-Ränder (für Gliederung etc.)
-\geometry{left=2cm, right=2cm, top=2.5cm, bottom=3cm}
+% Initiales Setup
+\geometry{left=2cm, right=2cm, top=2.5cm, bottom=3cm, headsep=1cm}
 
 \makeatletter
 \renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
@@ -168,12 +172,12 @@ def main():
 \makeatother
 
 \fancypagestyle{iustwrite}{
-\fancyhf{}
-\fancyhead[L]{\small """ + kl_kuerzel + r"""}
-\fancyhead[R]{\small """ + titel_komp + r"""}
-\fancyfoot[R]{\thepage}
-\renewcommand{\headrulewidth}{0.5pt}
-\renewcommand{\footrulewidth}{0pt}
+    \fancyhf{}
+    \fancyhead[L]{\small """ + kl_kuerzel + r"""}
+    \fancyhead[R]{\small """ + titel_komp + r"""}
+    \fancyfoot[R]{\thepage}
+    \renewcommand{\headrulewidth}{0.5pt}
+    \renewcommand{\footrulewidth}{0pt}
 }
 
 \begin{document}
@@ -182,19 +186,20 @@ def main():
 \tableofcontents
 \clearpage
 
-% Dynamische Ränder für das eigentliche Gutachten
-\newgeometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm}
+% --- KORREKTUR DER RÄNDER ---
 \pagenumbering{arabic}
 \setcounter{page}{1}
 \pagestyle{iustwrite}
+
+% Hier erzwingen wir die Geometrie für den Textkörper neu
+\newgeometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm, includehead}
 \setstretch{1.3}
-\emergencystretch 3em 
+\emergencystretch 3em
 
 {\noindent\Large\bfseries """ + titel_komp + r""" \par}\bigskip
 \noindent
 """ + parsed_content + r"""
 
-\restoregeometry
 \end{document}
 """
                     with open("klausur.tex", "w", encoding="utf-8") as f:
@@ -203,16 +208,15 @@ def main():
                     env = os.environ.copy()
                     env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
                     
-                    # Zweimaliges Kompilieren für das Inhaltsverzeichnis
                     for _ in range(2):
                         subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
                     if os.path.exists("klausur.pdf"):
-                        st.success(f"PDF fertig! (Rand: {rand_wert})")
+                        st.success(f"PDF erstellt (Rand: {rand_wert})")
                         with open("klausur.pdf", "rb") as f:
                             st.download_button("📥 Download PDF", f, f"Klausur_{kl_kuerzel}.pdf")
                     else:
-                        st.error("LaTeX-Fehler. Prüfe den Text auf Sonderzeichen.")
+                        st.error("Fehler beim Kompilieren.")
 
     with col_save:
         st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Klausur_{kl_kuerzel}.txt")
