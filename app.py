@@ -107,15 +107,15 @@ def main():
             font-size: 1.1rem;
             padding-bottom: 5px;
         }
-        
-        /* EDITOR SCHRIFTART: Georgia (Serifen, sehr gut lesbar) */
+
+        /* EDITOR SCHRIFTART: Latin Modern (Serifen) */
         .stTextArea textarea {
-            font-family: 'Georgia', 'Times New Roman', serif;
-            font-size: 1.15rem; /* Etwas größer für bessere Lesbarkeit */
-            line-height: 1.6;
-            padding: 20px;
+            font-family: 'lmodern', 'Georgia', serif;
+            font-size: 1.0rem; /* Reduziert von 1.15rem auf Standardgröße */
+            line-height: 1.5;   /* Leicht kompakterer Zeilenabstand */
+            padding: 15px;      /* Etwas weniger Innenabstand für mehr Platz */
             background-color: #fcfcfc;
-        }
+            }
         </style>
         """, unsafe_allow_html=True)
 
