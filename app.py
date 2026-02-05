@@ -91,13 +91,19 @@ def main():
 
     st.title("⚖️ IustWrite Editor")
 
+    # --- SIDEBAR EINSTELLUNGEN ---
     st.sidebar.title("⚙️ Layout")
-    rand_input = st.sidebar.text_input("Korrekturrand rechts (in cm)", value="6")
     
+    # 1. Korrekturrand
+    rand_input = st.sidebar.text_input("Korrekturrand rechts (in cm)", value="6")
     rand_wert = rand_input.strip()
     if not any(unit in rand_wert for unit in ['cm', 'mm']):
         rand_wert += "cm"
     
+    # 2. Zeilenabstand (NEU)
+    abstand_options = ["1.0", "1.2", "1.5", "2.0"]
+    zeilenabstand = st.sidebar.selectbox("Zeilenabstand", options=abstand_options, index=1) # Standard 1.2
+
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
@@ -151,7 +157,7 @@ def main():
 \usepackage{geometry}
 \usepackage{fancyhdr}
 
-% Start-Layout für die Gliederung (Fester Rand 3cm)
+% Gliederungs-Layout
 \geometry{left=2cm, right=3cm, top=2.5cm, bottom=3cm}
 
 \makeatletter
@@ -180,34 +186,32 @@ def main():
 \tableofcontents
 \clearpage
 
-% Umschalten auf variablen Korrekturrand für den Text
+% Text-Layout mit Variablen aus der Sidebar
 \newgeometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm}
-
-% Zwingt fancyhdr dazu, die Kopfzeile an die NEUE Textbreite anzupassen
 \fancyhfoffset[R]{0pt} 
 
 \pagenumbering{arabic}
 \setcounter{page}{1}
 \pagestyle{iustwrite}
-\setstretch{1.3}
+\setstretch{""" + zeilenabstand + r"""}
 
 {\noindent\Large\bfseries """ + titel_komp + r""" \par}\bigskip
 \noindent
 """ + parsed_content + r"""
 \end{document}
 """
-                    with open("Gutachten.tex", "w", encoding="utf-8") as f:
+                    with open("klausur.tex", "w", encoding="utf-8") as f:
                         f.write(full_latex)
                     
                     env = os.environ.copy()
                     env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
                     for _ in range(2):
-                        subprocess.run(["pdflatex", "-interaction=nonstopmode", "Gutachten.tex"], env=env, capture_output=True)
+                        subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
                     if os.path.exists("klausur.pdf"):
-                        st.success(f"PDF erstellt")
-                        with open("Gutachten.pdf", "rb") as f:
-                            st.download_button("📥 Download PDF", f, f"Gutachten.pdf")
+                        st.success(f"PDF erstellt (Rand: {rand_wert}, Zeilenabstand: {zeilenabstand})")
+                        with open("klausur.pdf", "rb") as f:
+                            st.download_button("📥 Download PDF", f, f"Klausur.pdf")
 
     with col_save:
         st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Klausur.txt")
