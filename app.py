@@ -94,7 +94,7 @@ def main():
     # --- SIDEBAR EINSTELLUNGEN ---
     st.sidebar.title("⚙️ Layout")
     
-    rand_input = st.sidebar.text_input("Rand rechts (Angabe mit .)", value="6")
+    rand_input = st.sidebar.text_input("Korrekturrand rechts (in cm)", value="6")
     rand_wert = rand_input.strip()
     if not any(unit in rand_wert for unit in ['cm', 'mm']):
         rand_wert += "cm"
@@ -102,13 +102,12 @@ def main():
     abstand_options = ["1.0", "1.2", "1.5", "2.0"]
     zeilenabstand = st.sidebar.selectbox("Zeilenabstand", options=abstand_options, index=1)
 
-    # Schriftart Auswahl (lmodern ist Standard durch Index 0)
     font_options = {
         "lmodern (Standard)": "lmodern",
         "Times (klassisch)": "mathptmx",
         "Palatino": "mathpazo",
         "Helvetica": "helvet",
-        "Computer Modern": "" # Standard LaTeX Font
+        "Computer Modern": "" 
     }
     font_choice = st.sidebar.selectbox("Schriftart", options=list(font_options.keys()), index=0)
     selected_font_package = font_options[font_choice]
@@ -146,27 +145,47 @@ def main():
                         st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}{weight}{line_s}{weight}")
                         break
 
-    col_pdf, col_save, col_load = st.columns([1, 1, 1])
+    # --- FOOTER / AKTIONEN ---
+    col_pdf, col_save, col_load, col_sachverhalt = st.columns([1, 1, 1, 1])
 
     with col_pdf:
-        if st.button("🏁 PDF generieren"):
-            if not current_text.strip():
-                st.warning("Das Editorfenster ist leer!")
-            else:
-                with st.spinner("Kompiliere..."):
-                    parsed_content = doc_parser.parse_content(current_text.split('\n'))
-                    titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
+        pdf_button = st.button("🏁 PDF generieren")
 
-                    font_latex = ""
-                    if selected_font_package:
-                        font_latex = f"\\usepackage{{{selected_font_package}}}"
-                        if "helvet" in selected_font_package:
-                            font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
+    with col_save:
+        st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Gutachten.txt")
 
-                    full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
+    with col_load:
+        st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
+
+    with col_sachverhalt:
+        sachverhalt_file = st.file_uploader("📄 Sachverhalt (PDF)", type=['pdf'], key="sachverhalt_key")
+
+    if pdf_button:
+        if not current_text.strip():
+            st.warning("Das Editorfenster ist leer!")
+        else:
+            with st.spinner("Kompiliere..."):
+                parsed_content = doc_parser.parse_content(current_text.split('\n'))
+                titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
+
+                font_latex = ""
+                if selected_font_package:
+                    font_latex = f"\\usepackage{{{selected_font_package}}}"
+                    if "helvet" in selected_font_package:
+                        font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
+
+                # Handling Sachverhalt
+                sachverhalt_cmd = ""
+                if sachverhalt_file is not None:
+                    with open("temp_sachverhalt.pdf", "wb") as f:
+                        f.write(sachverhalt_file.getbuffer())
+                    sachverhalt_cmd = r"\includepdf[pages=-]{temp_sachverhalt.pdf}"
+
+                full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
+\usepackage{pdfpages}
 """ + font_latex + r"""
 \usepackage{setspace}
 \usepackage{geometry}
@@ -195,6 +214,7 @@ def main():
 
 \begin{document}
 \sloppy
+""" + sachverhalt_cmd + r"""
 \pagenumbering{gobble}
 \renewcommand{\contentsname}{Gliederung}
 \tableofcontents
@@ -213,30 +233,24 @@ def main():
 """ + parsed_content + r"""
 \end{document}
 """
-                    with open("klausur.tex", "w", encoding="utf-8") as f:
-                        f.write(full_latex)
-                    
-                    env = os.environ.copy()
-                    env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
-                    
-                    for ext in ["pdf", "aux", "log", "toc"]:
-                        if os.path.exists(f"klausur.{ext}"): os.remove(f"klausur.{ext}")
+                with open("klausur.tex", "w", encoding="utf-8") as f:
+                    f.write(full_latex)
+                
+                env = os.environ.copy()
+                env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
+                
+                for ext in ["pdf", "aux", "log", "toc"]:
+                    if os.path.exists(f"klausur.{ext}"): os.remove(f"klausur.{ext}")
 
-                    for _ in range(2):
-                        subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
+                for _ in range(2):
+                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
-                    if os.path.exists("klausur.pdf"):
-                        st.success(f"PDF erstellt ({font_choice})")
-                        with open("klausur.pdf", "rb") as f:
-                            st.download_button("📥 Download PDF", f, "Gutachten.pdf")
-                    else:
-                        st.error("Fehler bei der PDF-Erstellung.")
-
-    with col_save:
-        st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Gutachten.txt")
-
-    with col_load:
-        st.file_uploader("📂 TXT laden", type=['txt'], key="uploader_key", on_change=handle_upload)
+                if os.path.exists("klausur.pdf"):
+                    st.success("PDF erfolgreich erstellt!")
+                    with open("klausur.pdf", "rb") as f:
+                        st.download_button("📥 Download PDF", f, "Gutachten.pdf")
+                else:
+                    st.error("Fehler bei der PDF-Erstellung. Hast du pdflatex installiert?")
 
 if __name__ == "__main__":
     main()
