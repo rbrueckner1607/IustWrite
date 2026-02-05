@@ -69,21 +69,18 @@ class KlausurDocument:
 # --- UI SETTINGS ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
-# Session State initialisieren
 if "klausur_text" not in st.session_state:
     st.session_state.klausur_text = ""
 
 def handle_upload():
     if st.session_state.uploader_key is not None:
         content = st.session_state.uploader_key.read().decode("utf-8")
-        # Wir setzen den neuen Inhalt direkt in den State des Editors
         st.session_state["main_editor_key"] = content
         st.session_state.klausur_text = content
 
 def main():
     doc_parser = KlausurDocument()
     
-    # CSS für kompakte Sidebar
     st.markdown("""
         <style>
         [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
@@ -94,14 +91,21 @@ def main():
 
     st.title("⚖️ IustWrite Editor")
 
+    # --- SIDEBAR EINSTELLUNGEN ---
+    st.sidebar.title("⚙️ Einstellungen")
+    # Neues Feld für den Korrekturrand
+    rand_rechts = st.sidebar.text_input("Korrekturrand rechts (z.B. 7cm)", placeholder="Standard: 6cm")
+    # Validierung: Wenn leer, dann 6cm
+    rand_wert = rand_rechts.strip() if rand_rechts.strip() else "6cm"
+    
+    st.sidebar.markdown("---")
+    st.sidebar.title("📌 Gliederung")
+
     c1, c2, c3 = st.columns(3)
     with c1: kl_titel = st.text_input("Titel", "Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
-    st.sidebar.title("📌 Gliederung")
-
-    # Der Editor: Nutzt den Key zur direkten Steuerung
     current_text = st.text_area(
         "Gutachten", 
         value=st.session_state.klausur_text, 
@@ -109,7 +113,7 @@ def main():
         key="main_editor_key"
     )
 
-    # Gliederung in Sidebar anzeigen (basierend auf sichtbarem Text)
+    # Gliederung in Sidebar
     if current_text:
         col_m1, col_m2 = st.columns([4, 1])
         with col_m2: st.metric("Zeichen", f"{len(current_text):,}")
@@ -135,7 +139,6 @@ def main():
 
     with col_pdf:
         if st.button("🏁 PDF generieren"):
-            # WICHTIG: Wir nutzen 'current_text', also das, was GERADE im Feld steht
             if not current_text.strip():
                 st.warning("Das Editorfenster ist leer!")
             else:
@@ -151,7 +154,7 @@ def main():
 \usepackage{lmodern}
 \usepackage{geometry}
 \usepackage{fancyhdr}
-\geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
+\geometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm}
 
 \makeatletter
 \renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
@@ -187,7 +190,6 @@ def main():
 """ + parsed_content + r"""
 \end{document}
 """
-                    # Datei schreiben und kompilieren
                     with open("klausur.tex", "w", encoding="utf-8") as f:
                         f.write(full_latex)
                     
@@ -198,14 +200,13 @@ def main():
                         subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
                     if os.path.exists("klausur.pdf"):
-                        st.success("PDF aus Editor-Inhalt erstellt!")
+                        st.success(f"PDF erstellt (Rand: {rand_wert})")
                         with open("klausur.pdf", "rb") as f:
                             st.download_button("📥 Download PDF", f, f"Klausur_{kl_kuerzel}.pdf")
                     else:
                         st.error("Fehler bei der PDF-Erstellung.")
 
     with col_save:
-        # Auch hier: Download nur vom aktuellen Inhalt
         st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Klausur_{kl_kuerzel}.txt")
 
     with col_load:
