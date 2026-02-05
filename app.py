@@ -72,19 +72,13 @@ st.set_page_config(page_title="IustWrite Editor", layout="wide")
 # --- SESSION STATE INITIALISIERUNG ---
 if "klausur_text" not in st.session_state:
     st.session_state.klausur_text = ""
-if "show_success" not in st.session_state:
-    st.session_state.show_success = False
 
-def load_klausur():
-    uploaded_file = st.session_state.uploader_key
-    if uploaded_file is not None:
-        try:
-            loaded_text = uploaded_file.read().decode("utf-8")
-            # Setzt den Text direkt in den Session State
-            st.session_state.klausur_text = loaded_text
-            st.session_state.show_success = True
-        except Exception as e:
-            st.error(f"Fehler beim Lesen der Datei: {e}")
+def handle_upload():
+    if st.session_state.uploader_key is not None:
+        content = st.session_state.uploader_key.read().decode("utf-8")
+        st.session_state.klausur_text = content
+        # Der Trick: Wir setzen das Widget-Value direkt im Session State
+        st.session_state["main_editor_key"] = content
 
 def main():
     doc_parser = KlausurDocument()
@@ -93,17 +87,9 @@ def main():
     st.markdown(
         """
         <style>
-        [data-testid="stSidebar"] .stMarkdown {
-            margin-bottom: -16px; 
-        }
-        [data-testid="stSidebar"] p {
-            font-size: 0.82rem !important;
-            line-height: 1.1 !important;
-        }
-        [data-testid="stSidebar"] h2 {
-            font-size: 1.1rem;
-            padding-bottom: 5px;
-        }
+        [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
+        [data-testid="stSidebar"] p { font-size: 0.82rem !important; line-height: 1.1 !important; }
+        [data-testid="stSidebar"] h2 { font-size: 1.1rem; padding-bottom: 5px; }
         </style>
         """,
         unsafe_allow_html=True
@@ -111,7 +97,6 @@ def main():
 
     st.title("⚖️ IustWrite Editor")
 
-    # Kopfdaten
     c1, c2, c3 = st.columns(3)
     with c1: kl_titel = st.text_input("Titel", "Klausur Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
@@ -119,22 +104,21 @@ def main():
 
     st.sidebar.title("📌 Gliederung")
 
-    # Textfeld - Verknüpft mit st.session_state.klausur_text
+    # WICHTIG: Die text_area nutzt einen stabilen Key aus dem Session State
     user_input = st.text_area(
         "Gutachten", 
         value=st.session_state.klausur_text, 
         height=700, 
-        key="main_editor"
+        key="main_editor_key" 
     )
     
-    # Synchronisiere State mit Input
+    # Textänderungen zurückschreiben
     st.session_state.klausur_text = user_input
 
-    # Gliederung generieren
+    # Gliederungsvorschau
     if user_input:
-        char_count = len(user_input)
         col1, col2 = st.columns([4, 1])
-        with col2: st.metric("Zeichen", f"{char_count:,}")
+        with col2: st.metric("Zeichen", f"{len(user_input):,}")
 
         for line in user_input.split('\n'):
             line_s = line.strip()
@@ -163,7 +147,6 @@ def main():
             with st.spinner("Kompiliere..."):
                 parsed_content = doc_parser.parse_content(user_input.split('\n'))
                 titel_komplett = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
-
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
@@ -171,66 +154,24 @@ def main():
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
 \usepackage{geometry}
-\usepackage{fancyhdr}
 \geometry{left=2cm, right=6cm, top=2.5cm, bottom=3cm}
-
-\makeatletter
-\renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
-  {-3.25ex\@plus -1ex \@minus -.2ex}%
-  {1.5ex \@plus .2ex}%
-  {\normalfont\normalsize\bfseries}}
-\renewcommand\subparagraph{\@startsection{subparagraph}{5}{\z@}%
-  {-3.25ex\@plus -1ex \@minus -.2ex}%
-  {1.5ex \@plus .2ex}%
-  {\normalfont\normalsize\bfseries}}
-\makeatother
-
-\fancypagestyle{iustwrite}{
-\fancyhf{}
-\fancyhead[L]{\small """ + kl_kuerzel + r"""}
-\fancyhead[R]{\small """ + titel_komplett + r"""}
-\fancyfoot[R]{\thepage}
-\renewcommand{\headrulewidth}{0.5pt}
-\renewcommand{\footrulewidth}{0pt}
-}
-
 \begin{document}
-\pagenumbering{gobble}
-\renewcommand{\contentsname}{Gliederung}
-\tableofcontents
-\clearpage
-\pagenumbering{arabic}
-\setcounter{page}{1}
-\pagestyle{iustwrite}
+\tableofcontents\clearpage
 \setstretch{1.2}
 {\noindent\Large\bfseries """ + titel_komplett + r""" \par}\bigskip
-\noindent
 """ + parsed_content + r"""
-\end{document}
-"""
-                with open("klausur.tex", "w", encoding="utf-8") as f:
-                    f.write(full_latex)
-
-                env = os.environ.copy()
-                env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
-                for _ in range(2):
-                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
-
+\end{document}"""
+                with open("klausur.tex", "w", encoding="utf-8") as f: f.write(full_latex)
+                for _ in range(2): subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], capture_output=True)
                 if os.path.exists("klausur.pdf"):
-                    st.success("PDF bereit!")
-                    with open("klausur.pdf", "rb") as f:
-                        st.download_button("📥 Download PDF", f, f"Klausur_{kl_kuerzel}.pdf")
+                    with open("klausur.pdf", "rb") as f: st.download_button("📥 Download PDF", f, "Klausur.pdf")
 
     with col_save:
-        if st.button("💾 Als TXT speichern"):
-            st.download_button(label="📥 Download TXT", data=user_input, file_name=f"Klausur_{kl_kuerzel}.txt", mime="text/plain")
+        st.download_button("💾 Als TXT speichern", data=user_input, file_name="Klausur.txt")
 
     with col_load:
-        st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=load_klausur)
-
-    if st.session_state.show_success:
-        st.toast("✅ Datei erfolgreich geladen!", icon="📂")
-        st.session_state.show_success = False
+        # Hier triggert on_change die Funktion handle_upload
+        st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
 
 if __name__ == "__main__":
     main()
