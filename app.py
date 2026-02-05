@@ -99,7 +99,7 @@ def main():
         st.session_state.show_success = False
 
     c1, c2, c3 = st.columns(3)
-    with c1: kl_titel = st.text_input("Klausur-Titel", "Übungsklausur")
+    with c1: kl_titel = st.text_input("Titel", "")
     with c2: kl_datum = st.text_input("Datum", "04.02.2026")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "K-123")
 
