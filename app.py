@@ -95,7 +95,6 @@ def main():
     st.sidebar.title("⚙️ Layout")
     rand_input = st.sidebar.text_input("Korrekturrand rechts (z.B. 7cm)", value="6cm")
     
-    # Sicherstellen, dass eine Einheit dabei ist
     rand_wert = rand_input.strip()
     if not any(unit in rand_wert for unit in ['cm', 'mm', 'in', 'pt']):
         rand_wert += "cm"
@@ -147,7 +146,7 @@ def main():
                     parsed_content = doc_parser.parse_content(current_text.split('\n'))
                     titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
 
-                    full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
+                    full_latex = r"""\documentclass[12pt, a4paper, oneside]{article} % Wechsel auf Article für stabilere Ränder
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
@@ -156,20 +155,24 @@ def main():
 \usepackage{geometry}
 \usepackage{fancyhdr}
 \usepackage{microtype}
+\usepackage{tocloft}
 
-% Initiales Setup
-\geometry{left=2cm, right=2cm, top=2.5cm, bottom=3cm, headsep=1cm}
+% Absolute Geometrie-Festlegung
+\geometry{
+    a4paper,
+    left=2cm,
+    right=""" + rand_wert + r""",
+    top=2.5cm,
+    bottom=3cm,
+    headsep=1cm,
+    footskip=1.5cm
+}
 
-\makeatletter
-\renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
-  {-3.25ex\@plus -1ex \@minus -.2ex}%
-  {1.5ex \@plus .2ex}%
-  {\normalfont\normalsize\bfseries}}
-\renewcommand\subparagraph{\@startsection{subparagraph}{5}{\z@}%
-  {-3.25ex\@plus -1ex \@minus -.2ex}%
-  {1.5ex \@plus .2ex}%
-  {\normalfont\normalsize\bfseries}}
-\makeatother
+% Simulation der Jurabook-Überschriften in Article
+\setcounter{secnumdepth}{0} % Keine Nummern direkt im Text
+\usepackage{titlesec}
+\titleformat{\section}{\normalfont\Large\bfseries}{}{0pt}{}
+\titleformat{\subsection}{\normalfont\large\bfseries}{}{0pt}{}
 
 \fancypagestyle{iustwrite}{
     \fancyhf{}
@@ -183,16 +186,18 @@ def main():
 \begin{document}
 \pagenumbering{gobble}
 \renewcommand{\contentsname}{Gliederung}
-\tableofcontents
-\clearpage
 
-% --- KORREKTUR DER RÄNDER ---
+% Inhaltsverzeichnis breiter ziehen, damit es trotz Korrekturrand gut aussieht
+\begin{center}
+    \begin{minipage}{1.1\textwidth} % Erlaubt dem TOC etwas breiter zu sein als der Textkörper
+        \tableofcontents
+    \end{minipage}
+\end{center}
+
+\clearpage
 \pagenumbering{arabic}
 \setcounter{page}{1}
 \pagestyle{iustwrite}
-
-% Hier erzwingen wir die Geometrie für den Textkörper neu
-\newgeometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm, includehead}
 \setstretch{1.3}
 \emergencystretch 3em
 
@@ -216,7 +221,7 @@ def main():
                         with open("klausur.pdf", "rb") as f:
                             st.download_button("📥 Download PDF", f, f"Klausur_{kl_kuerzel}.pdf")
                     else:
-                        st.error("Fehler beim Kompilieren.")
+                        st.error("Fehler beim Kompilieren. Prüfe den Text.")
 
     with col_save:
         st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Klausur_{kl_kuerzel}.txt")
