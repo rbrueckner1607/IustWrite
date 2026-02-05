@@ -152,7 +152,7 @@ def main():
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{helvet} \renewcommand\familydefault{\sfdefault}
+\usepackage{Palantino}
 \usepackage{setspace}
 \usepackage{geometry}
 \usepackage{fancyhdr}
