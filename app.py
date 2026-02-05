@@ -236,7 +236,7 @@ def main():
         st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Gutachten.txt")
 
     with col_load:
-        st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
+        st.file_uploader("📂 TXT laden", type=['txt'], key="uploader_key", on_change=handle_upload)
 
 if __name__ == "__main__":
     main()
