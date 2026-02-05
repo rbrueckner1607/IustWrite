@@ -104,8 +104,12 @@ def main():
     abstand_options = ["1.0", "1.2", "1.5", "2.0"]
     zeilenabstand = st.sidebar.selectbox("Zeilenabstand", options=abstand_options, index=1)
 
-    # 3. Schriftart (NEU)
-    font_options = {"lmodern (Standard)": "lmodern", "Palatino": "newpxtext,newpxmath", "Helvetica": "helvet"}
+    # 3. Schriftart (FIX: mathpazo für Palatino)
+    font_options = {
+        "lmodern (Standard)": "lmodern", 
+        "Palatino": "mathpazo", 
+        "Helvetica": "helvet"
+    }
     font_choice = st.sidebar.selectbox("Schriftart", options=list(font_options.keys()), index=0)
     selected_font_package = font_options[font_choice]
 
@@ -215,16 +219,20 @@ def main():
                     
                     env = os.environ.copy()
                     env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
+                    
+                    # Bereinigen alter Dateien vor dem Kompilieren
+                    for ext in ["pdf", "aux", "log", "toc"]:
+                        if os.path.exists(f"klausur.{ext}"): os.remove(f"klausur.{ext}")
+
                     for _ in range(2):
                         subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
 
                     if os.path.exists("klausur.pdf"):
-                        # Umbenennen für den Download
-                        if os.path.exists("Gutachten.pdf"): os.remove("Gutachten.pdf")
-                        os.rename("klausur.pdf", "Gutachten.pdf")
                         st.success(f"PDF erstellt ({font_choice}, Rand: {rand_wert}, Zeilenabstand: {zeilenabstand})")
-                        with open("Gutachten.pdf", "rb") as f:
-                            st.download_button("📥 Download PDF", f, f"Gutachten.pdf")
+                        with open("klausur.pdf", "rb") as f:
+                            st.download_button("📥 Download PDF", f, "Gutachten.pdf")
+                    else:
+                        st.error("Fehler bei der PDF-Erstellung. Bitte LaTeX-Syntax prüfen.")
 
     with col_save:
         st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Gutachten.txt")
