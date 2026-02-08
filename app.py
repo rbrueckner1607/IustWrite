@@ -153,12 +153,12 @@ def main():
 
     # --- EDITOR AREA ---
     c1, c2, c3 = st.columns([3, 1, 1])
-    with c1: kl_titel = st.text_input("Titel", "Gutachten")
+    with c1: kl_titel = st.text_input("Titel", "")
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
     # Das Editorfenster nutzt nun die neue CSS-Klasse
-    current_text = st.text_area("Dein Gutachten-Text", height=600, key="main_editor_key", placeholder="Schreibe hier dein Gutachten...")
+    current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Schreibe hier dein Gutachten...")
 
     # --- SIDEBAR OUTLINE ---
     if current_text:
