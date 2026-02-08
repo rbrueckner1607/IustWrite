@@ -41,7 +41,6 @@ class KlausurDocument:
             found_level = False
             for level, pattern in self.star_patterns.items():
                 if re.match(pattern, line_s):
-                    # FIX: Ab Ebene 3 nutzen wir subsubsection für sauberen Block-Umbruch
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*"}
                     cmd = cmds.get(level, "subsubsection*")
                     latex_output.append(f"\\{cmd}{{{line_s}}}")
@@ -51,8 +50,6 @@ class KlausurDocument:
             if not found_level:
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
-                        # FIX: Wir mappen Ebene 3 bis 8 auf subsubsection*
-                        # Das garantiert, dass der Text IMMER in der neuen Zeile OHNE Versatz beginnt.
                         if level >= 3:
                             cmd = "subsubsection*"
                         elif level == 2:
@@ -63,7 +60,6 @@ class KlausurDocument:
                         toc_indent = f"{max(0, level - 3)}em" if level > 3 else "0em"
                         latex_output.append(f"\\{cmd}{{{line_s}}}")
                         
-                        # Inhaltsverzeichnis-Logik bleibt
                         toc_cmd = "subsubsection" if level >= 3 else cmd.replace("*", "")
                         latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{toc_indent}}}{line_s}}}")
                         found_level = True
@@ -152,23 +148,30 @@ def main():
 
     current_text = st.text_area("Gutachten", height=600, key="main_editor_key")
 
-    # --- SIDEBAR OUTLINE ---
+    # --- SIDEBAR OUTLINE (AKTUALISIERT FÜR (a) und (aa)) ---
     if current_text:
         for line in current_text.split('\n'):
             line_s = line.strip()
             if not line_s: continue
+            
+            # Check Star Patterns
             found = False
             for level, pattern in doc_parser.star_patterns.items():
                 if re.match(pattern, line_s):
+                    indent = "&nbsp;" * (level * 2)
                     weight = "**" if level <= 2 else ""
-                    st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}{weight}{line_s}{weight}")
+                    st.sidebar.markdown(f"{indent}{weight}{line_s}{weight}")
                     found = True
                     break
+            
+            # Check Prefix Patterns (hier werden (a) und (aa) jetzt erfasst)
             if not found:
                 for level, pattern in doc_parser.prefix_patterns.items():
                     if re.match(pattern, line_s):
+                        indent = "&nbsp;" * (level * 2)
+                        # Teil/Tatkomplex (1) und A. (2) fett, der Rest normal
                         weight = "**" if level <= 2 else ""
-                        st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}{weight}{line_s}{weight}")
+                        st.sidebar.markdown(f"{indent}{weight}{line_s}{weight}")
                         break
 
     # --- ACTIONS ---
@@ -192,6 +195,8 @@ def main():
             with st.spinner("PDF wird erstellt..."):
                 parsed_content = doc_parser.parse_content(current_text.split('\n'))
                 titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
+                
+                # lmodern wird hier gemäß deiner Präferenz erzwungen
                 font_latex = f"\\usepackage{{{selected_font_package}}}"
                 if "helvet" in selected_font_package: font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
 
