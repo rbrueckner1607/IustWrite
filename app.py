@@ -44,8 +44,8 @@ class KlausurDocument:
                 if re.match(pattern, line_s):
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*", 4: "paragraph*", 5: "subparagraph*"}
                     cmd = cmds.get(level, "subparagraph*")
-                    # Korrektur: 4 Backslashes für unsichtbares \mbox
-                    suffix = "~\\\\\\\\mbox{}" if level >= 4 else ""
+                    # Korrektur: hfill\break erzwingt den Umbruch ohne Textreste
+                    suffix = r"\\hfill\\break" if level >= 4 else ""
                     latex_output.append(f"\\{cmd}{{{line_s}}}{suffix}")
                     found_level = True
                     break
@@ -62,8 +62,8 @@ class KlausurDocument:
                         cmd = cmds.get(level, "subparagraph")
                         toc_indent = f"{max(0, level - 3)}em" if level > 3 else "0em"
                         
-                        # Korrektur: 4 Backslashes für unsichtbares \mbox
-                        suffix = "~\\\\\\\\mbox{}" if level >= 4 else ""
+                        # Korrektur: hfill\break für sauberen Umbruch ab Ebene 4
+                        suffix = r"\\hfill\\break" if level >= 4 else ""
                         latex_output.append(f"\\{cmd}*{{{line_s}}}{suffix}")
                         
                         toc_cmd = "subsubsection" if level >= 3 else cmd
