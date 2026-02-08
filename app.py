@@ -83,6 +83,7 @@ def handle_upload():
 def main():
     doc_parser = KlausurDocument()
     
+    # CSS für Layout und Sachverhaltsbox
     st.markdown("""
         <style>
         [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
@@ -90,13 +91,13 @@ def main():
         [data-testid="stSidebar"] h2 { font-size: 1.1rem; padding-bottom: 5px; }
         .block-container { padding-top: 2rem; max-width: 95%; }
         .stTextArea textarea { font-family: 'Courier New', Courier, monospace; }
-        /* Style für den Sachverhaltsbereich */
         .sachverhalt-box {
             background-color: #f0f2f6;
             padding: 15px;
             border-radius: 5px;
             border-left: 5px solid #ff4b4b;
             margin-bottom: 20px;
+            line-height: 1.5;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -110,36 +111,36 @@ def main():
     
     zeilenabstand = st.sidebar.selectbox("Zeilenabstand", options=["1.0", "1.2", "1.5", "2.0"], index=1)
 
-    # Standardmäßig lmodern
     font_options = {"lmodern (Standard)": "lmodern", "Times": "mathptmx", "Palatino": "mathpazo", "Helvetica": "helvet"}
     font_choice = st.sidebar.selectbox("Schriftart", options=list(font_options.keys()), index=0)
     selected_font_package = font_options[font_choice]
 
     st.sidebar.markdown("---")
-    
-    # --- NEU: FALL-AUSWAHL ---
     st.sidebar.title("📖 Fall abrufen")
-    fall_code = st.sidebar.text_input("Fall-Code eingeben (z.B. 0010)", help="Gib den Code aus deinem Buch ein.")
+    fall_code = st.sidebar.text_input("Fall-Code eingeben", help="Gib den Code aus deinem Buch ein (z.B. 0010).")
 
-    # Gliederungs-Titel in der Sidebar
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
-    # --- HAUPTFENSTER: SACHVERHALT ANZEIGEN ---
+    # --- SACHVERHALT LOGIK ---
     if fall_code:
-        # Pfad zur Fall-Datei: /faelle/0010.txt
-        pfad_zu_fall = os.path.join("faelle", f"{fall_code}.txt")
-        
+        pfad_zu_fall = os.path.join("fealle", f"{fall_code}.txt")
         if os.path.exists(pfad_zu_fall):
             with open(pfad_zu_fall, "r", encoding="utf-8") as f:
-                sachverhalt_text = f.read()
+                ganzer_text = f.read()
             
-            with st.expander(f"📄 Sachverhalt zu Fall {fall_code}", expanded=True):
-                st.markdown(f'<div class="sachverhalt-box">{sachverhalt_text}</div>', unsafe_allow_html=True)
+            zeilen = ganzer_text.split('\n')
+            if zeilen:
+                # Bereinigt ### und Fall XXXX: aus der ersten Zeile für den Titel
+                sauberer_titel = re.sub(r'^#+\s*(Fall\s+\d+:\s*)?', '', zeilen[0]).strip()
+                rest_text = "\n".join(zeilen[1:]).strip()
+                
+                with st.expander(f"📄 {sauberer_titel}", expanded=True):
+                    st.markdown(f'<div class="sachverhalt-box">{rest_text}</div>', unsafe_allow_html=True)
         else:
-            st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
+            st.sidebar.error(f"Fall {fall_code} im Ordner 'fealle' nicht gefunden.")
 
-    # --- HAUPTFENSTER: EINGABE ---
+    # --- HAUPTFENSTER EINGABE ---
     c1, c2, c3 = st.columns([2, 1, 1])
     with c1: kl_titel = st.text_input("Titel", "Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
@@ -147,7 +148,7 @@ def main():
 
     current_text = st.text_area("Gutachten", height=600, key="main_editor_key")
 
-    # --- SIDEBAR GLIEDERUNG (LIVE VORSCHAU) ---
+    # --- SIDEBAR GLIEDERUNG (LIVE) ---
     if current_text:
         for line in current_text.split('\n'):
             line_s = line.strip()
@@ -173,7 +174,7 @@ def main():
     with col_pdf: pdf_button = st.button("🏁 PDF generieren", use_container_width=True)
     with col_save: st.download_button("💾 Als TXT speichern", data=current_text, file_name="Gutachten.txt", use_container_width=True)
     with col_load: st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
-    with col_sachverhalt: sachverhalt_file = st.file_uploader("📄 Sachverhalt (PDF)", type=['pdf'], key="sachverhalt_key")
+    with col_sachverhalt: sachverhalt_file = st.file_uploader("📄 Extra Sachverhalt (PDF)", type=['pdf'], key="sachverhalt_key")
 
     if pdf_button:
         if not current_text.strip():
@@ -235,8 +236,7 @@ def main():
 \newgeometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm}
 \pagenumbering{arabic}
 \setcounter{page}{1}
-\pagestyle{iustwrite}
-\setstretch{""" + zeilenabstand + r"""}
+\pagestyle{iustwrite}\setstretch{""" + zeilenabstand + r"""}
 {\noindent\Large\bfseries """ + titel_komp + r""" \par}\bigskip
 """ + parsed_content + r"\end{document}"
 
