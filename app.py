@@ -39,21 +39,19 @@ class KlausurDocument:
                 continue
 
             found_level = False
-            # Manuelle Ebenen (mit Stern *)
             for level, pattern in self.star_patterns.items():
                 if re.match(pattern, line_s):
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*", 4: "paragraph*", 5: "subparagraph*"}
                     cmd = cmds.get(level, "subparagraph*")
+                    # FIX: Umbruch + Einrückung unterdrücken
                     if level >= 4:
-                        # Der entscheidende Fix: Umbruch außerhalb der Klammern
-                        latex_output.append(f"\\{cmd}{{{line_s}}}~\\\\")
+                        latex_output.append(f"\\{cmd}{{{line_s}}}~\\\\\\noindent ")
                     else:
                         latex_output.append(f"\\{cmd}{{{line_s}}}")
                     found_level = True
                     break
 
             if not found_level:
-                # Standard Gliederung (1. a) aa) etc.)
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
                         cmds = {
@@ -64,9 +62,9 @@ class KlausurDocument:
                         cmd = cmds.get(level, "subparagraph")
                         toc_indent = f"{max(0, level - 3)}em" if level > 3 else "0em"
                         
+                        # FIX: Umbruch + Einrückung unterdrücken
                         if level >= 4:
-                            # Der entscheidende Fix: Umbruch außerhalb der Klammern
-                            latex_output.append(f"\\{cmd}*{{{line_s}}}~\\\\")
+                            latex_output.append(f"\\{cmd}*{{{line_s}}}~\\\\\\noindent ")
                         else:
                             latex_output.append(f"\\{cmd}*{{{line_s}}}")
                         
@@ -76,7 +74,6 @@ class KlausurDocument:
                         break
 
             if not found_level:
-                # Normaler Text & Ersetzungen
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
                 line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
                 latex_output.append(line_s)
