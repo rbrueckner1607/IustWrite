@@ -83,7 +83,6 @@ def handle_upload():
 def main():
     doc_parser = KlausurDocument()
     
-    # --- CSS FÜR DAS LAYOUT ---
     st.markdown("""
         <style>
         [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
@@ -170,14 +169,20 @@ def main():
 \usepackage{setspace}
 \usepackage{geometry}
 \usepackage{fancyhdr}
-\geometry{left=2cm, right=3cm, top=2.5cm, bottom=3cm}
+
+% Initiale Geometrie für das Inhaltsverzeichnis
+\geometry{left=2cm, right=2cm, top=2.5cm, bottom=3cm}
+
 \fancypagestyle{iustwrite}{
     \fancyhf{}
     \fancyhead[L]{\small """ + kl_kuerzel + r"""}
     \fancyhead[R]{\small """ + titel_komp + r"""}
     \fancyfoot[R]{\thepage}
     \renewcommand{\headrulewidth}{0.5pt}
+    % Dies sorgt dafür, dass der Header bündig mit dem Textrand abschließt:
+    \fancyhfoffset[R]{0pt}
 }
+
 \begin{document}
 \sloppy
 """
@@ -200,9 +205,16 @@ def main():
                         sachverhalt_cmd = r"\includepdf[pages=-]{temp_sv.pdf}"
 
                     final_latex = full_latex_header + sachverhalt_cmd + r"""
+\pagenumbering{gobble}
 \tableofcontents\clearpage
+
+% Geometrie-Wechsel für den Haupttext mit Korrekturrand
 \newgeometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm}
-\pagestyle{iustwrite}\setstretch{""" + zeilenabstand + r"""}
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\pagestyle{iustwrite}
+\setstretch{""" + zeilenabstand + r"""}
+
 {\noindent\Large\bfseries """ + titel_komp + r""" \par}\bigskip
 """ + parsed_content + r"\end{document}"
 
@@ -212,7 +224,6 @@ def main():
                     env = os.environ.copy()
                     env["TEXINPUTS"] = f".:{tmp_path}:{assets_folder}:"
 
-                    # PDF-Erstellung (ohne text=True zur Vermeidung von Unicode-Fehlern)
                     result = None
                     for _ in range(2):
                         result = subprocess.run(
