@@ -1,1 +1,13 @@
+### Fall 0010: Das Gewissen des Bundespräsidenten
 
+**Der Sachverhalt:**
+Der Deutsche Bundestag verabschiedet mit Zustimmung des Bundesrates das „Gesetz zur Effizienzsteigerung der Innovationsförderung“ (InnFördG). Kernstück des Gesetzes ist eine Bestimmung, die das Bundesministerium für Wirtschaft ermächtigt, durch einfache Rechtsverordnung weitreichende Entscheidungsbefugnisse über die Vergabe von staatlichen Fördermitteln in Milliardenhöhe auf die privatrechtlich organisierte Stiftung „Stiftung für Zukunftstechnologie“ zu übertragen. 
+
+Diese Stiftung wird zwar vom Bund finanziert, ist jedoch personell und organisatorisch so ausgestaltet, dass die Mitglieder des Stiftungsvorstands allein von der Bundesregierung ernannt werden und keiner parlamentarischen Kontrolle unterliegen. Kritiker im Parlament rügen, dass hierdurch Kernaufgaben der staatlichen Verwaltung der parlamentarischen Verantwortlichkeit entzogen würden.
+
+Nachdem das Gesetz das parlamentarische Verfahren ordnungsgemäß durchlaufen hat, wird es dem Bundespräsidenten zur Ausfertigung vorgelegt. Der Bundespräsident hegt jedoch massive verfassungsrechtliche Bedenken. Er ist der Ansicht, dass die Übertragung derart wesentlicher Entscheidungskompetenzen auf eine dem Parlament gegenüber nicht verantwortliche Stelle gegen das Grundgesetz verstoße. Obwohl das Gesetz formell ordnungsgemäß zustande gekommen ist, verweigert der Bundespräsident die Unterzeichnung und damit die Ausfertigung des Gesetzes mit Verweis auf dessen materielle Verfassungswidrigkeit. Er ist der Ansicht, er sei als „Hüter der Verfassung“ nicht verpflichtet, offensichtlich grundgesetzwidrige Normen in die Welt zu setzen.
+
+Die Bundesregierung ist empört und vertritt die Auffassung, dem Bundespräsidenten stehe lediglich ein formelles Prüfungsrecht zu. Er müsse das Gesetz unterzeichnen, da er kein „Ersatz-Verfassungsgericht“ sei. Die Bundesregierung erhebt daraufhin Klage vor dem Bundesverfassungsgericht.
+
+---
+**Frage:** Hat die Klage der Bundesregierung Aussicht auf Erfolg?
