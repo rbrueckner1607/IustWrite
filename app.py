@@ -150,7 +150,7 @@ def main():
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
-    current_text = st.text_area("Dein Text", height=600, key="main_editor_key")
+    current_text = st.text_area("", height=600, key="main_editor_key")
 
     # --- SIDEBAR OUTLINE ---
     if current_text:
