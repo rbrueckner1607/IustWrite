@@ -1,0 +1,19 @@
+### Fall 1006: Das Luftsicherheitsgesetz
+Der Deutsche Bundestag verabschiedet mit der erforderlichen Mehrheit eine Änderung des Luftsicherheitsgesetzes (LuftSiG). Hintergrund ist die Sorge vor sogenannten „Renegade-Fällen“, in denen zivile Luftfahrzeuge von Terroristen als Tatwaffe missbraucht werden, um sie gezielt in bewohnte Gebiete oder kritische Infrastrukturen stürzen zu lassen.
+
+**Die Neufassung des § 14 Abs. 1 LuftSiG lautet nunmehr:**
+> „Zur Verhinderung des Eintritts eines besonders schweren Unglücksfalles dürfen die Streitkräfte im Luftraum Luftfahrzeuge abdrängen, zur Landung zwingen, den Einsatz von Waffengewalt androhen oder Warnschüsse abgeben. Soweit nicht anders abwendbar, sind die Streitkräfte im Luftraum zur Verhinderung eines besonders schweren Unglücksfalls zum Einsatz von Waffengewalt befugt.“
+
+**Zusätzlich wird ein neuer Absatz 4 eingefügt:**
+> „Die Maßnahme nach Absatz 1 Satz 2 ist nur zulässig, wenn das Luftfahrzeug als Tatwaffe gegen das Leben von Menschen eingesetzt werden soll und dies das einzige Mittel zur Abwehr einer gegenwärtigen Gefahr ist.“
+
+Die Landesregierung des Landes L hält diese Neuregelung für evident verfassungswidrig. Sie rügt zum einen die fehlende Gesetzgebungskompetenz des Bundes für den Einsatz militärischer Mittel im Rahmen der Luftverkehrsverwaltung. 
+
+Zum anderen sieht sie einen unheilbaren Verstoß gegen die Menschenwürde aus **Art. 1 Abs. 1 GG** und das Recht auf Leben aus **Art. 2 Abs. 2 S. 1 GG** der unschuldigen Insassen. Die Passagiere würden durch einen staatlich angeordneten Abschuss zu bloßen Objekten degradiert, um andere Leben zu retten. Eine quantitative Abwägung von Leben gegen Leben („viele am Boden gegen wenige im Flugzeug“) sei dem Grundgesetz fremd.
+
+Die Bundesregierung hält dem entgegen, dass sich die Passagiere in einem solchen Szenario ohnehin in einer „ausweglosen Schicksalsgemeinschaft“ befänden. Ihr Tod werde durch den Abschuss lediglich zeitlich geringfügig vorgezogen, um eine Katastrophe mit weitaus mehr Todesopfern zu verhindern.
+
+Die Landesregierung L stellt form- und fristgerecht einen Antrag auf abstrakte Normenkontrolle beim Bundesverfassungsgericht.
+
+---
+**Frage:** Hat der Antrag der Landesregierung L Aussicht auf Erfolg?
