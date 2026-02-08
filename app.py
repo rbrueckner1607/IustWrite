@@ -3,6 +3,7 @@ import os
 import re
 import streamlit as st
 import tempfile
+import shutil
 from pathlib import Path
 
 # --- ERWEITERTE PARSER KLASSE ---
@@ -71,35 +72,21 @@ class KlausurDocument:
 # --- UI SETTINGS ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
-# Session State Initialisierung
 if "main_editor_key" not in st.session_state:
     st.session_state["main_editor_key"] = ""
 
 def handle_upload():
     if st.session_state.uploader_key is not None:
         content = st.session_state.uploader_key.read().decode("utf-8")
-        # Direktes Setzen des Keys für das Textarea-Widget
         st.session_state["main_editor_key"] = content
 
 def main():
     doc_parser = KlausurDocument()
     
-    # --- CSS ---
     st.markdown("""
         <style>
-        [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
-        [data-testid="stSidebar"] p { font-size: 0.82rem !important; line-height: 1.1 !important; }
-        [data-testid="stSidebar"] h2 { font-size: 1.1rem; padding-bottom: 5px; }
-        .block-container {
-            padding-top: 2rem;
-            padding-bottom: 2rem;
-            padding-left: 3rem;
-            padding-right: 3rem;
-            max-width: 95%;
-        }
-        .stTextArea textarea {
-            font-family: 'Courier New', Courier, monospace;
-        }
+        .block-container { padding-top: 2rem; max-width: 95%; }
+        .stTextArea textarea { font-family: 'Courier New', Courier, monospace; }
         </style>
         """, unsafe_allow_html=True)
 
@@ -107,93 +94,41 @@ def main():
 
     # --- SIDEBAR ---
     st.sidebar.title("⚙️ Layout")
-    rand_input = st.sidebar.text_input("Korrekturrand rechts (in cm)", value="6")
-    rand_wert = rand_input.strip()
-    if not any(unit in rand_wert for unit in ['cm', 'mm']):
-        rand_wert += "cm"
+    rand_wert = st.sidebar.text_input("Korrekturrand rechts (in cm)", value="6")
+    if not any(unit in rand_wert for unit in ['cm', 'mm']): rand_wert += "cm"
     
-    abstand_options = ["1.0", "1.2", "1.5", "2.0"]
-    zeilenabstand = st.sidebar.selectbox("Zeilenabstand", options=abstand_options, index=1)
+    zeilenabstand = st.sidebar.selectbox("Zeilenabstand", options=["1.0", "1.2", "1.5", "2.0"], index=1)
 
-    font_options = {
-        "lmodern (Standard)": "lmodern",
-        "Times (klassisch)": "mathptmx",
-        "Palatino": "mathpazo",
-        "Helvetica": "helvet",
-        "Computer Modern": "" 
-    }
+    font_options = {"lmodern (Standard)": "lmodern", "Times": "mathptmx", "Palatino": "mathpazo", "Helvetica": "helvet"}
     font_choice = st.sidebar.selectbox("Schriftart", options=list(font_options.keys()), index=0)
     selected_font_package = font_options[font_choice]
 
-    st.sidebar.markdown("---")
-    st.sidebar.title("📌 Gliederung")
-
-    # Eingabefelder oben
+    # --- INPUT ---
     c1, c2, c3 = st.columns([2, 1, 1])
     with c1: kl_titel = st.text_input("Titel", "Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
-    # Das Widget nutzt NUR den key, kein 'value', um Konflikte zu vermeiden
-    current_text = st.text_area(
-        "Gutachten", 
-        height=750, 
-        key="main_editor_key"
-    )
+    current_text = st.text_area("Gutachten", height=600, key="main_editor_key")
 
-    # --- ZEICHENZÄHLER ---
-    char_count = len(current_text)
-    word_count = len(current_text.split())
-    st.info(f"📊 {char_count} Zeichen | {word_count} Wörter")
-
-    # --- Sidebar Gliederung ---
-    if current_text:
-        for line in current_text.split('\n'):
-            line_s = line.strip()
-            if not line_s: continue
-            found = False
-            for level, pattern in doc_parser.star_patterns.items():
-                if re.match(pattern, line_s):
-                    weight = "**" if level <= 2 else ""
-                    st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}{weight}{line_s}{weight}")
-                    found = True
-                    break
-            if not found:
-                for level, pattern in doc_parser.prefix_patterns.items():
-                    if re.match(pattern, line_s):
-                        weight = "**" if level <= 2 else ""
-                        st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}{weight}{line_s}{weight}")
-                        break
-
-    # --- FOOTER / AKTIONEN ---
+    # --- AKTIONEN ---
     st.markdown("---")
     col_pdf, col_save, col_load, col_sachverhalt = st.columns([1, 1, 1, 1])
 
-    with col_pdf:
-        pdf_button = st.button("🏁 PDF generieren", use_container_width=True)
-
-    with col_save:
-        st.download_button("💾 Als TXT speichern", data=current_text, file_name=f"Gutachten.txt", use_container_width=True)
-
-    with col_load:
-        st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
-
-    with col_sachverhalt:
-        sachverhalt_file = st.file_uploader("📄 Sachverhalt (PDF)", type=['pdf'], key="sachverhalt_key")
+    with col_pdf: pdf_button = st.button("🏁 PDF generieren", use_container_width=True)
+    with col_save: st.download_button("💾 Als TXT speichern", data=current_text, file_name="Gutachten.txt", use_container_width=True)
+    with col_load: st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
+    with col_sachverhalt: sachverhalt_file = st.file_uploader("📄 Sachverhalt (PDF)", type=['pdf'], key="sachverhalt_key")
 
     if pdf_button:
         if not current_text.strip():
-            st.warning("Das Editorfenster ist leer!")
+            st.warning("Bitte Text eingeben!")
         else:
-            with st.spinner("Kompiliere..."):
+            with st.spinner("Kompiliere PDF... (Das kann beim ersten Mal dauern)"):
                 parsed_content = doc_parser.parse_content(current_text.split('\n'))
                 titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
-
-                font_latex = ""
-                if selected_font_package:
-                    font_latex = f"\\usepackage{{{selected_font_package}}}"
-                    if "helvet" in selected_font_package:
-                        font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
+                font_latex = f"\\usepackage{{{selected_font_package}}}"
+                if "helvet" in selected_font_package: font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
 
                 full_latex_header = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
@@ -204,20 +139,7 @@ def main():
 \usepackage{setspace}
 \usepackage{geometry}
 \usepackage{fancyhdr}
-
 \geometry{left=2cm, right=3cm, top=2.5cm, bottom=3cm}
-
-\makeatletter
-\renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}%
-  {-3.25ex\@plus -1ex \@minus -.2ex}%
-  {1.5ex \@plus .2ex}%
-  {\normalfont\normalsize\bfseries}}
-\renewcommand\subparagraph{\@startsection{subparagraph}{5}{\z@}%
-  {-3.25ex\@plus -1ex \@minus -.2ex}%
-  {1.5ex \@plus .2ex}%
-  {\normalfont\normalsize\bfseries}}
-\makeatother
-
 \fancypagestyle{iustwrite}{
     \fancyhf{}
     \fancyhead[L]{\small """ + kl_kuerzel + r"""}
@@ -225,62 +147,47 @@ def main():
     \fancyfoot[R]{\thepage}
     \renewcommand{\headrulewidth}{0.5pt}
 }
-
 \begin{document}
 \sloppy
 """
-                
                 with tempfile.TemporaryDirectory() as tmpdirname:
                     tmp_path = Path(tmpdirname)
                     
+                    # WICHTIG: jurabook.cls in den Temp-Ordner kopieren, falls vorhanden
+                    if os.path.exists("jurabook.cls"):
+                        shutil.copy("jurabook.cls", tmp_path / "jurabook.cls")
+
                     sachverhalt_cmd = ""
                     if sachverhalt_file is not None:
-                        temp_sv_path = tmp_path / "temp_sachverhalt.pdf"
-                        with open(temp_sv_path, "wb") as f:
+                        with open(tmp_path / "temp_sv.pdf", "wb") as f:
                             f.write(sachverhalt_file.getbuffer())
-                        sachverhalt_cmd = r"\includepdf[pages=-]{temp_sachverhalt.pdf}"
+                        sachverhalt_cmd = r"\includepdf[pages=-]{temp_sv.pdf}"
 
                     final_latex = full_latex_header + sachverhalt_cmd + r"""
-\pagenumbering{gobble}
-\renewcommand{\contentsname}{Gliederung}
-\tableofcontents
-\clearpage
-
+\tableofcontents\clearpage
 \newgeometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm}
-\fancyhfoffset[R]{0pt} 
-
-\pagenumbering{arabic}
-\setcounter{page}{1}
-\pagestyle{iustwrite}
-\setstretch{""" + zeilenabstand + r"""}
-
+\pagestyle{iustwrite}\setstretch{""" + zeilenabstand + r"""}
 {\noindent\Large\bfseries """ + titel_komp + r""" \par}\bigskip
-\noindent
-""" + parsed_content + r"""
-\end{document}
-"""
-                    tex_file = tmp_path / "klausur.tex"
-                    with open(tex_file, "w", encoding="utf-8") as f:
+""" + parsed_content + r"\end{document}"
+
+                    with open(tmp_path / "klausur.tex", "w", encoding="utf-8") as f:
                         f.write(final_latex)
                     
-                    env = os.environ.copy()
-                    env["TEXINPUTS"] = f".:{os.getcwd()}:"
-                    
+                    # pdflatex Aufruf
                     for _ in range(2):
-                        subprocess.run(
+                        result = subprocess.run(
                             ["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
-                            cwd=tmpdirname, 
-                            env=env, 
-                            capture_output=True
+                            cwd=tmpdirname, capture_output=True, text=True
                         )
 
                     pdf_file = tmp_path / "klausur.pdf"
                     if pdf_file.exists():
-                        st.success("PDF erstellt!")
+                        st.success("PDF erfolgreich erstellt!")
                         with open(pdf_file, "rb") as f:
                             st.download_button("📥 Download PDF", f, "Gutachten.pdf", use_container_width=True)
                     else:
-                        st.error("Fehler bei der PDF-Erstellung. Hast du eine packages.txt mit texlive-latex-base angelegt?")
+                        st.error("LaTeX Fehler!")
+                        st.code(result.stdout) # Zeigt den Fehler direkt an
 
 if __name__ == "__main__":
     main()
