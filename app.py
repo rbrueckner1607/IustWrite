@@ -9,7 +9,6 @@ from pathlib import Path
 # --- OPTIMIERTE PARSER KLASSE ---
 class KlausurDocument:
     def __init__(self):
-        # Patterns für die Gliederungserkennung (a, aa, (a) etc. nun flexibler)
         self.prefix_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
             2: r'^\s*[A-H]\.(\s|$)',
@@ -86,7 +85,6 @@ def handle_upload():
 def main():
     doc_parser = KlausurDocument()
     
-    # CSS für maximale Breite und bewegliche Sidebar
     st.markdown("""
         <style>
         .block-container { 
@@ -116,20 +114,17 @@ def main():
 
     st.title("⚖️ IustWrite Editor")
 
-    # --- SIDEBAR SETTINGS ---
-    st.sidebar.title("⚙️ Layout")
-    rand_wert = st.sidebar.text_input("Korrekturrand rechts (in cm)", value="6")
-    if not any(unit in rand_wert for unit in ['cm', 'mm']): rand_wert += "cm"
-    
-    zeilenabstand = st.sidebar.selectbox("Zeilenabstand", options=["1.0", "1.2", "1.5", "2.0"], index=1)
+    # --- SIDEBAR SETTINGS (EINGEKLAPPT) ---
+    with st.sidebar.expander("⚙️ Layout-Einstellungen", expanded=False):
+        rand_wert = st.text_input("Korrekturrand rechts (in cm)", value="6")
+        if not any(unit in rand_wert for unit in ['cm', 'mm']): rand_wert += "cm"
+        zeilenabstand = st.selectbox("Zeilenabstand", options=["1.0", "1.2", "1.5", "2.0"], index=1)
+        font_options = {"lmodern (Standard)": "lmodern", "Times": "mathptmx", "Palatino": "mathpazo", "Helvetica": "helvet"}
+        font_choice = st.selectbox("Schriftart", options=list(font_options.keys()), index=0)
+        selected_font_package = font_options[font_choice]
 
-    font_options = {"lmodern (Standard)": "lmodern", "Times": "mathptmx", "Palatino": "mathpazo", "Helvetica": "helvet"}
-    font_choice = st.sidebar.selectbox("Schriftart", options=list(font_options.keys()), index=0)
-    selected_font_package = font_options[font_choice]
-
-    st.sidebar.markdown("---")
-    st.sidebar.title("📖 Fall abrufen")
-    fall_code = st.sidebar.text_input("Fall-Code eingeben")
+    with st.sidebar.expander("📖 Fall abrufen", expanded=False):
+        fall_code = st.text_input("Fall-Code eingeben")
 
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
