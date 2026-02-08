@@ -44,8 +44,8 @@ class KlausurDocument:
                 if re.match(pattern, line_s):
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*", 4: "paragraph*", 5: "subparagraph*"}
                     cmd = cmds.get(level, "subparagraph*")
-                    # Nur ab Ebene 4 (1., a), aa)...) den Umbruch erzwingen
-                    suffix = r"~\\mbox{}" if level >= 4 else ""
+                    # Korrektur: 4 Backslashes für unsichtbares \mbox
+                    suffix = "~\\\\\\\\mbox{}" if level >= 4 else ""
                     latex_output.append(f"\\{cmd}{{{line_s}}}{suffix}")
                     found_level = True
                     break
@@ -62,8 +62,8 @@ class KlausurDocument:
                         cmd = cmds.get(level, "subparagraph")
                         toc_indent = f"{max(0, level - 3)}em" if level > 3 else "0em"
                         
-                        # Umbruch-Logik: Teil, A. und I. brauchen kein Extra-Schubs
-                        suffix = r"~\\mbox{}" if level >= 4 else ""
+                        # Korrektur: 4 Backslashes für unsichtbares \mbox
+                        suffix = "~\\\\\\\\mbox{}" if level >= 4 else ""
                         latex_output.append(f"\\{cmd}*{{{line_s}}}{suffix}")
                         
                         toc_cmd = "subsubsection" if level >= 3 else cmd
@@ -139,7 +139,6 @@ def main():
             
             zeilen = ganzer_text.split('\n')
             if zeilen:
-                # Titelbereinigung
                 sauberer_titel = re.sub(r'^#+\s*(Fall\s+\d+:\s*)?', '', zeilen[0]).strip()
                 rest_text = "\n".join(zeilen[1:]).strip()
                 
