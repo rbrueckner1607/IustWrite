@@ -6,7 +6,7 @@ import tempfile
 import shutil
 from pathlib import Path
 
-# --- ERWEITERTE PARSER KLASSE ---
+# --- OPTIMIERTE PARSER KLASSE ---
 class KlausurDocument:
     def __init__(self):
         self.prefix_patterns = {
@@ -39,15 +39,18 @@ class KlausurDocument:
                 continue
 
             found_level = False
+            # Check for Star-Patterns (Manual Levels)
             for level, pattern in self.star_patterns.items():
                 if re.match(pattern, line_s):
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*", 4: "paragraph*", 5: "subparagraph*"}
                     cmd = cmds.get(level, "subparagraph*")
-                    latex_output.append(f"\\{cmd}{{{line_s}}}")
+                    # ~\\mbox{} forces the following text into the next line
+                    latex_output.append(f"\\{cmd}{{{line_s}}}~\\\\mbox{{}}")
                     found_level = True
                     break
 
             if not found_level:
+                # Check for standard legal outline (1. a) aa) etc.)
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
                         cmds = {
@@ -57,13 +60,18 @@ class KlausurDocument:
                         }
                         cmd = cmds.get(level, "subparagraph")
                         toc_indent = f"{max(0, level - 3)}em" if level > 3 else "0em"
-                        latex_output.append(f"\\{cmd}*{{{line_s}}}")
+                        
+                        # Heading with forced break
+                        latex_output.append(f"\\{cmd}*{{{line_s}}}~\\\\mbox{{}}")
+                        
+                        # Table of contents entry
                         toc_cmd = "subsubsection" if level >= 3 else cmd
                         latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{toc_indent}}}{line_s}}}")
                         found_level = True
                         break
 
             if not found_level:
+                # Normal Text
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
                 line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
                 latex_output.append(line_s)
@@ -83,7 +91,6 @@ def handle_upload():
 def main():
     doc_parser = KlausurDocument()
     
-    # CSS für Layout und Sachverhaltsbox
     st.markdown("""
         <style>
         [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
@@ -104,7 +111,7 @@ def main():
 
     st.title("⚖️ IustWrite Editor")
 
-    # --- SIDEBAR EINSTELLUNGEN ---
+    # --- SIDEBAR SETTINGS ---
     st.sidebar.title("⚙️ Layout")
     rand_wert = st.sidebar.text_input("Korrekturrand rechts (in cm)", value="6")
     if not any(unit in rand_wert for unit in ['cm', 'mm']): rand_wert += "cm"
@@ -117,12 +124,12 @@ def main():
 
     st.sidebar.markdown("---")
     st.sidebar.title("📖 Fall abrufen")
-    fall_code = st.sidebar.text_input("Fall-Code eingeben", help="Gib den Code aus deinem Buch ein (z.B. 0010).")
+    fall_code = st.sidebar.text_input("Fall-Code eingeben", help="Gib den Code ein (z.B. 0010).")
 
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
-    # --- SACHVERHALT LOGIK ---
+    # --- CASE DISPLAY LOGIC ---
     if fall_code:
         pfad_zu_fall = os.path.join("fealle", f"{fall_code}.txt")
         if os.path.exists(pfad_zu_fall):
@@ -131,16 +138,15 @@ def main():
             
             zeilen = ganzer_text.split('\n')
             if zeilen:
-                # Bereinigt ### und Fall XXXX: aus der ersten Zeile für den Titel
                 sauberer_titel = re.sub(r'^#+\s*(Fall\s+\d+:\s*)?', '', zeilen[0]).strip()
                 rest_text = "\n".join(zeilen[1:]).strip()
                 
                 with st.expander(f"📄 {sauberer_titel}", expanded=True):
                     st.markdown(f'<div class="sachverhalt-box">{rest_text}</div>', unsafe_allow_html=True)
         else:
-            st.sidebar.error(f"Fall {fall_code} im Ordner 'fealle' nicht gefunden.")
+            st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
 
-    # --- HAUPTFENSTER EINGABE ---
+    # --- MAIN EDITOR ---
     c1, c2, c3 = st.columns([2, 1, 1])
     with c1: kl_titel = st.text_input("Titel", "Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
@@ -148,7 +154,7 @@ def main():
 
     current_text = st.text_area("Gutachten", height=600, key="main_editor_key")
 
-    # --- SIDEBAR GLIEDERUNG (LIVE) ---
+    # --- LIVE SIDEBAR OUTLINE ---
     if current_text:
         for line in current_text.split('\n'):
             line_s = line.strip()
@@ -167,7 +173,7 @@ def main():
                         st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}{weight}{line_s}{weight}")
                         break
 
-    # --- AKTIONEN ---
+    # --- ACTIONS ---
     st.markdown("---")
     col_pdf, col_save, col_load, col_sachverhalt = st.columns([1, 1, 1, 1])
 
