@@ -39,18 +39,19 @@ class KlausurDocument:
                 continue
 
             found_level = False
-            # Check for Star-Patterns (Manual Levels)
+            # Manuelle Ebenen (mit Stern *)
             for level, pattern in self.star_patterns.items():
                 if re.match(pattern, line_s):
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*", 4: "paragraph*", 5: "subparagraph*"}
                     cmd = cmds.get(level, "subparagraph*")
-                    # ~\\mbox{} forces the following text into the next line
-                    latex_output.append(f"\\{cmd}{{{line_s}}}~\\\\mbox{{}}")
+                    # Nur ab Ebene 4 (1., a), aa)...) den Umbruch erzwingen
+                    suffix = r"~\\mbox{}" if level >= 4 else ""
+                    latex_output.append(f"\\{cmd}{{{line_s}}}{suffix}")
                     found_level = True
                     break
 
             if not found_level:
-                # Check for standard legal outline (1. a) aa) etc.)
+                # Standard Gliederung (1. a) aa) etc.)
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
                         cmds = {
@@ -61,23 +62,23 @@ class KlausurDocument:
                         cmd = cmds.get(level, "subparagraph")
                         toc_indent = f"{max(0, level - 3)}em" if level > 3 else "0em"
                         
-                        # Heading with forced break
-                        latex_output.append(f"\\{cmd}*{{{line_s}}}~\\\\mbox{{}}")
+                        # Umbruch-Logik: Teil, A. und I. brauchen kein Extra-Schubs
+                        suffix = r"~\\mbox{}" if level >= 4 else ""
+                        latex_output.append(f"\\{cmd}*{{{line_s}}}{suffix}")
                         
-                        # Table of contents entry
                         toc_cmd = "subsubsection" if level >= 3 else cmd
                         latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{toc_indent}}}{line_s}}}")
                         found_level = True
                         break
 
             if not found_level:
-                # Normal Text
+                # Normaler Text & Ersetzungen
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
                 line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
                 latex_output.append(line_s)
         return "\n".join(latex_output)
 
-# --- UI SETTINGS ---
+# --- UI CONFIG ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
 if "main_editor_key" not in st.session_state:
@@ -129,7 +130,7 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
-    # --- CASE DISPLAY LOGIC ---
+    # --- CASE LOGIC ---
     if fall_code:
         pfad_zu_fall = os.path.join("fealle", f"{fall_code}.txt")
         if os.path.exists(pfad_zu_fall):
@@ -138,6 +139,7 @@ def main():
             
             zeilen = ganzer_text.split('\n')
             if zeilen:
+                # Titelbereinigung
                 sauberer_titel = re.sub(r'^#+\s*(Fall\s+\d+:\s*)?', '', zeilen[0]).strip()
                 rest_text = "\n".join(zeilen[1:]).strip()
                 
@@ -146,7 +148,7 @@ def main():
         else:
             st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
 
-    # --- MAIN EDITOR ---
+    # --- EDITOR AREA ---
     c1, c2, c3 = st.columns([2, 1, 1])
     with c1: kl_titel = st.text_input("Titel", "Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
@@ -154,7 +156,7 @@ def main():
 
     current_text = st.text_area("Gutachten", height=600, key="main_editor_key")
 
-    # --- LIVE SIDEBAR OUTLINE ---
+    # --- SIDEBAR OUTLINE ---
     if current_text:
         for line in current_text.split('\n'):
             line_s = line.strip()
@@ -188,10 +190,10 @@ def main():
         else:
             cls_path = os.path.join("latex_assets", "jurabook.cls")
             if not os.path.exists(cls_path):
-                st.error("🚨 jurabook.cls nicht gefunden!")
+                st.error("🚨 jurabook.cls fehlt!")
                 st.stop()
 
-            with st.spinner("Kompiliere PDF..."):
+            with st.spinner("PDF wird erstellt..."):
                 parsed_content = doc_parser.parse_content(current_text.split('\n'))
                 titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
                 font_latex = f"\\usepackage{{{selected_font_package}}}"
