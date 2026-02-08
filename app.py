@@ -2,6 +2,8 @@ import subprocess
 import os
 import re
 import streamlit as st
+import tempfile
+from pathlib import Path
 
 # --- ERWEITERTE PARSER KLASSE ---
 class KlausurDocument:
@@ -81,50 +83,30 @@ def handle_upload():
 def main():
     doc_parser = KlausurDocument()
     
-    # --- CSS FÜR MAXIMALE BREITE & STABILE SIDEBAR ---
+    # --- CSS FÜR BREITERES LAYOUT ---
     st.markdown("""
         <style>
-        /* Maximale Breite ausnutzen */
+        [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
+        [data-testid="stSidebar"] p { font-size: 0.82rem !important; line-height: 1.1 !important; }
+        [data-testid="stSidebar"] h2 { font-size: 1.1rem; padding-bottom: 5px; }
         .block-container {
-            padding-top: 1.5rem;
-            padding-bottom: 1rem;
-            padding-left: 2rem;
-            padding-right: 2rem;
-            max-width: 98% !important;
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+            padding-left: 3rem;
+            padding-right: 3rem;
+            max-width: 95%;
         }
-
-        /* Sidebar Styling: Textumbruch für lange Überschriften */
-        [data-testid="stSidebar"] .stMarkdown {
-            margin-bottom: -18px;
-            word-wrap: break-word;
-            white-space: normal;
-        }
-        [data-testid="stSidebar"] p {
-            font-size: 0.85rem !important;
-            line-height: 1.2 !important;
-        }
-        [data-testid="stSidebar"] h2 {
-            font-size: 1.1rem;
-            padding-bottom: 5px;
-        }
-
-        /* EDITOR SCHRIFTART: Latin Modern (Serifen) */
         .stTextArea textarea {
-            font-family: 'lmodern', 'Georgia', serif;
-            font-size: 1.0rem; /* Reduziert von 1.15rem auf Standardgröße */
-            line-height: 1.5;   /* Leicht kompakterer Zeilenabstand */
-            padding: 15px;      /* Etwas weniger Innenabstand für mehr Platz */
-            background-color: #fcfcfc;
-            }
+            font-family: 'Courier New', Courier, monospace;
+        }
         </style>
         """, unsafe_allow_html=True)
 
     st.title("⚖️ IustWrite Editor")
 
-    # --- SIDEBAR EINSTELLUNGEN ---
+    # --- SIDEBAR ---
     st.sidebar.title("⚙️ Layout")
-    
-    rand_input = st.sidebar.text_input("Rand rechts (mit . eingeben!)", value="6")
+    rand_input = st.sidebar.text_input("Korrekturrand rechts (in cm)", value="6")
     rand_wert = rand_input.strip()
     if not any(unit in rand_wert for unit in ['cm', 'mm']):
         rand_wert += "cm"
@@ -132,7 +114,6 @@ def main():
     abstand_options = ["1.0", "1.2", "1.5", "2.0"]
     zeilenabstand = st.sidebar.selectbox("Zeilenabstand", options=abstand_options, index=1)
 
-    # Schriftarten-Auswahl (lmodern als Standard)
     font_options = {
         "lmodern (Standard)": "lmodern",
         "Times (klassisch)": "mathptmx",
@@ -146,39 +127,36 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
-    # --- LAYOUT OBEN: TITELZEILE ---
+    # Eingabefelder oben
     c1, c2, c3 = st.columns([2, 1, 1])
-    with c1: kl_titel = st.text_input("Titel", "")
+    with c1: kl_titel = st.text_input("Titel", "Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
-    with c3: kl_kuerzel = st.text_input("Kürzel", "")
+    with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
-    # --- EDITOR ---
     current_text = st.text_area(
-        "", 
+        "Gutachten", 
         value=st.session_state.klausur_text, 
-        height=700,
+        height=750, 
         key="main_editor_key"
     )
 
-    # Zeichenzähler
+    # --- ZEICHENZÄHLER ---
     char_count = len(current_text)
     word_count = len(current_text.split())
     st.info(f"📊 {char_count} Zeichen | {word_count} Wörter")
 
-    # --- SIDEBAR GLIEDERUNGS-VORSCHAU ---
+    # --- Sidebar Gliederung ---
     if current_text:
         for line in current_text.split('\n'):
             line_s = line.strip()
             if not line_s: continue
             found = False
-            # Check Star Patterns
             for level, pattern in doc_parser.star_patterns.items():
                 if re.match(pattern, line_s):
                     weight = "**" if level <= 2 else ""
                     st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}{weight}{line_s}{weight}")
                     found = True
                     break
-            # Check Regular Patterns
             if not found:
                 for level, pattern in doc_parser.prefix_patterns.items():
                     if re.match(pattern, line_s):
@@ -186,7 +164,7 @@ def main():
                         st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}{weight}{line_s}{weight}")
                         break
 
-    # --- AKTIONEN / FOOTER ---
+    # --- FOOTER / AKTIONEN ---
     st.markdown("---")
     col_pdf, col_save, col_load, col_sachverhalt = st.columns([1, 1, 1, 1])
 
@@ -206,7 +184,7 @@ def main():
         if not current_text.strip():
             st.warning("Das Editorfenster ist leer!")
         else:
-            with st.spinner("Kompiliere PDF..."):
+            with st.spinner("Kompiliere..."):
                 parsed_content = doc_parser.parse_content(current_text.split('\n'))
                 titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
 
@@ -216,13 +194,6 @@ def main():
                     if "helvet" in selected_font_package:
                         font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
 
-                sachverhalt_cmd = ""
-                if sachverhalt_file is not None:
-                    with open("temp_sachverhalt.pdf", "wb") as f:
-                        f.write(sachverhalt_file.getbuffer())
-                    sachverhalt_cmd = r"\includepdf[pages=-]{temp_sachverhalt.pdf}"
-
-                # Das komplette LaTeX Template
                 full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
@@ -256,7 +227,20 @@ def main():
 
 \begin{document}
 \sloppy
-""" + sachverhalt_cmd + r"""
+"""
+                
+                # Temp-Verzeichnis Logik für Cloud-Stabilität
+                with tempfile.TemporaryDirectory() as tmpdirname:
+                    tmp_path = Path(tmpdirname)
+                    
+                    sachverhalt_cmd = ""
+                    if sachverhalt_file is not None:
+                        temp_sv_path = tmp_path / "temp_sachverhalt.pdf"
+                        with open(temp_sv_path, "wb") as f:
+                            f.write(sachverhalt_file.getbuffer())
+                        sachverhalt_cmd = r"\includepdf[pages=-]{temp_sachverhalt.pdf}"
+
+                    final_latex = full_latex + sachverhalt_cmd + r"""
 \pagenumbering{gobble}
 \renewcommand{\contentsname}{Gliederung}
 \tableofcontents
@@ -275,26 +259,30 @@ def main():
 """ + parsed_content + r"""
 \end{document}
 """
-                # Datei schreiben und kompilieren
-                with open("klausur.tex", "w", encoding="utf-8") as f:
-                    f.write(full_latex)
-                
-                env = os.environ.copy()
-                env["TEXINPUTS"] = f".:{os.path.join(os.getcwd(), 'latex_assets')}:"
-                
-                for ext in ["pdf", "aux", "log", "toc"]:
-                    if os.path.exists(f"klausur.{ext}"): os.remove(f"klausur.{ext}")
+                    tex_file = tmp_path / "klausur.tex"
+                    with open(tex_file, "w", encoding="utf-8") as f:
+                        f.write(final_latex)
+                    
+                    # Umgebungsvariablen für Pfade
+                    env = os.environ.copy()
+                    # Stellt sicher, dass .cls Dateien aus dem Hauptverzeichnis gefunden werden
+                    env["TEXINPUTS"] = f".:{os.getcwd()}:"
+                    
+                    for _ in range(2):
+                        subprocess.run(
+                            ["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
+                            cwd=tmpdirname, 
+                            env=env, 
+                            capture_output=True
+                        )
 
-                # Zweimaliges Ausführen für Inhaltsverzeichnis
-                for _ in range(2):
-                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], env=env, capture_output=True)
-
-                if os.path.exists("klausur.pdf"):
-                    st.success("PDF erfolgreich erstellt!")
-                    with open("klausur.pdf", "rb") as f:
-                        st.download_button("📥 Jetzt PDF herunterladen", f, "Gutachten.pdf", use_container_width=True)
-                else:
-                    st.error("Fehler: Die PDF konnte nicht generiert werden. Prüfe deinen Text auf LaTeX-unverträgliche Sonderzeichen.")
+                    pdf_file = tmp_path / "klausur.pdf"
+                    if pdf_file.exists():
+                        st.success("PDF erstellt!")
+                        with open(pdf_file, "rb") as f:
+                            st.download_button("📥 Download PDF", f, "Gutachten.pdf", use_container_width=True)
+                    else:
+                        st.error("Fehler bei der PDF-Erstellung. Hast du eine packages.txt mit texlive-latex-base angelegt?")
 
 if __name__ == "__main__":
     main()
