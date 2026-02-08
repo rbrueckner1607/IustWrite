@@ -83,8 +83,12 @@ def handle_upload():
 def main():
     doc_parser = KlausurDocument()
     
+    # --- CSS FÜR DAS LAYOUT ---
     st.markdown("""
         <style>
+        [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
+        [data-testid="stSidebar"] p { font-size: 0.82rem !important; line-height: 1.1 !important; }
+        [data-testid="stSidebar"] h2 { font-size: 1.1rem; padding-bottom: 5px; }
         .block-container { padding-top: 2rem; max-width: 95%; }
         .stTextArea textarea { font-family: 'Courier New', Courier, monospace; }
         </style>
@@ -92,25 +96,46 @@ def main():
 
     st.title("⚖️ IustWrite Editor")
 
-    # --- SIDEBAR ---
+    # --- SIDEBAR EINSTELLUNGEN ---
     st.sidebar.title("⚙️ Layout")
     rand_wert = st.sidebar.text_input("Korrekturrand rechts (in cm)", value="6")
     if not any(unit in rand_wert for unit in ['cm', 'mm']): rand_wert += "cm"
     
     zeilenabstand = st.sidebar.selectbox("Zeilenabstand", options=["1.0", "1.2", "1.5", "2.0"], index=1)
 
-    # lmodern als Default
     font_options = {"lmodern (Standard)": "lmodern", "Times": "mathptmx", "Palatino": "mathpazo", "Helvetica": "helvet"}
     font_choice = st.sidebar.selectbox("Schriftart", options=list(font_options.keys()), index=0)
     selected_font_package = font_options[font_choice]
 
-    # --- INPUT ---
+    st.sidebar.markdown("---")
+    st.sidebar.title("📌 Gliederung")
+
+    # --- HAUPTFENSTER EINGABE ---
     c1, c2, c3 = st.columns([2, 1, 1])
     with c1: kl_titel = st.text_input("Titel", "Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
-    current_text = st.text_area("Gutachten", height=600, key="main_editor_key")
+    current_text = st.text_area("Gutachten", height=650, key="main_editor_key")
+
+    # --- SIDEBAR GLIEDERUNG (LIVE VORSCHAU) ---
+    if current_text:
+        for line in current_text.split('\n'):
+            line_s = line.strip()
+            if not line_s: continue
+            found = False
+            for level, pattern in doc_parser.star_patterns.items():
+                if re.match(pattern, line_s):
+                    weight = "**" if level <= 2 else ""
+                    st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}{weight}{line_s}{weight}")
+                    found = True
+                    break
+            if not found:
+                for level, pattern in doc_parser.prefix_patterns.items():
+                    if re.match(pattern, line_s):
+                        weight = "**" if level <= 2 else ""
+                        st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}{weight}{line_s}{weight}")
+                        break
 
     # --- AKTIONEN ---
     st.markdown("---")
@@ -125,21 +150,16 @@ def main():
         if not current_text.strip():
             st.warning("Bitte Text eingeben!")
         else:
-            # PFAD-ANPASSUNG: Suche in latex_assets
             cls_path = os.path.join("latex_assets", "jurabook.cls")
-            
             if not os.path.exists(cls_path):
-                st.error(f"🚨 KRITISCH: 'jurabook.cls' wurde unter '{cls_path}' nicht gefunden!")
-                st.info("Bitte prüfe, ob der Ordner 'latex_assets' existiert und die Datei darin liegt.")
+                st.error(f"🚨 Datei nicht gefunden: {cls_path}")
                 st.stop()
 
             with st.spinner("Kompiliere PDF..."):
                 parsed_content = doc_parser.parse_content(current_text.split('\n'))
                 titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
-                
                 font_latex = f"\\usepackage{{{selected_font_package}}}"
-                if "helvet" in selected_font_package: 
-                    font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
+                if "helvet" in selected_font_package: font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
 
                 full_latex_header = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
@@ -163,17 +183,15 @@ def main():
 """
                 with tempfile.TemporaryDirectory() as tmpdirname:
                     tmp_path = Path(tmpdirname)
-                    
-                    # Kopiere die Klassendatei aus dem Unterordner in den Temp-Ordner
                     shutil.copy(os.path.abspath(cls_path), tmp_path / "jurabook.cls")
-
-                    # Falls es im Ordner latex_assets noch andere Dateien gibt (.sty, .fd), kopiere diese ebenfalls
+                    
                     assets_folder = os.path.abspath("latex_assets")
-                    for item in os.listdir(assets_folder):
-                        s = os.path.join(assets_folder, item)
-                        d = os.path.join(tmpdirname, item)
-                        if os.path.isfile(s) and not item.endswith('.cls'): # cls haben wir schon
-                            shutil.copy2(s, d)
+                    if os.path.exists(assets_folder):
+                        for item in os.listdir(assets_folder):
+                            s = os.path.join(assets_folder, item)
+                            d = os.path.join(tmpdirname, item)
+                            if os.path.isfile(s) and not item.endswith('.cls'):
+                                shutil.copy2(s, d)
 
                     sachverhalt_cmd = ""
                     if sachverhalt_file is not None:
@@ -192,13 +210,14 @@ def main():
                         f.write(final_latex)
                     
                     env = os.environ.copy()
-                    # Erweitere den Suchpfad für LaTeX um den Temp-Ordner und den Asset-Ordner
                     env["TEXINPUTS"] = f".:{tmp_path}:{assets_folder}:"
 
+                    # PDF-Erstellung (ohne text=True zur Vermeidung von Unicode-Fehlern)
+                    result = None
                     for _ in range(2):
                         result = subprocess.run(
                             ["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
-                            cwd=tmpdirname, env=env, capture_output=True, text=True
+                            cwd=tmpdirname, env=env, capture_output=True, text=False
                         )
 
                     pdf_file = tmp_path / "klausur.pdf"
@@ -208,7 +227,9 @@ def main():
                             st.download_button("📥 Download PDF", f, "Gutachten.pdf", use_container_width=True)
                     else:
                         st.error("LaTeX Fehler!")
-                        st.code(result.stdout)
+                        if result:
+                            error_log = result.stdout.decode('utf-8', errors='replace')
+                            st.code(error_log)
 
 if __name__ == "__main__":
     main()
