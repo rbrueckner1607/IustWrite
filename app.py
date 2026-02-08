@@ -39,40 +39,37 @@ class KlausurDocument:
                 continue
 
             found_level = False
-            # Manuelle Ebenen (mit Stern *)
             for level, pattern in self.star_patterns.items():
                 if re.match(pattern, line_s):
-                    cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*", 4: "paragraph*", 5: "subparagraph*"}
-                    cmd = cmds.get(level, "subparagraph*")
-                    # FIX: % schluckt Leerzeichen nach dem Umbruch
-                    suffix = r"~\\\\ %" if level >= 4 else ""
-                    latex_output.append(f"\\{cmd}{{{line_s}}}{suffix}")
+                    # FIX: Ab Ebene 3 nutzen wir subsubsection für sauberen Block-Umbruch
+                    cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*"}
+                    cmd = cmds.get(level, "subsubsection*")
+                    latex_output.append(f"\\{cmd}{{{line_s}}}")
                     found_level = True
                     break
 
             if not found_level:
-                # Standard Gliederung (1. a) aa) etc.)
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
-                        cmds = {
-                            1: "section", 2: "subsection", 3: "subsubsection",
-                            4: "paragraph", 5: "subparagraph", 6: "subparagraph",
-                            7: "subparagraph", 8: "subparagraph"
-                        }
-                        cmd = cmds.get(level, "subparagraph")
+                        # FIX: Wir mappen Ebene 3 bis 8 auf subsubsection*
+                        # Das garantiert, dass der Text IMMER in der neuen Zeile OHNE Versatz beginnt.
+                        if level >= 3:
+                            cmd = "subsubsection*"
+                        elif level == 2:
+                            cmd = "subsection*"
+                        else:
+                            cmd = "section*"
+                        
                         toc_indent = f"{max(0, level - 3)}em" if level > 3 else "0em"
+                        latex_output.append(f"\\{cmd}{{{line_s}}}")
                         
-                        # FIX: % schluckt Leerzeichen nach dem Umbruch
-                        suffix = r"~\\\\ %" if level >= 4 else ""
-                        latex_output.append(f"\\{cmd}*{{{line_s}}}{suffix}")
-                        
-                        toc_cmd = "subsubsection" if level >= 3 else cmd
+                        # Inhaltsverzeichnis-Logik bleibt
+                        toc_cmd = "subsubsection" if level >= 3 else cmd.replace("*", "")
                         latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{toc_indent}}}{line_s}}}")
                         found_level = True
                         break
 
             if not found_level:
-                # Normaler Text & Ersetzungen
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
                 line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
                 latex_output.append(line_s)
@@ -119,7 +116,6 @@ def main():
     
     zeilenabstand = st.sidebar.selectbox("Zeilenabstand", options=["1.0", "1.2", "1.5", "2.0"], index=1)
 
-    # Gemäß deiner Vorgabe wird lmodern bevorzugt
     font_options = {"lmodern (Standard)": "lmodern", "Times": "mathptmx", "Palatino": "mathpazo", "Helvetica": "helvet"}
     font_choice = st.sidebar.selectbox("Schriftart", options=list(font_options.keys()), index=0)
     selected_font_package = font_options[font_choice]
@@ -210,7 +206,7 @@ def main():
 \usepackage{fancyhdr}
 \geometry{left=2cm, right=2cm, top=2.5cm, bottom=3cm}
 
-% FIX: Kein Absatzeinzug für bündiges Design
+% FIX: Global alle Einrückungen nach Überschriften unterdrücken
 \setlength{\parindent}{0pt}
 
 \fancypagestyle{iustwrite}{
