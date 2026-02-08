@@ -71,19 +71,20 @@ class KlausurDocument:
 # --- UI SETTINGS ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
-if "klausur_text" not in st.session_state:
-    st.session_state.klausur_text = ""
+# Session State Initialisierung
+if "main_editor_key" not in st.session_state:
+    st.session_state["main_editor_key"] = ""
 
 def handle_upload():
     if st.session_state.uploader_key is not None:
         content = st.session_state.uploader_key.read().decode("utf-8")
+        # Direktes Setzen des Keys für das Textarea-Widget
         st.session_state["main_editor_key"] = content
-        st.session_state.klausur_text = content
 
 def main():
     doc_parser = KlausurDocument()
     
-    # --- CSS FÜR BREITERES LAYOUT ---
+    # --- CSS ---
     st.markdown("""
         <style>
         [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
@@ -133,9 +134,9 @@ def main():
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
+    # Das Widget nutzt NUR den key, kein 'value', um Konflikte zu vermeiden
     current_text = st.text_area(
         "Gutachten", 
-        value=st.session_state.klausur_text, 
         height=750, 
         key="main_editor_key"
     )
@@ -194,7 +195,7 @@ def main():
                     if "helvet" in selected_font_package:
                         font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
 
-                full_latex = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
+                full_latex_header = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
@@ -229,7 +230,6 @@ def main():
 \sloppy
 """
                 
-                # Temp-Verzeichnis Logik für Cloud-Stabilität
                 with tempfile.TemporaryDirectory() as tmpdirname:
                     tmp_path = Path(tmpdirname)
                     
@@ -240,7 +240,7 @@ def main():
                             f.write(sachverhalt_file.getbuffer())
                         sachverhalt_cmd = r"\includepdf[pages=-]{temp_sachverhalt.pdf}"
 
-                    final_latex = full_latex + sachverhalt_cmd + r"""
+                    final_latex = full_latex_header + sachverhalt_cmd + r"""
 \pagenumbering{gobble}
 \renewcommand{\contentsname}{Gliederung}
 \tableofcontents
@@ -263,9 +263,7 @@ def main():
                     with open(tex_file, "w", encoding="utf-8") as f:
                         f.write(final_latex)
                     
-                    # Umgebungsvariablen für Pfade
                     env = os.environ.copy()
-                    # Stellt sicher, dass .cls Dateien aus dem Hauptverzeichnis gefunden werden
                     env["TEXINPUTS"] = f".:{os.getcwd()}:"
                     
                     for _ in range(2):
