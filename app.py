@@ -99,6 +99,7 @@ def main():
     
     zeilenabstand = st.sidebar.selectbox("Zeilenabstand", options=["1.0", "1.2", "1.5", "2.0"], index=1)
 
+    # lmodern als Default (wie gewünscht)
     font_options = {"lmodern (Standard)": "lmodern", "Times": "mathptmx", "Palatino": "mathpazo", "Helvetica": "helvet"}
     font_choice = st.sidebar.selectbox("Schriftart", options=list(font_options.keys()), index=0)
     selected_font_package = font_options[font_choice]
@@ -124,11 +125,19 @@ def main():
         if not current_text.strip():
             st.warning("Bitte Text eingeben!")
         else:
-            with st.spinner("Kompiliere PDF... (Das kann beim ersten Mal dauern)"):
+            # PRÜFUNG: Ist die Klassendatei vorhanden?
+            if not os.path.exists("jurabook.cls"):
+                st.error("🚨 KRITISCH: 'jurabook.cls' wurde nicht im Hauptverzeichnis gefunden!")
+                st.info("Bitte prüfe, ob die Datei exakt so heißt und im GitHub-Repository liegt.")
+                st.stop()
+
+            with st.spinner("Kompiliere PDF..."):
                 parsed_content = doc_parser.parse_content(current_text.split('\n'))
                 titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
+                
                 font_latex = f"\\usepackage{{{selected_font_package}}}"
-                if "helvet" in selected_font_package: font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
+                if "helvet" in selected_font_package: 
+                    font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
 
                 full_latex_header = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
@@ -153,9 +162,8 @@ def main():
                 with tempfile.TemporaryDirectory() as tmpdirname:
                     tmp_path = Path(tmpdirname)
                     
-                    # WICHTIG: jurabook.cls in den Temp-Ordner kopieren, falls vorhanden
-                    if os.path.exists("jurabook.cls"):
-                        shutil.copy("jurabook.cls", tmp_path / "jurabook.cls")
+                    # Kopiere jurabook.cls in den Arbeitsordner
+                    shutil.copy(os.path.abspath("jurabook.cls"), tmp_path / "jurabook.cls")
 
                     sachverhalt_cmd = ""
                     if sachverhalt_file is not None:
@@ -173,11 +181,15 @@ def main():
                     with open(tmp_path / "klausur.tex", "w", encoding="utf-8") as f:
                         f.write(final_latex)
                     
-                    # pdflatex Aufruf
+                    # Umgebungsvariablen für LaTeX setzen
+                    env = os.environ.copy()
+                    env["TEXINPUTS"] = f".:{tmp_path}:{os.getcwd()}:"
+
+                    # PDF zweimal generieren für das Inhaltsverzeichnis
                     for _ in range(2):
                         result = subprocess.run(
                             ["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
-                            cwd=tmpdirname, capture_output=True, text=True
+                            cwd=tmpdirname, env=env, capture_output=True, text=True
                         )
 
                     pdf_file = tmp_path / "klausur.pdf"
@@ -187,7 +199,7 @@ def main():
                             st.download_button("📥 Download PDF", f, "Gutachten.pdf", use_container_width=True)
                     else:
                         st.error("LaTeX Fehler!")
-                        st.code(result.stdout) # Zeigt den Fehler direkt an
+                        st.code(result.stdout)
 
 if __name__ == "__main__":
     main()
