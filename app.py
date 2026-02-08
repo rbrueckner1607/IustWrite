@@ -99,7 +99,7 @@ def main():
     
     zeilenabstand = st.sidebar.selectbox("Zeilenabstand", options=["1.0", "1.2", "1.5", "2.0"], index=1)
 
-    # lmodern als Default (wie gewünscht)
+    # lmodern als Default
     font_options = {"lmodern (Standard)": "lmodern", "Times": "mathptmx", "Palatino": "mathpazo", "Helvetica": "helvet"}
     font_choice = st.sidebar.selectbox("Schriftart", options=list(font_options.keys()), index=0)
     selected_font_package = font_options[font_choice]
@@ -125,10 +125,12 @@ def main():
         if not current_text.strip():
             st.warning("Bitte Text eingeben!")
         else:
-            # PRÜFUNG: Ist die Klassendatei vorhanden?
-            if not os.path.exists("jurabook.cls"):
-                st.error("🚨 KRITISCH: 'jurabook.cls' wurde nicht im Hauptverzeichnis gefunden!")
-                st.info("Bitte prüfe, ob die Datei exakt so heißt und im GitHub-Repository liegt.")
+            # PFAD-ANPASSUNG: Suche in latex_assets
+            cls_path = os.path.join("latex_assets", "jurabook.cls")
+            
+            if not os.path.exists(cls_path):
+                st.error(f"🚨 KRITISCH: 'jurabook.cls' wurde unter '{cls_path}' nicht gefunden!")
+                st.info("Bitte prüfe, ob der Ordner 'latex_assets' existiert und die Datei darin liegt.")
                 st.stop()
 
             with st.spinner("Kompiliere PDF..."):
@@ -162,8 +164,16 @@ def main():
                 with tempfile.TemporaryDirectory() as tmpdirname:
                     tmp_path = Path(tmpdirname)
                     
-                    # Kopiere jurabook.cls in den Arbeitsordner
-                    shutil.copy(os.path.abspath("jurabook.cls"), tmp_path / "jurabook.cls")
+                    # Kopiere die Klassendatei aus dem Unterordner in den Temp-Ordner
+                    shutil.copy(os.path.abspath(cls_path), tmp_path / "jurabook.cls")
+
+                    # Falls es im Ordner latex_assets noch andere Dateien gibt (.sty, .fd), kopiere diese ebenfalls
+                    assets_folder = os.path.abspath("latex_assets")
+                    for item in os.listdir(assets_folder):
+                        s = os.path.join(assets_folder, item)
+                        d = os.path.join(tmpdirname, item)
+                        if os.path.isfile(s) and not item.endswith('.cls'): # cls haben wir schon
+                            shutil.copy2(s, d)
 
                     sachverhalt_cmd = ""
                     if sachverhalt_file is not None:
@@ -181,11 +191,10 @@ def main():
                     with open(tmp_path / "klausur.tex", "w", encoding="utf-8") as f:
                         f.write(final_latex)
                     
-                    # Umgebungsvariablen für LaTeX setzen
                     env = os.environ.copy()
-                    env["TEXINPUTS"] = f".:{tmp_path}:{os.getcwd()}:"
+                    # Erweitere den Suchpfad für LaTeX um den Temp-Ordner und den Asset-Ordner
+                    env["TEXINPUTS"] = f".:{tmp_path}:{assets_folder}:"
 
-                    # PDF zweimal generieren für das Inhaltsverzeichnis
                     for _ in range(2):
                         result = subprocess.run(
                             ["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
