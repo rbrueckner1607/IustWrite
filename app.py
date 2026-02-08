@@ -85,6 +85,7 @@ def handle_upload():
 def main():
     doc_parser = KlausurDocument()
     
+    # CSS für maximale Breite, bewegliche Sidebar und LESERLICHE Schrift
     st.markdown("""
         <style>
         .block-container { 
@@ -95,10 +96,16 @@ def main():
         }
         [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
         [data-testid="stSidebar"] p { font-size: 0.85rem !important; line-height: 1.2 !important; }
+        
+        /* UPDATE: Bearbeiterfreundliche, moderne Schriftart für den Editor */
         .stTextArea textarea { 
-            font-family: 'Courier New', Courier, monospace; 
-            font-size: 1.05rem;
+            font-family: 'Inter', 'Segoe UI', Helvetica, Arial, sans-serif; 
+            font-size: 1.1rem;
+            line-height: 1.5;
+            padding: 15px;
+            color: #1e1e1e;
         }
+        
         .sachverhalt-box {
             background-color: #f0f2f6;
             padding: 20px;
@@ -146,11 +153,12 @@ def main():
 
     # --- EDITOR AREA ---
     c1, c2, c3 = st.columns([3, 1, 1])
-    with c1: kl_titel = st.text_input("Titel", "")
+    with c1: kl_titel = st.text_input("Titel", "Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
-    current_text = st.text_area("", height=600, key="main_editor_key")
+    # Das Editorfenster nutzt nun die neue CSS-Klasse
+    current_text = st.text_area("Dein Gutachten-Text", height=600, key="main_editor_key", placeholder="Schreibe hier dein Gutachten...")
 
     # --- SIDEBAR OUTLINE ---
     if current_text:
@@ -203,7 +211,6 @@ def main():
 \usepackage[T1]{fontenc}
 \usepackage{pdfpages}
 
-% Umbenennung Inhaltsverzeichnis -> Gliederung
 \addto\captionsngerman{\renewcommand{\contentsname}{Gliederung}}
 
 """ + font_latex + r"""
