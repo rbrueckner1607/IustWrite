@@ -146,11 +146,11 @@ def main():
 
     # --- EDITOR AREA ---
     c1, c2, c3 = st.columns([3, 1, 1])
-    with c1: kl_titel = st.text_input("Titel", "")
+    with c1: kl_titel = st.text_input("Titel", "Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
-    current_text = st.text_area("", height=600, key="main_editor_key")
+    current_text = st.text_area("Dein Text", height=600, key="main_editor_key")
 
     # --- SIDEBAR OUTLINE ---
     if current_text:
@@ -202,6 +202,10 @@ def main():
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{pdfpages}
+
+% Umbenennung Inhaltsverzeichnis -> Gliederung
+\addto\captionsngerman{\renewcommand{\contentsname}{Gliederung}}
+
 """ + font_latex + r"""
 \usepackage{setspace}
 \usepackage{geometry}
