@@ -9,16 +9,16 @@ from pathlib import Path
 # --- OPTIMIERTE PARSER KLASSE ---
 class KlausurDocument:
     def __init__(self):
-        # Patterns wurden angepasst: \s* statt \s.* am Ende, damit auch Gliederungspunkte ohne Text erkannt werden
+        # Patterns für die Gliederungserkennung (a, aa, (a) etc. nun flexibler)
         self.prefix_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
             2: r'^\s*[A-H]\.(\s|$)',
             3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.(\s|$)',
             4: r'^\s*\d+\.(\s|$)',
-            5: r'^\s*[a-z]\)\s*',       # Ebene (a)
-            6: r'^\s*[a-z]{2}\)\s*',    # Ebene (aa)
-            7: r'^\s*\([a-z]\)\s*',     # Ebene ((a))
-            8: r'^\s*\([a-z]{2}\)\s*'   # Ebene ((aa))
+            5: r'^\s*[a-z]\)\s*',       
+            6: r'^\s*[a-z]{2}\)\s*',    
+            7: r'^\s*\([a-z]\)\s*',     
+            8: r'^\s*\([a-z]{2}\)\s*'   
         }
 
         self.star_patterns = {
@@ -40,7 +40,6 @@ class KlausurDocument:
                 continue
 
             found_level = False
-            # Star Patterns (Spezialüberschriften ohne TOC)
             for level, pattern in self.star_patterns.items():
                 if re.match(pattern, line_s):
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*"}
@@ -49,7 +48,6 @@ class KlausurDocument:
                     found_level = True
                     break
 
-            # Standard Gliederungsebenen
             if not found_level:
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
@@ -60,11 +58,9 @@ class KlausurDocument:
                         else:
                             cmd = "section*"
                         
-                        # Dynamische Einrückung im Inhaltsverzeichnis (TOC)
                         toc_indent = f"{max(0, level - 1)}em" 
                         latex_output.append(f"\\{cmd}{{{line_s}}}")
                         
-                        # Inhaltsverzeichnis-Eintrag (wichtig für PDF)
                         toc_cmd = "subsubsection" if level >= 3 else cmd.replace("*", "")
                         latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{toc_indent}}}{line_s}}}")
                         found_level = True
@@ -77,7 +73,7 @@ class KlausurDocument:
         return "\n".join(latex_output)
 
 # --- UI CONFIG ---
-st.set_page_config(page_title="IustWrite Editor", layout="wide")
+st.set_page_config(page_title="IustWrite Editor", layout="wide", initial_sidebar_state="expanded")
 
 if "main_editor_key" not in st.session_state:
     st.session_state["main_editor_key"] = ""
@@ -90,20 +86,30 @@ def handle_upload():
 def main():
     doc_parser = KlausurDocument()
     
+    # CSS für maximale Breite und bewegliche Sidebar
     st.markdown("""
         <style>
+        .block-container { 
+            padding-top: 1.5rem; 
+            padding-left: 2rem; 
+            padding-right: 2rem; 
+            max-width: 98% !important; 
+        }
         [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
-        [data-testid="stSidebar"] p { font-size: 0.82rem !important; line-height: 1.1 !important; }
-        [data-testid="stSidebar"] h2 { font-size: 1.1rem; padding-bottom: 5px; }
-        .block-container { padding-top: 2rem; max-width: 95%; }
-        .stTextArea textarea { font-family: 'Courier New', Courier, monospace; }
+        [data-testid="stSidebar"] p { font-size: 0.85rem !important; line-height: 1.2 !important; }
+        .stTextArea textarea { 
+            font-family: 'Courier New', Courier, monospace; 
+            font-size: 1.05rem;
+        }
         .sachverhalt-box {
             background-color: #f0f2f6;
-            padding: 15px;
-            border-radius: 5px;
-            border-left: 5px solid #ff4b4b;
-            margin-bottom: 20px;
-            line-height: 1.5;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 6px solid #ff4b4b;
+            margin-bottom: 25px;
+            line-height: 1.6;
+            font-size: 1rem;
+            width: 100%;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -123,7 +129,7 @@ def main():
 
     st.sidebar.markdown("---")
     st.sidebar.title("📖 Fall abrufen")
-    fall_code = st.sidebar.text_input("Fall-Code eingeben", help="Gib den Code ein (z.B. 0010).")
+    fall_code = st.sidebar.text_input("Fall-Code eingeben")
 
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
@@ -134,40 +140,35 @@ def main():
         if os.path.exists(pfad_zu_fall):
             with open(pfad_zu_fall, "r", encoding="utf-8") as f:
                 ganzer_text = f.read()
-            
             zeilen = ganzer_text.split('\n')
             if zeilen:
                 sauberer_titel = re.sub(r'^#+\s*(Fall\s+\d+:\s*)?', '', zeilen[0]).strip()
                 rest_text = "\n".join(zeilen[1:]).strip()
-                
                 with st.expander(f"📄 {sauberer_titel}", expanded=True):
                     st.markdown(f'<div class="sachverhalt-box">{rest_text}</div>', unsafe_allow_html=True)
         else:
             st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
 
     # --- EDITOR AREA ---
-    c1, c2, c3 = st.columns([2, 1, 1])
+    c1, c2, c3 = st.columns([3, 1, 1])
     with c1: kl_titel = st.text_input("Titel", "Gutachten")
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
-    current_text = st.text_area("Gutachten", height=600, key="main_editor_key")
+    current_text = st.text_area("Dein Text", height=600, key="main_editor_key")
 
     # --- SIDEBAR OUTLINE ---
     if current_text:
         for line in current_text.split('\n'):
             line_s = line.strip()
             if not line_s: continue
-            
             found = False
             for level, pattern in doc_parser.star_patterns.items():
                 if re.match(pattern, line_s):
                     indent = "&nbsp;" * (level * 2)
-                    weight = "**" if level <= 2 else ""
-                    st.sidebar.markdown(f"{indent}{weight}{line_s}{weight}")
+                    st.sidebar.markdown(f"{indent}{line_s}")
                     found = True
                     break
-            
             if not found:
                 for level, pattern in doc_parser.prefix_patterns.items():
                     if re.match(pattern, line_s):
@@ -201,7 +202,6 @@ def main():
                 font_latex = f"\\usepackage{{{selected_font_package}}}"
                 if "helvet" in selected_font_package: font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
 
-                # WICHTIG: tocdepth und secnumdepth erhöht für tiefe Gliederungen
                 full_latex_header = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
@@ -212,11 +212,8 @@ def main():
 \usepackage{geometry}
 \usepackage{fancyhdr}
 \geometry{left=2cm, right=2cm, top=2.5cm, bottom=3cm}
-
-% Erlaubt Gliederung bis Ebene 8 im TOC
 \setcounter{tocdepth}{8}
 \setcounter{secnumdepth}{8}
-
 \setlength{\parindent}{0pt}
 
 \fancypagestyle{iustwrite}{
