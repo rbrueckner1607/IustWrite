@@ -187,7 +187,7 @@ def main():
     with col_pdf: pdf_button = st.button("🏁 PDF generieren", use_container_width=True)
     with col_save: st.download_button("💾 Als TXT speichern", data=current_text, file_name="Gutachten.txt", use_container_width=True)
     with col_load: st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
-    with col_sachverhalt: sachverhalt_file = st.file_uploader("📄 Extra Sachverhalt (PDF)", type=['pdf'], key="sachverhalt_key")
+    with col_sachverhalt: sachverhalt_file = st.file_uploader("📄 Sachverhalt beifügen (PDF)", type=['pdf'], key="sachverhalt_key")
 
     if pdf_button:
         if not current_text.strip():
