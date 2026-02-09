@@ -86,24 +86,19 @@ def main():
         .block-container { padding-top: 1.5rem; max-width: 98% !important; }
         .stTextArea textarea { font-family: 'Inter', sans-serif; font-size: 1.1rem; line-height: 1.5; background: rgba(255,255,255,0.7); border-radius: 10px; }
         
-        /* Sidebar Styling */
         .sidebar-outline { font-size: 0.82rem; line-height: 1.2; margin-bottom: 2px; color: #333; }
         .outline-lvl-1 { font-weight: bold; color: #000; border-bottom: 1px solid rgba(0,0,0,0.1); margin-top: 5px; }
 
-        /* Die ultimative Box mit blauer Linie LINKS */
+        /* Die Box mit der blauen Linie links */
         .glassy-box {
-            display: flex;
+            display: flex !important;
             background: rgba(241, 243, 246, 0.7);
             backdrop-filter: blur(10px);
             border-radius: 8px;
             margin-bottom: 25px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             overflow: hidden;
-        }
-        .blue-line {
-            width: 8px;
-            background-color: #003366;
-            flex-shrink: 0;
+            border-left: 8px solid #003366 !important; /* Direkte Linie */
         }
         .box-content {
             padding: 20px;
@@ -145,7 +140,7 @@ def main():
                 st.session_state["sv_fixed"] = True
                 st.rerun()
         else:
-            st.markdown(f'''<div class="glassy-box"><div class="blue-line"></div><div class="box-content">{st.session_state["sv_text"]}</div></div>''', unsafe_allow_html=True)
+            st.markdown(f'<div class="glassy-box"><div class="box-content">{st.session_state["sv_text"]}</div></div>', unsafe_allow_html=True)
             if st.button("🔓 Fixierung lösen"):
                 st.session_state["sv_fixed"] = False
                 st.rerun()
@@ -156,10 +151,10 @@ def main():
         if os.path.exists(pfad):
             with open(pfad, "r", encoding="utf-8") as f:
                 content = f.read().split('\n')
+                rest = "\n".join(content[1:])
                 with st.expander(f"📖 {content[0]}", expanded=True):
-                    st.markdown(f'<div class="glassy-box"><div class="blue-line"></div><div class="box-content">', unsafe_allow_html=True)
-                    st.markdown("\n".join(content[1:]))
-                    st.markdown('</div></div>', unsafe_allow_html=True)
+                    # Hier wird die blaue Linie über die CSS-Klasse erzwungen
+                    st.markdown(f'<div class="glassy-box"><div class="box-content">{rest}</div></div>', unsafe_allow_html=True)
 
     # --- MAIN EDITOR ---
     c1, c2, c3 = st.columns([3, 1, 1])
@@ -167,7 +162,7 @@ def main():
     kl_datum = c2.text_input("Datum", "")
     kl_kuerzel = c3.text_input("Kürzel", "")
     
-    # Text im Session State halten, damit Reruns nichts löschen
+    # FIX: Bindung an Session State verhindert das Löschen des Textes beim Fixieren
     current_text = st.text_area("", height=500, key="main_editor_key", placeholder="Gutachten hier verfassen...")
 
     # Sidebar Gliederung
@@ -196,7 +191,7 @@ def main():
 
                 header = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
-\addto\captionsngerman{\renewcommand{\contentsname}{Gliederung}} % Umbenennung
+\addto\captionsngerman{\renewcommand{\contentsname}{Gliederung}}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{cmap, pdfpages, setspace, geometry, fancyhdr, tocloft}
