@@ -40,7 +40,6 @@ class KlausurDocument:
                     if level in self.prefix_patterns:
                         toc_cmd = "subsubsection" if level >= 3 else cmd.replace("*", "")
                         indent = f"{max(0, level-1)}em"
-                        # LaTeX Braces Escaping
                         latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{indent}}}{line_s}}}")
                     found_level = True
                     break
@@ -133,7 +132,6 @@ def main():
                 st.session_state["sv_fixed"] = False
                 st.rerun()
 
-    # Lokale Falle-Datei (Markdown-Unterstützung)
     if fall_code:
         pfad = os.path.join("fealle", f"{fall_code}.txt")
         if os.path.exists(pfad):
@@ -175,7 +173,8 @@ def main():
             st.warning("Kein Text!")
         else:
             with st.spinner("PDF wird erstellt..."):
-                header = r"""\documentclass[12pt, a4paper]{jurabook}
+                # ONESIDE eingestellt
+                header = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[T1]{fontenc}
 \usepackage{pdfpages, setspace, geometry, fancyhdr, tocloft}
@@ -187,7 +186,6 @@ def main():
 """
                 with tempfile.TemporaryDirectory() as tmp:
                     tmp_p = Path(tmp)
-                    # Asset Management
                     asset_src = os.path.abspath("latex_assets")
                     if os.path.exists(asset_src):
                         for file in os.listdir(asset_src):
@@ -200,10 +198,13 @@ def main():
                         sv_inc = r"\includepdf[pages=-]{sv.pdf}"
 
                     t_str = f"{kl_titel} ({kl_datum})" if kl_datum else kl_titel
+                    
+                    # Logik für Kopfzeile: \headwidth auf \textwidth begrenzen nach dem Rand-Wechsel
                     final_tex = header + sv_inc + \
                                 r"\pagenumbering{gobble}\tableofcontents\clearpage" + \
                                 r"\newgeometry{left=2cm, right=" + rand + r"cm, top=2.5cm, bottom=3cm}" + \
                                 r"\pagestyle{fancy}\fancyhf{}" + \
+                                r"\setlength{\headwidth}{\textwidth}" + \
                                 r"\fancyhead[L]{\small " + kl_kuerzel + r"}\fancyhead[R]{\small " + t_str + r"}" + \
                                 r"\fancyfoot[R]{\thepage}\setstretch{" + abstand + r"}" + \
                                 r"\pagenumbering{arabic}\setcounter{page}{1}" + \
@@ -213,17 +214,15 @@ def main():
                     with open(tmp_p / "k.tex", "w", encoding="utf-8") as f:
                         f.write(final_tex)
                     
-                    # PDFlatex Aufruf
-                    res = subprocess.run(["pdflatex", "-interaction=nonstopmode", "k.tex"], cwd=tmp, capture_output=True)
-                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "k.tex"], cwd=tmp) # Zweiter Durchlauf für TOC
+                    # Zweifaches Kompilieren für Inhaltsverzeichnis
+                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "k.tex"], cwd=tmp)
+                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "k.tex"], cwd=tmp)
 
                     if (tmp_p / "k.pdf").exists():
                         with open(tmp_p / "k.pdf", "rb") as f:
                             st.download_button("📥 PDF herunterladen", f, "Gutachten.pdf", use_container_width=True)
                     else:
                         st.error("LaTeX Fehler. Prüfen Sie die Struktur.")
-                        with st.expander("Fehlerprotokoll anzeigen"):
-                            st.code(res.stdout.decode("utf-8", errors="ignore"))
 
     col2.download_button("💾 Als TXT speichern", current_text, "Gutachten.txt", use_container_width=True)
     col3.file_uploader("📂 TXT laden", type=['txt'], key="uploader_key", on_change=handle_upload)
