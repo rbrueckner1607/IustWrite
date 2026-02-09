@@ -73,33 +73,17 @@ class KlausurDocument:
         return "\n".join(latex_output)
 
 # --- HILFSFUNKTIONEN ---
-def clean_pdf_text(text):
-    """Säubert extrahierten PDF-Text von harten Umbrüchen und Bindestrichen."""
-    # 1. Silbentrennung am Zeilenende entfernen (z.B. "Haft-\nung" -> "Haftung")
-    text = re.sub(r'(\w)-\s*\n\s*(\w)', r'\1\2', text)
-    
-    # 2. Harte Zeilenumbrüche entfernen, aber echte Absätze (Doppel-Umbruch) erhalten
-    # Wir ersetzen einfache Umbrüche durch Leerzeichen, behalten aber \n\n bei
-    paragraphs = text.split('\n\n')
-    cleaned_paragraphs = []
-    for p in paragraphs:
-        # Innerhalb eines Absatzes alle einfachen Newlines durch Leerzeichen ersetzen
-        cleaned_p = p.replace('\n', ' ').strip()
-        # Mehrfache Leerzeichen korrigieren
-        cleaned_p = re.sub(r'\s+', ' ', cleaned_p)
-        cleaned_paragraphs.append(cleaned_p)
-    
-    return '\n\n'.join(cleaned_paragraphs)
-
-def extract_text_from_pdf(pdf_file):
-    """Extrahiert Text aus einer hochgeladenen PDF-Datei und säubert ihn."""
+def simple_extract_pdf(pdf_file):
+    """Extrahiert Text und entfernt nur harte Trennstriche am Zeilenende."""
     text = ""
     try:
         doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
         for page in doc:
             text += page.get_text("text")
         doc.close()
-        return clean_pdf_text(text)
+        # Entfernt Bindestriche am Zeilenende: "Haft-\n ung" -> "Haftung"
+        text = re.sub(r'(\w)-\s*\n\s*(\w)', r'\1\2', text)
+        return text
     except Exception as e:
         return f"Fehler beim Lesen der PDF: {e}"
 
@@ -119,33 +103,16 @@ def main():
     
     st.markdown("""
         <style>
-        .block-container { 
-            padding-top: 1.5rem; 
-            padding-left: 2rem; 
-            padding-right: 2rem; 
-            max-width: 98% !important; 
-        }
-        [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
-        [data-testid="stSidebar"] p { font-size: 0.85rem !important; line-height: 1.2 !important; }
-        
+        .block-container { padding-top: 1.5rem; max-width: 98% !important; }
         .stTextArea textarea { 
-            font-family: 'Inter', 'Segoe UI', Helvetica, Arial, sans-serif; 
-            font-size: 1.1rem;
-            line-height: 1.5;
-            padding: 15px;
-            color: #1e1e1e;
+            font-family: 'Inter', sans-serif; font-size: 1.1rem; 
+            line-height: 1.5; padding: 15px; color: #1e1e1e;
         }
-        
-        .sachverhalt-box {
-            background-color: #f0f2f6;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 6px solid #ff4b4b;
-            margin-bottom: 25px;
-            line-height: 1.6;
-            font-size: 1rem;
-            white-space: pre-wrap;
-            width: 100%;
+        /* Styling für die PDF-Vorschau Box */
+        div[data-testid="stExpander"] .stTextArea textarea {
+            background-color: #f8f9fb;
+            border-left: 5px solid #ff4b4b;
+            font-size: 0.95rem;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -157,7 +124,6 @@ def main():
         rand_wert = st.text_input("Korrekturrand rechts (in cm)", value="6")
         if not any(unit in rand_wert for unit in ['cm', 'mm']): rand_wert += "cm"
         zeilenabstand = st.selectbox("Zeilenabstand", options=["1.0", "1.2", "1.5", "2.0"], index=1)
-        
         font_options = {"lmodern (Standard)": "lmodern", "Times": "mathptmx", "Palatino": "mathpazo", "Helvetica": "helvet"}
         font_choice = st.selectbox("Schriftart", options=list(font_options.keys()), index=0)
         selected_font_package = font_options[font_choice]
@@ -168,20 +134,26 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
-    # --- CASE LOGIC ---
+    # --- CASE LOGIC (BEARBEITBARER SACHVERHALT) ---
     if st.session_state.get("sachverhalt_key") is not None:
+        # Initiales Auslesen
         if "extracted_sv_text" not in st.session_state:
-            st.session_state["extracted_sv_text"] = extract_text_from_pdf(st.session_state["sachverhalt_key"])
+            st.session_state["extracted_sv_text"] = simple_extract_pdf(st.session_state["sachverhalt_key"])
         
-        with st.expander("📄 Sachverhalt (PDF-Text bereinigt)", expanded=True):
-            st.markdown(f'<div class="sachverhalt-box">{st.session_state["extracted_sv_text"]}</div>', unsafe_allow_html=True)
-            if st.button("Text an Gutachten anfügen"):
-                st.session_state["main_editor_key"] += "\n\n" + st.session_state["extracted_sv_text"]
+        with st.expander("📄 Sachverhalt bearbeiten & vorbereiten", expanded=True):
+            st.info("Hier kannst du den Text aus der PDF zurechtrücken (Absätze, AGB etc.), bevor du ihn ins Gutachten kopierst.")
+            # Nutzer kann den Text hier bearbeiten
+            edited_sv = st.text_area("PDF-Inhalt", value=st.session_state["extracted_sv_text"], height=300, key="sv_editor_field")
+            
+            col_a, col_b = st.columns(2)
+            if col_a.button("✅ In Gutachten übernehmen"):
+                st.session_state["main_editor_key"] += "\n\n" + edited_sv
                 st.rerun()
-    else:
-        if "extracted_sv_text" in st.session_state:
-            del st.session_state["extracted_sv_text"]
-
+            if col_b.button("🗑️ PDF-Daten verwerfen"):
+                del st.session_state["extracted_sv_text"]
+                # Wir können den uploader nicht direkt löschen, aber den State bereinigen
+                st.rerun()
+    
     if fall_code:
         pfad_zu_fall = os.path.join("fealle", f"{fall_code}.txt")
         if os.path.exists(pfad_zu_fall):
@@ -192,7 +164,7 @@ def main():
                 sauberer_titel = re.sub(r'^#+\s*(Fall\s+\d+:\s*)?', '', zeilen[0]).strip()
                 rest_text = "\n".join(zeilen[1:]).strip()
                 with st.expander(f"📖 {sauberer_titel}", expanded=True):
-                    st.markdown(f'<div class="sachverhalt-box">{rest_text}</div>', unsafe_allow_html=True)
+                    st.text_area("Fall-Inhalt", value=rest_text, height=200)
 
     # --- EDITOR AREA ---
     c1, c2, c3 = st.columns([3, 1, 1])
@@ -208,19 +180,11 @@ def main():
             line_s = line.strip()
             if not line_s: continue
             found = False
-            for level, pattern in doc_parser.star_patterns.items():
+            for level, pattern in {**doc_parser.star_patterns, **doc_parser.prefix_patterns}.items():
                 if re.match(pattern, line_s):
                     indent = "&nbsp;" * (level * 2)
                     st.sidebar.markdown(f"{indent}{line_s}")
-                    found = True
                     break
-            if not found:
-                for level, pattern in doc_parser.prefix_patterns.items():
-                    if re.match(pattern, line_s):
-                        indent = "&nbsp;" * (level * 2)
-                        weight = "**" if level <= 2 else ""
-                        st.sidebar.markdown(f"{indent}{weight}{line_s}{weight}")
-                        break
 
     # --- ACTIONS ---
     st.markdown("---")
@@ -253,12 +217,9 @@ def main():
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{pdfpages}
+\usepackage{pdfpages, setspace, geometry, fancyhdr}
 \addto\captionsngerman{\renewcommand{\contentsname}{Gliederung}}
 """ + font_latex + r"""
-\usepackage{setspace}
-\usepackage{geometry}
-\usepackage{fancyhdr}
 \geometry{left=2cm, right=2cm, top=2.5cm, bottom=3cm}
 \fancypagestyle{iustwrite}{
     \fancyhf{}
@@ -288,12 +249,9 @@ def main():
                         sachverhalt_cmd = r"\includepdf[pages=-]{temp_sv.pdf}"
 
                     final_latex = full_latex_header + sachverhalt_cmd + r"""
-\pagenumbering{gobble}
-\tableofcontents\clearpage
+\pagenumbering{gobble}\tableofcontents\clearpage
 \newgeometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm}
-\pagenumbering{arabic}
-\setcounter{page}{1}
-\pagestyle{iustwrite}\setstretch{""" + zeilenabstand + r"""}
+\pagenumbering{arabic}\setcounter{page}{1}\pagestyle{iustwrite}\setstretch{""" + zeilenabstand + r"""}
 {\noindent\Large\bfseries """ + titel_komp + r""" \par}\bigskip
 """ + parsed_content + r"\end{document}"
 
@@ -303,8 +261,8 @@ def main():
                     env = os.environ.copy()
                     env["TEXINPUTS"] = f".:{tmp_path}:{assets_folder}:"
 
-                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], cwd=tmpdirname, env=env)
-                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], cwd=tmpdirname, env=env)
+                    for _ in range(2):
+                        subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], cwd=tmpdirname, env=env)
 
                     pdf_file = tmp_path / "klausur.pdf"
                     if pdf_file.exists():
