@@ -5,6 +5,7 @@ import streamlit as st
 import tempfile
 import shutil
 from pathlib import Path
+import fitz  # PyMuPDF
 
 # --- OPTIMIERTE PARSER KLASSE ---
 class KlausurDocument:
@@ -74,18 +75,32 @@ class KlausurDocument:
 # --- UI CONFIG ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide", initial_sidebar_state="expanded")
 
+# Session States initialisieren
 if "main_editor_key" not in st.session_state:
     st.session_state["main_editor_key"] = ""
+if "sv_text" not in st.session_state:
+    st.session_state["sv_text"] = ""
+if "sv_fixed" not in st.session_state:
+    st.session_state["sv_fixed"] = False
 
 def handle_upload():
     if st.session_state.uploader_key is not None:
         content = st.session_state.uploader_key.read().decode("utf-8")
         st.session_state["main_editor_key"] = content
 
+def extract_pdf_text(uploaded_file):
+    doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+    full_text = ""
+    for page in doc:
+        full_text += page.get_text()
+    # Bindestriche am Zeilenende entfernen (De-Hyphenation)
+    text = re.sub(r'(\w)-\n(\w)', r'\1\2', full_text)
+    text = text.replace('\n', ' ')
+    return text.strip()
+
 def main():
     doc_parser = KlausurDocument()
     
-    # CSS für maximale Breite, bewegliche Sidebar und LESERLICHE Schrift
     st.markdown("""
         <style>
         .block-container { 
@@ -97,7 +112,6 @@ def main():
         [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
         [data-testid="stSidebar"] p { font-size: 0.85rem !important; line-height: 1.2 !important; }
         
-        /* UPDATE: Bearbeiterfreundliche, moderne Schriftart für den Editor */
         .stTextArea textarea { 
             font-family: 'Inter', 'Segoe UI', Helvetica, Arial, sans-serif; 
             font-size: 1.1rem;
@@ -110,18 +124,26 @@ def main():
             background-color: #f0f2f6;
             padding: 20px;
             border-radius: 8px;
-            border-left: 6px solid #ff4b4b;
-            margin-bottom: 25px;
+            border-left: 6px solid #003366; /* Dunkelblau statt Rot */
+            margin-bottom: 10px;
             line-height: 1.6;
             font-size: 1rem;
             width: 100%;
+            text-align: justify; /* Gleichmäßige Verteilung */
+        }
+        .stats-container {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: -15px;
+            margin-bottom: 15px;
+            text-align: right;
         }
         </style>
         """, unsafe_allow_html=True)
 
     st.title("⚖️ IustWrite Editor")
 
-    # --- SIDEBAR SETTINGS (EINGEKLAPPT) ---
+    # --- SIDEBAR SETTINGS ---
     with st.sidebar.expander("⚙️ Layout-Einstellungen", expanded=False):
         rand_wert = st.text_input("Korrekturrand rechts (in cm)", value="6")
         if not any(unit in rand_wert for unit in ['cm', 'mm']): rand_wert += "cm"
@@ -136,20 +158,19 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
-    # --- CASE LOGIC ---
-    if fall_code:
-        pfad_zu_fall = os.path.join("fealle", f"{fall_code}.txt")
-        if os.path.exists(pfad_zu_fall):
-            with open(pfad_zu_fall, "r", encoding="utf-8") as f:
-                ganzer_text = f.read()
-            zeilen = ganzer_text.split('\n')
-            if zeilen:
-                sauberer_titel = re.sub(r'^#+\s*(Fall\s+\d+:\s*)?', '', zeilen[0]).strip()
-                rest_text = "\n".join(zeilen[1:]).strip()
-                with st.expander(f"📄 {sauberer_titel}", expanded=True):
-                    st.markdown(f'<div class="sachverhalt-box">{rest_text}</div>', unsafe_allow_html=True)
+    # --- SACHVERHALT LOGIC (NEW) ---
+    if st.session_state["sv_text"]:
+        if st.session_state["sv_fixed"]:
+            st.markdown(f'<div class="sachverhalt-box">{st.session_state["sv_text"]}</div>', unsafe_allow_html=True)
+            if st.button("🔓 Sachverhalt bearbeiten"):
+                st.session_state["sv_fixed"] = False
+                st.rerun()
         else:
-            st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
+            new_sv = st.text_area("Sachverhalt bearbeiten:", value=st.session_state["sv_text"], height=200)
+            st.session_state["sv_text"] = new_sv
+            if st.button("🔒 Sachverhalt fixieren"):
+                st.session_state["sv_fixed"] = True
+                st.rerun()
 
     # --- EDITOR AREA ---
     c1, c2, c3 = st.columns([3, 1, 1])
@@ -157,8 +178,12 @@ def main():
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
-    # Das Editorfenster nutzt nun die neue CSS-Klasse
     current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Schreibe hier dein Gutachten...")
+    
+    # Wort- und Zeichenzähler
+    words = len(current_text.split())
+    chars = len(current_text)
+    st.markdown(f'<div class="stats-container">Wörter: {words} | Zeichen: {chars}</div>', unsafe_allow_html=True)
 
     # --- SIDEBAR OUTLINE ---
     if current_text:
@@ -187,7 +212,12 @@ def main():
     with col_pdf: pdf_button = st.button("🏁 PDF generieren", use_container_width=True)
     with col_save: st.download_button("💾 Als TXT speichern", data=current_text, file_name="Gutachten.txt", use_container_width=True)
     with col_load: st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
-    with col_sachverhalt: sachverhalt_file = st.file_uploader("📄 Extra Sachverhalt (PDF)", type=['pdf'], key="sachverhalt_key")
+    
+    with col_sachverhalt: 
+        sachverhalt_file = st.file_uploader("📄 Extra Sachverhalt (PDF)", type=['pdf'], key="sachverhalt_key")
+        if sachverhalt_file and not st.session_state["sv_text"]:
+            st.session_state["sv_text"] = extract_pdf_text(sachverhalt_file)
+            st.rerun()
 
     if pdf_button:
         if not current_text.strip():
@@ -210,9 +240,7 @@ def main():
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{pdfpages}
-
 \addto\captionsngerman{\renewcommand{\contentsname}{Gliederung}}
-
 """ + font_latex + r"""
 \usepackage{setspace}
 \usepackage{geometry}
@@ -221,7 +249,6 @@ def main():
 \setcounter{tocdepth}{8}
 \setcounter{secnumdepth}{8}
 \setlength{\parindent}{0pt}
-
 \fancypagestyle{iustwrite}{
     \fancyhf{}
     \fancyhead[L]{\small """ + kl_kuerzel + r"""}
@@ -245,6 +272,7 @@ def main():
                             if os.path.isfile(s) and not item.endswith('.cls'):
                                 shutil.copy2(s, d)
 
+                    # Den SV aus dem File (Original) anhängen, falls vorhanden
                     sachverhalt_cmd = ""
                     if sachverhalt_file is not None:
                         with open(tmp_path / "temp_sv.pdf", "wb") as f:
