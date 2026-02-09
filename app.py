@@ -45,6 +45,7 @@ class KlausurDocument:
                     break
             if not found_level:
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
+                # Sonderzeichen-Handling
                 line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
                 latex_output.append(line_s)
         return "\n".join(latex_output)
@@ -88,9 +89,10 @@ def main():
         .sidebar-outline { font-size: 0.82rem; line-height: 1.2; margin-bottom: 2px; color: #333; }
         .outline-lvl-1 { font-weight: bold; color: #000; border-bottom: 1px solid #eee; margin-top: 5px; }
 
+        /* Dunkelblaue Sachverhalt-Box */
         .sachverhalt-box {
             background-color: #f1f3f6; padding: 20px; border-radius: 8px; 
-            border-left: 6px solid #ff4b4b; margin-bottom: 20px; 
+            border-left: 6px solid #003366; margin-bottom: 20px; 
             line-height: 1.6; font-size: 1.05rem; width: 100%;
         }
         </style>
@@ -102,7 +104,12 @@ def main():
     with st.sidebar.expander("⚙️ Layout"):
         rand = st.text_input("Rand rechts (cm)", "6")
         abstand = st.selectbox("Zeilenabstand", ["1.0", "1.2", "1.5", "2.0"], index=1)
-        font_opt = {"lmodern (Standard)": "lmodern", "Times": "mathptmx", "Palatino": "mathpazo"}
+        font_opt = {
+            "lmodern (Standard)": "lmodern", 
+            "Times": "mathptmx", 
+            "Palatino": "mathpazo",
+            "Helvetica": "helvet"
+        }
         selected_font = font_opt[st.selectbox("Schriftart", list(font_opt.keys()), index=0)]
 
     with st.sidebar.expander("📖 Fall abrufen", expanded=False):
@@ -112,7 +119,7 @@ def main():
     st.sidebar.title("📌 Gliederung")
     outline_container = st.sidebar.container()
 
-    # --- SACHVERHALT BEREICH ---
+    # --- SACHVERHALT BEREICH (PDF) ---
     sv_upload = st.file_uploader("📄 Sachverhalt PDF importieren", type=['pdf'], key="sachverhalt_key")
     
     if sv_upload:
@@ -132,6 +139,7 @@ def main():
                 st.session_state["sv_fixed"] = False
                 st.rerun()
 
+    # --- EXTERNE FÄLLE (Ordner fealle) ---
     if fall_code:
         pfad = os.path.join("fealle", f"{fall_code}.txt")
         if os.path.exists(pfad):
@@ -140,6 +148,7 @@ def main():
                 titel = content[0]
                 rest_md = "\n".join(content[1:])
                 with st.expander(f"📖 {titel}", expanded=True):
+                    # Jetzt auch hier mit dunkelblauer Linie und Markdown-Support
                     st.markdown(f'<div class="sachverhalt-box">', unsafe_allow_html=True)
                     st.markdown(rest_md)
                     st.markdown(f'</div>', unsafe_allow_html=True)
@@ -173,12 +182,17 @@ def main():
             st.warning("Kein Text!")
         else:
             with st.spinner("PDF wird erstellt..."):
-                # ONESIDE eingestellt
+                # Helvetica-Check & Encoding gegen "verpØichtet"
+                font_package = f"\\usepackage{{{selected_font}}}"
+                if selected_font == "helvet":
+                    font_package += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
+
                 header = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
+\usepackage[utf8]{inputenc} % Wichtig gegen Encoding-Fehler
 \usepackage[T1]{fontenc}
 \usepackage{pdfpages, setspace, geometry, fancyhdr, tocloft}
-\usepackage{""" + selected_font + r"""}
+""" + font_package + r"""
 \geometry{left=2cm, right=2cm, top=2.5cm, bottom=3cm}
 \setlength{\cftbeforesecskip}{1pt}
 \setlength{\cftbeforesubsecskip}{0pt}
@@ -199,7 +213,6 @@ def main():
 
                     t_str = f"{kl_titel} ({kl_datum})" if kl_datum else kl_titel
                     
-                    # Logik für Kopfzeile: \headwidth auf \textwidth begrenzen nach dem Rand-Wechsel
                     final_tex = header + sv_inc + \
                                 r"\pagenumbering{gobble}\tableofcontents\clearpage" + \
                                 r"\newgeometry{left=2cm, right=" + rand + r"cm, top=2.5cm, bottom=3cm}" + \
@@ -214,7 +227,6 @@ def main():
                     with open(tmp_p / "k.tex", "w", encoding="utf-8") as f:
                         f.write(final_tex)
                     
-                    # Zweifaches Kompilieren für Inhaltsverzeichnis
                     subprocess.run(["pdflatex", "-interaction=nonstopmode", "k.tex"], cwd=tmp)
                     subprocess.run(["pdflatex", "-interaction=nonstopmode", "k.tex"], cwd=tmp)
 
@@ -222,7 +234,7 @@ def main():
                         with open(tmp_p / "k.pdf", "rb") as f:
                             st.download_button("📥 PDF herunterladen", f, "Gutachten.pdf", use_container_width=True)
                     else:
-                        st.error("LaTeX Fehler. Prüfen Sie die Struktur.")
+                        st.error("LaTeX Fehler.")
 
     col2.download_button("💾 Als TXT speichern", current_text, "Gutachten.txt", use_container_width=True)
     col3.file_uploader("📂 TXT laden", type=['txt'], key="uploader_key", on_change=handle_upload)
