@@ -64,19 +64,22 @@ def clean_pdf_text(pdf_file):
     except Exception as e:
         return f"Fehler: {e}"
 
-def handle_upload():
-    if st.session_state.uploader_key:
-        content = st.session_state.uploader_key.read().decode("utf-8")
-        st.session_state["main_editor_key"] = content
-
 # --- UI SETUP ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
-# Session State Initialisierung
+# Initialisierung des Session States
 if "main_editor_key" not in st.session_state: st.session_state["main_editor_key"] = ""
 if "sv_fixed" not in st.session_state: st.session_state["sv_fixed"] = False
 if "sv_text" not in st.session_state: st.session_state["sv_text"] = ""
 if "last_sv_name" not in st.session_state: st.session_state["last_sv_name"] = ""
+
+def handle_upload():
+    if st.session_state.uploader_key:
+        try:
+            content = st.session_state.uploader_key.read().decode("utf-8")
+            st.session_state["main_editor_key"] = content
+        except Exception as e:
+            st.error(f"Fehler beim Laden: {e}")
 
 def main():
     doc_parser = KlausurDocument()
@@ -85,7 +88,6 @@ def main():
         <style>
         .block-container { padding-top: 1.5rem; max-width: 98% !important; }
         .stTextArea textarea { font-family: 'Inter', sans-serif; font-size: 1.1rem; line-height: 1.5; background: rgba(255,255,255,0.7); border-radius: 10px; }
-        
         .sidebar-outline { font-size: 0.82rem; line-height: 1.2; margin-bottom: 2px; color: #333; }
         .outline-lvl-1 { font-weight: bold; color: #000; border-bottom: 1px solid rgba(0,0,0,0.1); margin-top: 5px; }
 
@@ -125,9 +127,8 @@ def main():
     st.sidebar.title("📌 Gliederung")
     outline_container = st.sidebar.container()
 
-    # --- SACHVERHALT LOGIK ---
+    # --- SACHVERHALT ---
     sv_upload = st.file_uploader("📄 Sachverhalt PDF importieren", type=['pdf'], key="sachverhalt_key")
-    
     if sv_upload:
         if st.session_state["last_sv_name"] != sv_upload.name:
             st.session_state["sv_text"] = clean_pdf_text(sv_upload)
@@ -151,9 +152,8 @@ def main():
         if os.path.exists(pfad):
             with open(pfad, "r", encoding="utf-8") as f:
                 content = f.read().split('\n')
-                titel = content[0]
                 rest = "\n".join(content[1:])
-                with st.expander(f"📖 {titel}", expanded=True):
+                with st.expander(f"📖 {content[0]}", expanded=True):
                     st.markdown(f'<div class="glassy-box"><div class="box-content">{rest}</div></div>', unsafe_allow_html=True)
 
     # --- MAIN EDITOR ---
@@ -162,16 +162,15 @@ def main():
     kl_datum = c2.text_input("Datum", "")
     kl_kuerzel = c3.text_input("Kürzel", "")
     
-    # Der Editor wird IMMER gerendert und ist fest mit dem Session State verknüpft
+    # WICHTIG: Das Textarea wird hier über den session_state Wert gesteuert
     current_text = st.text_area(
         "Gutachten-Editor",
         value=st.session_state["main_editor_key"],
         height=500,
         key="main_editor_area",
-        label_visibility="collapsed",
-        on_change=lambda: st.session_state.update({"main_editor_key": st.session_state["main_editor_area"]})
+        label_visibility="collapsed"
     )
-    # Synchronisiere den Text zurück
+    # Update des Speicher-Werts bei jeder Eingabe
     st.session_state["main_editor_key"] = current_text
 
     # Sidebar Gliederung
@@ -248,6 +247,7 @@ def main():
                             st.download_button("📥 PDF herunterladen", f, "Gutachten.pdf", use_container_width=True)
 
     col2.download_button("💾 Als TXT speichern", current_text, "Gutachten.txt", use_container_width=True)
+    # Import Funktion mit direktem Callback
     col3.file_uploader("📂 TXT laden", type=['txt'], key="uploader_key", on_change=handle_upload)
 
 if __name__ == "__main__":
