@@ -85,7 +85,7 @@ def handle_upload():
 def main():
     doc_parser = KlausurDocument()
     
-    # CSS für Styling (deine lmodern Präferenz bleibt durch jurabook.cls & settings gewahrt)
+    # CSS für Styling
     st.markdown("""
         <style>
         .block-container { 
@@ -120,7 +120,7 @@ def main():
 
     st.title("⚖️ IustWrite Editor")
 
-    # --- SIDEBAR SETTINGS ---
+    # --- SIDEBAR SETTINGS & STATS ---
     with st.sidebar.expander("⚙️ Layout-Einstellungen", expanded=False):
         rand_wert = st.text_input("Korrekturrand rechts (in cm)", value="6")
         if not any(unit in rand_wert for unit in ['cm', 'mm']): rand_wert += "cm"
@@ -132,6 +132,17 @@ def main():
     with st.sidebar.expander("📖 Fall abrufen", expanded=False):
         fall_code = st.text_input("Fall-Code eingeben")
 
+    st.sidebar.markdown("---")
+    
+    # --- WORTZÄHLER IN DER SIDEBAR (FÜR MAXIMALE SICHERHEIT) ---
+    current_content = st.session_state.get("main_editor_key", "")
+    words = len(current_content.split())
+    chars = len(current_content)
+    
+    st.sidebar.title("📊 Statistik")
+    st.sidebar.write(f"**Wörter:** {words}")
+    st.sidebar.write(f"**Zeichen:** {chars}")
+    
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
@@ -155,14 +166,6 @@ def main():
     with c1: kl_titel = st.text_input("Titel", "")
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
-
-    # Zähler-Berechnung VOR dem Editor
-    current_text_value = st.session_state.get("main_editor_key", "")
-    words = len(current_text_value.split())
-    chars = len(current_text_value)
-
-    # Anzeige des Zählers (fett gedruckt über dem Textfeld)
-    st.markdown(f"**Statistik:** `{words}` Wörter | `{chars}` Zeichen")
 
     # Editor
     current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Schreibe hier dein Gutachten...")
