@@ -120,7 +120,7 @@ def main():
 
     st.title("⚖️ IustWrite Editor")
 
-    # --- SIDEBAR SETTINGS & STATS ---
+    # --- SIDEBAR SETTINGS ---
     with st.sidebar.expander("⚙️ Layout-Einstellungen", expanded=False):
         rand_wert = st.text_input("Korrekturrand rechts (in cm)", value="6")
         if not any(unit in rand_wert for unit in ['cm', 'mm']): rand_wert += "cm"
@@ -132,17 +132,6 @@ def main():
     with st.sidebar.expander("📖 Fall abrufen", expanded=False):
         fall_code = st.text_input("Fall-Code eingeben")
 
-    st.sidebar.markdown("---")
-    
-    # --- WORTZÄHLER IN DER SIDEBAR (FÜR MAXIMALE SICHERHEIT) ---
-    current_content = st.session_state.get("main_editor_key", "")
-    words = len(current_content.split())
-    chars = len(current_content)
-    
-    st.sidebar.title("📊 Statistik")
-    st.sidebar.write(f"**Wörter:** {words}")
-    st.sidebar.write(f"**Zeichen:** {chars}")
-    
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
@@ -167,8 +156,15 @@ def main():
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
-    # Editor
-    current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Schreibe hier dein Gutachten...")
+    # --- ZÄHLER LOGIK DIREKT IM EDITOR LABEL ---
+    current_val = st.session_state.get("main_editor_key", "")
+    word_count = len(current_val.split())
+    char_count = len(current_val)
+    
+    # Der Zähler steht jetzt direkt als Überschrift über dem Editor
+    editor_label = f"Gutachten Editor ({word_count} Wörter | {char_count} Zeichen)"
+
+    current_text = st.text_area(editor_label, height=600, key="main_editor_key", placeholder="Schreibe hier dein Gutachten...")
 
     # --- SIDEBAR OUTLINE ---
     if current_text:
