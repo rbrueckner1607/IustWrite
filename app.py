@@ -115,20 +115,6 @@ def main():
             font-size: 1rem;
             width: 100%;
         }
-        /* Sichtbarer Counter-Style */
-        .counter-label {
-            display: block;
-            text-align: right;
-            padding: 5px 10px;
-            font-weight: bold;
-            color: #555;
-            background: #f9f9f9;
-            border: 1px solid #ddd;
-            border-top: none;
-            border-radius: 0 0 5px 5px;
-            font-family: sans-serif;
-            font-size: 0.85rem;
-        }
         </style>
         """, unsafe_allow_html=True)
 
@@ -173,10 +159,14 @@ def main():
     # Editor
     current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Schreibe hier dein Gutachten...")
 
-    # --- WORT- UND ZEICHENZÄHLER (DIREKT UNTER EDITOR) ---
-    word_count = len(current_text.split())
-    char_count = len(current_text)
-    st.markdown(f'<div class="counter-label">{word_count} Wörter | {char_count} Zeichen</div>', unsafe_allow_html=True)
+    # --- WORT- UND ZEICHENZÄHLER (ROBUSTE VERSION) ---
+    words = len(current_text.split())
+    chars = len(current_text)
+    
+    # Wir platzieren den Counter in eine kleine Spalte rechtsbündig
+    _, stat_col = st.columns([4, 1])
+    with stat_col:
+        st.caption(f"📝 {words} Wörter | {chars} Zeichen")
 
     # --- SIDEBAR OUTLINE ---
     if current_text:
