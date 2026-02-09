@@ -73,16 +73,33 @@ class KlausurDocument:
         return "\n".join(latex_output)
 
 # --- HILFSFUNKTIONEN ---
+def clean_pdf_text(text):
+    """Säubert extrahierten PDF-Text von harten Umbrüchen und Bindestrichen."""
+    # 1. Silbentrennung am Zeilenende entfernen (z.B. "Haft-\nung" -> "Haftung")
+    text = re.sub(r'(\w)-\s*\n\s*(\w)', r'\1\2', text)
+    
+    # 2. Harte Zeilenumbrüche entfernen, aber echte Absätze (Doppel-Umbruch) erhalten
+    # Wir ersetzen einfache Umbrüche durch Leerzeichen, behalten aber \n\n bei
+    paragraphs = text.split('\n\n')
+    cleaned_paragraphs = []
+    for p in paragraphs:
+        # Innerhalb eines Absatzes alle einfachen Newlines durch Leerzeichen ersetzen
+        cleaned_p = p.replace('\n', ' ').strip()
+        # Mehrfache Leerzeichen korrigieren
+        cleaned_p = re.sub(r'\s+', ' ', cleaned_p)
+        cleaned_paragraphs.append(cleaned_p)
+    
+    return '\n\n'.join(cleaned_paragraphs)
+
 def extract_text_from_pdf(pdf_file):
-    """Extrahiert Text aus einer hochgeladenen PDF-Datei."""
+    """Extrahiert Text aus einer hochgeladenen PDF-Datei und säubert ihn."""
     text = ""
     try:
-        # PDF aus dem Stream lesen
         doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
         for page in doc:
-            text += page.get_text()
+            text += page.get_text("text")
         doc.close()
-        return text
+        return clean_pdf_text(text)
     except Exception as e:
         return f"Fehler beim Lesen der PDF: {e}"
 
@@ -100,7 +117,6 @@ if "main_editor_key" not in st.session_state:
 def main():
     doc_parser = KlausurDocument()
     
-    # CSS für Styling
     st.markdown("""
         <style>
         .block-container { 
@@ -152,15 +168,12 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
-    # --- CASE LOGIC (SACHVERHALT ANZEIGE) ---
-    
-    # 1. Sachverhalt aus PDF (falls hochgeladen)
+    # --- CASE LOGIC ---
     if st.session_state.get("sachverhalt_key") is not None:
-        # Wir speichern den extrahierten Text im session_state, um ihn nicht jedes Mal neu zu parsen
         if "extracted_sv_text" not in st.session_state:
             st.session_state["extracted_sv_text"] = extract_text_from_pdf(st.session_state["sachverhalt_key"])
         
-        with st.expander("📄 Sachverhalt (aus hochgeladener PDF)", expanded=True):
+        with st.expander("📄 Sachverhalt (PDF-Text bereinigt)", expanded=True):
             st.markdown(f'<div class="sachverhalt-box">{st.session_state["extracted_sv_text"]}</div>', unsafe_allow_html=True)
             if st.button("Text an Gutachten anfügen"):
                 st.session_state["main_editor_key"] += "\n\n" + st.session_state["extracted_sv_text"]
@@ -169,7 +182,6 @@ def main():
         if "extracted_sv_text" in st.session_state:
             del st.session_state["extracted_sv_text"]
 
-    # 2. Sachverhalt aus lokalem Ordner (via Fall-Code)
     if fall_code:
         pfad_zu_fall = os.path.join("fealle", f"{fall_code}.txt")
         if os.path.exists(pfad_zu_fall):
@@ -181,8 +193,6 @@ def main():
                 rest_text = "\n".join(zeilen[1:]).strip()
                 with st.expander(f"📖 {sauberer_titel}", expanded=True):
                     st.markdown(f'<div class="sachverhalt-box">{rest_text}</div>', unsafe_allow_html=True)
-        else:
-            st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
 
     # --- EDITOR AREA ---
     c1, c2, c3 = st.columns([3, 1, 1])
@@ -220,7 +230,6 @@ def main():
     with col_save: st.download_button("💾 Als TXT speichern", data=current_text, file_name="Gutachten.txt", use_container_width=True)
     with col_load: st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
     with col_sachverhalt: 
-        # Dieser Uploader triggert oben die Anzeige des Sachverhalts
         st.file_uploader("📄 Sachverhalt (PDF importieren)", type=['pdf'], key="sachverhalt_key")
 
     if pdf_button:
@@ -229,7 +238,7 @@ def main():
         else:
             cls_path = os.path.join("latex_assets", "jurabook.cls")
             if not os.path.exists(cls_path):
-                st.error("🚨 jurabook.cls fehlt im Ordner latex_assets!")
+                st.error("🚨 jurabook.cls fehlt!")
                 st.stop()
 
             with st.spinner("PDF wird erstellt..."):
@@ -245,28 +254,20 @@ def main():
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{pdfpages}
-
 \addto\captionsngerman{\renewcommand{\contentsname}{Gliederung}}
-
 """ + font_latex + r"""
 \usepackage{setspace}
 \usepackage{geometry}
 \usepackage{fancyhdr}
 \geometry{left=2cm, right=2cm, top=2.5cm, bottom=3cm}
-\setcounter{tocdepth}{8}
-\setcounter{secnumdepth}{8}
-\setlength{\parindent}{0pt}
-
 \fancypagestyle{iustwrite}{
     \fancyhf{}
     \fancyhead[L]{\small """ + kl_kuerzel + r"""}
     \fancyhead[R]{\small """ + titel_komp + r"""}
     \fancyfoot[R]{\thepage}
     \renewcommand{\headrulewidth}{0.5pt}
-    \fancyhfoffset[R]{0pt}
 }
 \begin{document}
-\sloppy
 """
                 with tempfile.TemporaryDirectory() as tmpdirname:
                     tmp_path = Path(tmpdirname)
@@ -281,7 +282,6 @@ def main():
                                 shutil.copy2(s, d)
 
                     sachverhalt_cmd = ""
-                    # Hier wird die Original-PDF (falls vorhanden) vor das Gutachten geheftet
                     if st.session_state.get("sachverhalt_key") is not None:
                         with open(tmp_path / "temp_sv.pdf", "wb") as f:
                             f.write(st.session_state.sachverhalt_key.getbuffer())
@@ -303,12 +303,8 @@ def main():
                     env = os.environ.copy()
                     env["TEXINPUTS"] = f".:{tmp_path}:{assets_folder}:"
 
-                    result = None
-                    for _ in range(2):
-                        result = subprocess.run(
-                            ["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
-                            cwd=tmpdirname, env=env, capture_output=True, text=False
-                        )
+                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], cwd=tmpdirname, env=env)
+                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], cwd=tmpdirname, env=env)
 
                     pdf_file = tmp_path / "klausur.pdf"
                     if pdf_file.exists():
@@ -317,9 +313,6 @@ def main():
                             st.download_button("📥 Download PDF", f, "Gutachten.pdf", use_container_width=True)
                     else:
                         st.error("LaTeX Fehler!")
-                        if result:
-                            error_log = result.stdout.decode('utf-8', errors='replace')
-                            st.code(error_log)
 
 if __name__ == "__main__":
     main()
