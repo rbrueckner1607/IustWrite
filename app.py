@@ -86,10 +86,22 @@ def main():
         .stTextArea textarea { font-family: 'Inter', sans-serif; font-size: 1.1rem; line-height: 1.5; }
         .sidebar-outline { font-size: 0.82rem; line-height: 1.2; margin-bottom: 2px; color: #333; }
         .outline-lvl-1 { font-weight: bold; color: #000; border-bottom: 1px solid #eee; margin-top: 5px; }
+        
+        /* Sachverhalt-Box mit stabiler blauer Linie links */
         .sachverhalt-box {
-            background-color: #f1f3f6; padding: 20px; border-radius: 8px; 
-            border-left: 6px solid #003366; margin-bottom: 20px; 
-            line-height: 1.6; font-size: 1.05rem; width: 100%;
+            background-color: #f1f3f6; 
+            padding: 15px 25px; 
+            border-left: 6px solid #003366 !important; 
+            border-top: none !important;
+            border-right: none !important;
+            border-bottom: none !important;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 25px; 
+            line-height: 1.6; 
+            font-size: 1.05rem; 
+            width: 100%;
+            display: block;
+            box-sizing: border-box;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -128,14 +140,16 @@ def main():
                 st.session_state["sv_fixed"] = False
                 st.rerun()
 
-    # --- EXTERNE FÄLLE ---
+    # --- EXTERNE FÄLLE (Ordner fealle) ---
     if fall_code:
         pfad = os.path.join("fealle", f"{fall_code}.txt")
         if os.path.exists(pfad):
             with open(pfad, "r", encoding="utf-8") as f:
                 content = f.read().split('\n')
+                titel = content[0]
                 rest_md = "\n".join(content[1:])
-                with st.expander(f"📖 {content[0]}", expanded=True):
+                with st.expander(f"📖 {titel}", expanded=True):
+                    # Stabile linke Linie für Markdown
                     st.markdown('<div class="sachverhalt-box">', unsafe_allow_html=True)
                     st.markdown(rest_md)
                     st.markdown('</div>', unsafe_allow_html=True)
@@ -174,9 +188,8 @@ def main():
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{cmap} % Verbessert Zeichen-Mapping im PDF
-\usepackage{pdfpages, setspace, geometry, fancyhdr, tocloft}
-\usepackage[protrusion=true, expansion=true]{microtype} % Verhindert Ligatur-Fehler
+\usepackage{cmap, pdfpages, setspace, geometry, fancyhdr, tocloft}
+\usepackage[protrusion=true, expansion=true]{microtype}
 """ + font_package + r"""
 \geometry{left=2cm, right=2cm, top=2.5cm, bottom=3cm}
 \setlength{\cftbeforesecskip}{1pt}
@@ -197,6 +210,8 @@ def main():
                         sv_inc = r"\includepdf[pages=-]{sv.pdf}"
 
                     t_str = f"{kl_titel} ({kl_datum})" if kl_datum else kl_titel
+                    
+                    # Hier wird \noindent nur vor dem allerersten Absatz nach dem Titel gesetzt
                     final_tex = header + sv_inc + \
                                 r"\pagenumbering{gobble}\tableofcontents\clearpage" + \
                                 r"\newgeometry{left=2cm, right=" + rand + r"cm, top=2.5cm, bottom=3cm}" + \
@@ -205,7 +220,7 @@ def main():
                                 r"\fancyhead[L]{\small " + kl_kuerzel + r"}\fancyhead[R]{\small " + t_str + r"}" + \
                                 r"\fancyfoot[R]{\thepage}\setstretch{" + abstand + r"}" + \
                                 r"\pagenumbering{arabic}\setcounter{page}{1}" + \
-                                r"{\noindent\Large\bfseries " + t_str + r" \par}\bigskip" + \
+                                r"{\noindent\Large\bfseries " + t_str + r" \par}\bigskip\noindent " + \
                                 doc_parser.parse_content(current_text.split('\n')) + r"\end{document}"
                     
                     with open(tmp_p / "k.tex", "w", encoding="utf-8") as f:
