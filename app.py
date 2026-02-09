@@ -75,7 +75,7 @@ class KlausurDocument:
 # --- UI CONFIG ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide", initial_sidebar_state="expanded")
 
-# Session States initialisieren
+# Session States
 if "main_editor_key" not in st.session_state:
     st.session_state["main_editor_key"] = ""
 if "sv_text" not in st.session_state:
@@ -88,15 +88,18 @@ def handle_upload():
         content = st.session_state.uploader_key.read().decode("utf-8")
         st.session_state["main_editor_key"] = content
 
-def extract_pdf_text(uploaded_file):
-    doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
-    full_text = ""
-    for page in doc:
-        full_text += page.get_text()
-    # Bindestriche am Zeilenende entfernen (De-Hyphenation)
-    text = re.sub(r'(\w)-\n(\w)', r'\1\2', full_text)
-    text = text.replace('\n', ' ')
-    return text.strip()
+def extract_pdf_text():
+    if st.session_state.sachverhalt_key:
+        doc = fitz.open(stream=st.session_state.sachverhalt_key.read(), filetype="pdf")
+        full_text = ""
+        for page in doc:
+            full_text += page.get_text()
+        # Silbentrennung entfernen: Bindestrich + Zeilenumbruch
+        text = re.sub(r'(\w)-\s*\n\s*(\w)', r'\1\2', full_text)
+        # Normale Zeilenumbrüche durch Leerzeichen ersetzen für Blocksatz
+        text = text.replace('\n', ' ')
+        st.session_state["sv_text"] = text.strip()
+        st.session_state["sv_fixed"] = True
 
 def main():
     doc_parser = KlausurDocument()
@@ -104,44 +107,38 @@ def main():
     st.markdown("""
         <style>
         .block-container { 
-            padding-top: 1.5rem; 
-            padding-left: 2rem; 
-            padding-right: 2rem; 
-            max-width: 98% !important; 
+            padding-top: 1.5rem; padding-left: 2rem; padding-right: 2rem; max-width: 98% !important; 
         }
-        [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
-        [data-testid="stSidebar"] p { font-size: 0.85rem !important; line-height: 1.2 !important; }
-        
         .stTextArea textarea { 
-            font-family: 'Inter', 'Segoe UI', Helvetica, Arial, sans-serif; 
-            font-size: 1.1rem;
-            line-height: 1.5;
-            padding: 15px;
-            color: #1e1e1e;
+            font-family: 'Inter', sans-serif; font-size: 1.1rem; line-height: 1.5; padding: 15px; color: #1e1e1e;
         }
-        
         .sachverhalt-box {
-            background-color: #f0f2f6;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 6px solid #003366; /* Dunkelblau statt Rot */
-            margin-bottom: 10px;
-            line-height: 1.6;
-            font-size: 1rem;
-            width: 100%;
-            text-align: justify; /* Gleichmäßige Verteilung */
+            background-color: #f0f2f6; padding: 20px; border-radius: 8px;
+            border-left: 6px solid #003366; /* Dunkelblau */
+            margin-bottom: 20px; line-height: 1.6; font-size: 1rem;
+            width: 100%; text-align: justify; /* Gleichmäßig verteilt */
         }
         .stats-container {
-            font-size: 0.85rem;
-            color: #666;
-            margin-top: -15px;
-            margin-bottom: 15px;
-            text-align: right;
+            font-size: 0.85rem; color: #666; margin-top: -15px; margin-bottom: 15px; text-align: right;
         }
         </style>
         """, unsafe_allow_html=True)
 
     st.title("⚖️ IustWrite Editor")
+
+    # --- 1. SACHVERHALT OBEN ---
+    if st.session_state["sv_text"]:
+        if st.session_state["sv_fixed"]:
+            st.markdown(f'<div class="sachverhalt-box">{st.session_state["sv_text"]}</div>', unsafe_allow_html=True)
+            if st.button("🔓 Sachverhalt bearbeiten"):
+                st.session_state["sv_fixed"] = False
+                st.rerun()
+        else:
+            new_sv = st.text_area("Sachverhalt anpassen:", value=st.session_state["sv_text"], height=250)
+            st.session_state["sv_text"] = new_sv
+            if st.button("🔒 Sachverhalt fixieren"):
+                st.session_state["sv_fixed"] = True
+                st.rerun()
 
     # --- SIDEBAR SETTINGS ---
     with st.sidebar.expander("⚙️ Layout-Einstellungen", expanded=False):
@@ -158,20 +155,6 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
-    # --- SACHVERHALT LOGIC (NEW) ---
-    if st.session_state["sv_text"]:
-        if st.session_state["sv_fixed"]:
-            st.markdown(f'<div class="sachverhalt-box">{st.session_state["sv_text"]}</div>', unsafe_allow_html=True)
-            if st.button("🔓 Sachverhalt bearbeiten"):
-                st.session_state["sv_fixed"] = False
-                st.rerun()
-        else:
-            new_sv = st.text_area("Sachverhalt bearbeiten:", value=st.session_state["sv_text"], height=200)
-            st.session_state["sv_text"] = new_sv
-            if st.button("🔒 Sachverhalt fixieren"):
-                st.session_state["sv_fixed"] = True
-                st.rerun()
-
     # --- EDITOR AREA ---
     c1, c2, c3 = st.columns([3, 1, 1])
     with c1: kl_titel = st.text_input("Titel", "")
@@ -180,30 +163,22 @@ def main():
 
     current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Schreibe hier dein Gutachten...")
     
-    # Wort- und Zeichenzähler
+    # Zähler
     words = len(current_text.split())
     chars = len(current_text)
     st.markdown(f'<div class="stats-container">Wörter: {words} | Zeichen: {chars}</div>', unsafe_allow_html=True)
 
-    # --- SIDEBAR OUTLINE ---
+    # Sidebar Gliederung (Logik bleibt identisch)
     if current_text:
         for line in current_text.split('\n'):
             line_s = line.strip()
             if not line_s: continue
-            found = False
             for level, pattern in doc_parser.star_patterns.items():
                 if re.match(pattern, line_s):
-                    indent = "&nbsp;" * (level * 2)
-                    st.sidebar.markdown(f"{indent}{line_s}")
-                    found = True
-                    break
-            if not found:
-                for level, pattern in doc_parser.prefix_patterns.items():
-                    if re.match(pattern, line_s):
-                        indent = "&nbsp;" * (level * 2)
-                        weight = "**" if level <= 2 else ""
-                        st.sidebar.markdown(f"{indent}{weight}{line_s}{weight}")
-                        break
+                    st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}{line_s}")
+            for level, pattern in doc_parser.prefix_patterns.items():
+                if re.match(pattern, line_s):
+                    st.sidebar.markdown(f"{'&nbsp;' * (level * 2)}{'**' if level <= 2 else ''}{line_s}{'**' if level <= 2 else ''}")
 
     # --- ACTIONS ---
     st.markdown("---")
@@ -212,13 +187,10 @@ def main():
     with col_pdf: pdf_button = st.button("🏁 PDF generieren", use_container_width=True)
     with col_save: st.download_button("💾 Als TXT speichern", data=current_text, file_name="Gutachten.txt", use_container_width=True)
     with col_load: st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
-    
     with col_sachverhalt: 
-        sachverhalt_file = st.file_uploader("📄 Extra Sachverhalt (PDF)", type=['pdf'], key="sachverhalt_key")
-        if sachverhalt_file and not st.session_state["sv_text"]:
-            st.session_state["sv_text"] = extract_pdf_text(sachverhalt_file)
-            st.rerun()
+        st.file_uploader("📄 Sachverhalt (PDF)", type=['pdf'], key="sachverhalt_key", on_change=extract_pdf_text)
 
+    # --- PDF GENERIERUNG ---
     if pdf_button:
         if not current_text.strip():
             st.warning("Bitte Text eingeben!")
@@ -231,7 +203,6 @@ def main():
             with st.spinner("PDF wird erstellt..."):
                 parsed_content = doc_parser.parse_content(current_text.split('\n'))
                 titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
-                
                 font_latex = f"\\usepackage{{{selected_font_package}}}"
                 if "helvet" in selected_font_package: font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
 
@@ -255,7 +226,6 @@ def main():
     \fancyhead[R]{\small """ + titel_komp + r"""}
     \fancyfoot[R]{\thepage}
     \renewcommand{\headrulewidth}{0.5pt}
-    \fancyhfoffset[R]{0pt}
 }
 \begin{document}
 \sloppy
@@ -264,19 +234,11 @@ def main():
                     tmp_path = Path(tmpdirname)
                     shutil.copy(os.path.abspath(cls_path), tmp_path / "jurabook.cls")
                     
-                    assets_folder = os.path.abspath("latex_assets")
-                    if os.path.exists(assets_folder):
-                        for item in os.listdir(assets_folder):
-                            s = os.path.join(assets_folder, item)
-                            d = os.path.join(tmpdirname, item)
-                            if os.path.isfile(s) and not item.endswith('.cls'):
-                                shutil.copy2(s, d)
-
-                    # Den SV aus dem File (Original) anhängen, falls vorhanden
+                    # SV PDF Management
                     sachverhalt_cmd = ""
-                    if sachverhalt_file is not None:
+                    if st.session_state.sachverhalt_key:
                         with open(tmp_path / "temp_sv.pdf", "wb") as f:
-                            f.write(sachverhalt_file.getbuffer())
+                            f.write(st.session_state.sachverhalt_key.getbuffer())
                         sachverhalt_cmd = r"\includepdf[pages=-]{temp_sv.pdf}"
 
                     final_latex = full_latex_header + sachverhalt_cmd + r"""
@@ -293,14 +255,8 @@ def main():
                         f.write(final_latex)
                     
                     env = os.environ.copy()
-                    env["TEXINPUTS"] = f".:{tmp_path}:{assets_folder}:"
-
-                    result = None
-                    for _ in range(2):
-                        result = subprocess.run(
-                            ["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
-                            cwd=tmpdirname, env=env, capture_output=True, text=False
-                        )
+                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], cwd=tmpdirname, env=env)
+                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], cwd=tmpdirname, env=env)
 
                     pdf_file = tmp_path / "klausur.pdf"
                     if pdf_file.exists():
@@ -309,9 +265,6 @@ def main():
                             st.download_button("📥 Download PDF", f, "Gutachten.pdf", use_container_width=True)
                     else:
                         st.error("LaTeX Fehler!")
-                        if result:
-                            error_log = result.stdout.decode('utf-8', errors='replace')
-                            st.code(error_log)
 
 if __name__ == "__main__":
     main()
