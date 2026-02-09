@@ -89,7 +89,6 @@ def main():
         .sidebar-outline { font-size: 0.82rem; line-height: 1.2; margin-bottom: 2px; color: #333; }
         .outline-lvl-1 { font-weight: bold; color: #000; border-bottom: 1px solid rgba(0,0,0,0.1); margin-top: 5px; }
 
-        /* Die Box mit der blauen Linie links */
         .glassy-box {
             display: flex !important;
             background: rgba(241, 243, 246, 0.7);
@@ -98,7 +97,7 @@ def main():
             margin-bottom: 25px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             overflow: hidden;
-            border-left: 8px solid #003366 !important; /* Direkte Linie */
+            border-left: 8px solid #003366 !important;
         }
         .box-content {
             padding: 20px;
@@ -126,8 +125,9 @@ def main():
     st.sidebar.title("📌 Gliederung")
     outline_container = st.sidebar.container()
 
-    # --- SACHVERHALT (PDF) ---
+    # --- SACHVERHALT LOGIK ---
     sv_upload = st.file_uploader("📄 Sachverhalt PDF importieren", type=['pdf'], key="sachverhalt_key")
+    
     if sv_upload:
         if st.session_state["last_sv_name"] != sv_upload.name:
             st.session_state["sv_text"] = clean_pdf_text(sv_upload)
@@ -135,7 +135,7 @@ def main():
             st.session_state["sv_fixed"] = False
 
         if not st.session_state["sv_fixed"]:
-            st.session_state["sv_text"] = st.text_area("SV Editor", value=st.session_state["sv_text"], height=200, label_visibility="collapsed")
+            st.session_state["sv_text"] = st.text_area("SV Editor", value=st.session_state["sv_text"], height=150, label_visibility="collapsed")
             if st.button("🔒 Sachverhalt fixieren"):
                 st.session_state["sv_fixed"] = True
                 st.rerun()
@@ -151,9 +151,9 @@ def main():
         if os.path.exists(pfad):
             with open(pfad, "r", encoding="utf-8") as f:
                 content = f.read().split('\n')
+                titel = content[0]
                 rest = "\n".join(content[1:])
-                with st.expander(f"📖 {content[0]}", expanded=True):
-                    # Hier wird die blaue Linie über die CSS-Klasse erzwungen
+                with st.expander(f"📖 {titel}", expanded=True):
                     st.markdown(f'<div class="glassy-box"><div class="box-content">{rest}</div></div>', unsafe_allow_html=True)
 
     # --- MAIN EDITOR ---
@@ -162,8 +162,17 @@ def main():
     kl_datum = c2.text_input("Datum", "")
     kl_kuerzel = c3.text_input("Kürzel", "")
     
-    # FIX: Bindung an Session State verhindert das Löschen des Textes beim Fixieren
-    current_text = st.text_area("", height=500, key="main_editor_key", placeholder="Gutachten hier verfassen...")
+    # Der Editor wird IMMER gerendert und ist fest mit dem Session State verknüpft
+    current_text = st.text_area(
+        "Gutachten-Editor",
+        value=st.session_state["main_editor_key"],
+        height=500,
+        key="main_editor_area",
+        label_visibility="collapsed",
+        on_change=lambda: st.session_state.update({"main_editor_key": st.session_state["main_editor_area"]})
+    )
+    # Synchronisiere den Text zurück
+    st.session_state["main_editor_key"] = current_text
 
     # Sidebar Gliederung
     if current_text:
