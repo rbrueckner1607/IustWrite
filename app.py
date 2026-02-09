@@ -85,7 +85,7 @@ def handle_upload():
 def main():
     doc_parser = KlausurDocument()
     
-    # CSS für maximale Breite, bewegliche Sidebar und LESERLICHE Schrift
+    # CSS für Styling
     st.markdown("""
         <style>
         .block-container { 
@@ -115,13 +115,19 @@ def main():
             font-size: 1rem;
             width: 100%;
         }
-        /* Style für den Counter */
-        .stats-container {
-            font-size: 0.9rem;
-            color: #666;
+        /* Sichtbarer Counter-Style */
+        .counter-label {
+            display: block;
             text-align: right;
-            margin-top: -15px;
-            margin-bottom: 10px;
+            padding: 5px 10px;
+            font-weight: bold;
+            color: #555;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 5px 5px;
+            font-family: sans-serif;
+            font-size: 0.85rem;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -164,12 +170,13 @@ def main():
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
+    # Editor
     current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Schreibe hier dein Gutachten...")
 
-    # --- WORT- UND ZEICHENZÄHLER ---
-    words = len(current_text.split())
-    chars = len(current_text)
-    st.markdown(f'<div class="stats-container"><b>{words}</b> Wörter | <b>{chars}</b> Zeichen</div>', unsafe_allow_html=True)
+    # --- WORT- UND ZEICHENZÄHLER (DIREKT UNTER EDITOR) ---
+    word_count = len(current_text.split())
+    char_count = len(current_text)
+    st.markdown(f'<div class="counter-label">{word_count} Wörter | {char_count} Zeichen</div>', unsafe_allow_html=True)
 
     # --- SIDEBAR OUTLINE ---
     if current_text:
@@ -236,7 +243,6 @@ def main():
 \fancypagestyle{iustwrite}{
     \fancyhf{}
     \fancyhead[L]{\small """ + kl_kuerzel + r"""}
-    \fancyhead[R]{\small """ + titel_komp + r"""}
     \fancyhead[R]{\small """ + titel_komp + r"""}
     \fancyfoot[R]{\thepage}
     \renewcommand{\headrulewidth}{0.5pt}
