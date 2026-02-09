@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 import fitz  # PyMuPDF
 
-# --- PARSER KLASSE ---
+# --- PARSER KLASSE (KORRIGIERT FÜR LATEX BRACES) ---
 class KlausurDocument:
     def __init__(self):
         self.prefix_patterns = {
@@ -39,7 +39,9 @@ class KlausurDocument:
                     latex_output.append(f"\\{cmd}{{{line_s}}}")
                     if level in self.prefix_patterns:
                         toc_cmd = "subsubsection" if level >= 3 else cmd.replace("*", "")
-                        latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{max(0, level-1)}em}}}{line_s}}}")
+                        # Korrekte Escaping für LaTeX Klammern in f-strings
+                        indent = f"{max(0, level-1)}em"
+                        latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{indent}}}{line_s}}}")
                     found_level = True
                     break
             if not found_level:
@@ -50,21 +52,19 @@ class KlausurDocument:
 
 # --- PDF FUNKTIONEN ---
 def extract_and_clean_pdf(pdf_file):
-    """Liest PDF und entfernt harte Zeilenumbrüche für volle Breite."""
     text = ""
     try:
         doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
         for page in doc:
             text += page.get_text("text") + "\n"
         doc.close()
-        # Bindestriche am Zeilenende entfernen
         text = re.sub(r'(\w)-\s*\n\s*(\w)', r'\1\2', text)
-        # Harte Umbrüche entfernen (Sätze zusammenfügen), aber Absätze (\n\n) behalten
+        # Sätze zusammenfügen für volle Breite
         paragraphs = text.split('\n\n')
-        cleaned = [p.replace('\n', ' ').strip() for p in paragraphs]
+        cleaned = [p.replace('\n', ' ').strip() for p in paragraphs if p.strip()]
         return '\n\n'.join(cleaned)
     except Exception as e:
-        return f"Fehler: {e}"
+        return f"Fehler bei PDF-Extraktion: {e}"
 
 def handle_upload():
     if st.session_state.uploader_key:
@@ -73,7 +73,6 @@ def handle_upload():
 # --- UI SETUP ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
-# Initialisierung Session States
 if "main_editor_key" not in st.session_state: st.session_state["main_editor_key"] = ""
 if "sv_fixed" not in st.session_state: st.session_state["sv_fixed"] = False
 if "sv_text" not in st.session_state: st.session_state["sv_text"] = ""
@@ -100,36 +99,47 @@ def main():
         rand = st.text_input("Rand rechts (cm)", "6")
         abstand = st.selectbox("Zeilenabstand", ["1.0", "1.2", "1.5", "2.0"], index=1)
         font_opt = {"lmodern (Standard)": "lmodern", "Times": "mathptmx", "Palatino": "mathpazo"}
-        # Nutze deine gespeicherte Präferenz für lmodern
         selected_font = font_opt[st.selectbox("Schriftart", list(font_opt.keys()), index=0)]
 
     st.sidebar.title("📌 Gliederung")
 
-    # --- SACHVERHALT LOGIK ---
+    # --- SACHVERHALT / FALLCODE ---
+    with st.sidebar.expander("📖 Fall abrufen", expanded=False):
+        fall_code = st.text_input("Fall-Code eingeben")
+
+    # PDF SV Bereich
     sv_upload = st.file_uploader("📄 Sachverhalt PDF importieren", type=['pdf'], key="sachverhalt_key")
     
     if sv_upload:
-        # Falls neues PDF hochgeladen wurde und noch kein Text da ist
         if not st.session_state["sv_text"]:
             st.session_state["sv_text"] = extract_and_clean_pdf(sv_upload)
 
-        with st.container():
-            if not st.session_state["sv_fixed"]:
-                st.subheader("Vorbereitung: Sachverhalt formatieren")
-                # Der Text wird direkt im State gespeichert
-                st.session_state["sv_text"] = st.text_area("Inhalt (wird beim Fixieren gespeichert)", 
-                                                         value=st.session_state["sv_text"], 
-                                                         height=350)
-                if st.button("📌 SV fixieren & volle Breite nutzen"):
-                    st.session_state["sv_fixed"] = True
-                    st.rerun()
-            else:
-                st.markdown(f'<div class="sachverhalt-box">{st.session_state["sv_text"]}</div>', unsafe_allow_html=True)
-                if st.button("🔓 Fixierung lösen (Bearbeiten)"):
-                    st.session_state["sv_fixed"] = False
-                    st.rerun()
+        if not st.session_state["sv_fixed"]:
+            st.info("SV bearbeiten (Absätze kontrollieren):")
+            st.session_state["sv_text"] = st.text_area("Vorbereitungs-Editor", 
+                                                     value=st.session_state["sv_text"], 
+                                                     height=300, label_visibility="collapsed")
+            if st.button("📌 SV fixieren (volle Breite)"):
+                st.session_state["sv_fixed"] = True
+                st.rerun()
+        else:
+            st.markdown(f'<div class="sachverhalt-box">{st.session_state["sv_text"]}</div>', unsafe_allow_html=True)
+            if st.button("🔓 Fixierung lösen"):
+                st.session_state["sv_fixed"] = False
+                st.rerun()
 
-    # --- MAIN EDITOR ---
+    # Lokale Falle-Datei Bereich
+    if fall_code:
+        pfad = os.path.join("fealle", f"{fall_code}.txt")
+        if os.path.exists(pfad):
+            with open(pfad, "r", encoding="utf-8") as f:
+                content = f.read().split('\n')
+                titel = content[0] if content else "Unbenannter Fall"
+                rest = "\n".join(content[1:])
+                with st.expander(f"📖 {titel} (Fixiert)", expanded=True):
+                    st.markdown(f'<div class="sachverhalt-box">{rest}</div>', unsafe_allow_html=True)
+
+    # --- EDITOR ---
     c1, c2, c3 = st.columns([3, 1, 1])
     kl_titel = c1.text_input("Titel", "Klausur")
     kl_datum = c2.text_input("Datum", "")
@@ -153,8 +163,7 @@ def main():
         if not current_text.strip():
             st.warning("Text leer!")
         else:
-            with st.spinner("PDF wird erstellt..."):
-                # LaTeX Logik
+            with st.spinner("Erstelle PDF..."):
                 header = r"""\documentclass[12pt, a4paper]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[T1]{fontenc}
@@ -164,12 +173,9 @@ def main():
 \begin{document}
 """
                 with tempfile.TemporaryDirectory() as tmp:
-                    # Kopiere jurabook.cls hierher
                     cls_src = os.path.join("latex_assets", "jurabook.cls")
                     if os.path.exists(cls_src):
                         shutil.copy(cls_src, os.path.join(tmp, "jurabook.cls"))
-                        
-                        # SV anheften falls vorhanden
                         sv_inc = ""
                         if sv_upload:
                             with open(os.path.join(tmp, "sv.pdf"), "wb") as f:
@@ -183,9 +189,11 @@ def main():
                         with open(os.path.join(tmp, "k.tex"), "w", encoding="utf-8") as f:
                             f.write(final_tex)
                         
+                        # Zwei Durchläufe für Inhaltsverzeichnis
                         subprocess.run(["pdflatex", "-interaction=nonstopmode", "k.tex"], cwd=tmp)
+                        subprocess.run(["pdflatex", "-interaction=nonstopmode", "k.tex"], cwd=tmp)
+
                         if os.path.exists(os.path.join(tmp, "k.pdf")):
-                            st.success("PDF fertig!")
                             with open(os.path.join(tmp, "k.pdf"), "rb") as f:
                                 st.download_button("📥 PDF herunterladen", f, "Gutachten.pdf")
 
