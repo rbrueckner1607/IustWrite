@@ -10,6 +10,7 @@ import fitz  # PyMuPDF für die PDF-Extraktion
 # --- OPTIMIERTE PARSER KLASSE ---
 class KlausurDocument:
     def __init__(self):
+        # Muster für die automatische Gliederungserkennung
         self.prefix_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
             2: r'^\s*[A-H]\.(\s|$)',
@@ -40,6 +41,7 @@ class KlausurDocument:
                 continue
 
             found_level = False
+            # Check for non-TOC headers (with *)
             for level, pattern in self.star_patterns.items():
                 if re.match(pattern, line_s):
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*"}
@@ -49,6 +51,7 @@ class KlausurDocument:
                     break
 
             if not found_level:
+                # Check for standard TOC headers
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
                         if level >= 3:
@@ -67,39 +70,63 @@ class KlausurDocument:
                         break
 
             if not found_level:
+                # Text processing for footnotes and special characters
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
                 line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
                 latex_output.append(line_s)
         return "\n".join(latex_output)
 
-# --- HILFSFUNKTIONEN ---
-def clean_pdf_text(text):
-    """Säubert extrahierten PDF-Text von harten Umbrüchen und Bindestrichen."""
-    # 1. Silbentrennung am Zeilenende entfernen (z.B. "Haft-\nung" -> "Haftung")
-    text = re.sub(r'(\w)-\s*\n\s*(\w)', r'\1\2', text)
-    
-    # 2. Harte Zeilenumbrüche entfernen, aber echte Absätze (Doppel-Umbruch) erhalten
-    # Wir ersetzen einfache Umbrüche durch Leerzeichen, behalten aber \n\n bei
-    paragraphs = text.split('\n\n')
-    cleaned_paragraphs = []
-    for p in paragraphs:
-        # Innerhalb eines Absatzes alle einfachen Newlines durch Leerzeichen ersetzen
-        cleaned_p = p.replace('\n', ' ').strip()
-        # Mehrfache Leerzeichen korrigieren
-        cleaned_p = re.sub(r'\s+', ' ', cleaned_p)
-        cleaned_paragraphs.append(cleaned_p)
-    
-    return '\n\n'.join(cleaned_paragraphs)
+# --- INTELLIGENTE PDF-REINIGUNG ---
+def clean_jur_text(text):
+    """Säubert extrahierten Text unter Erhalt von Absätzen, Gesetzen und AGB-Strukturen."""
+    lines = text.split('\n')
+    cleaned_lines = []
+    buffer = ""
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            if buffer:
+                cleaned_lines.append(buffer)
+                buffer = ""
+            continue
+
+        # Erkennt strukturelle Zeilen (Paragrafen, Listen, AGB-Klauseln, Zitate)
+        # Diese Zeilen sollen NICHT mit dem Text davor verschmolzen werden
+        is_structural = re.match(r'^(\S~|§|\d+\.|[a-z]\)|-|\"|„|Art\.|[A-Z]\.)', stripped)
+
+        if is_structural:
+            if buffer:
+                cleaned_lines.append(buffer)
+            buffer = stripped
+            cleaned_lines.append(buffer)
+            buffer = ""
+        else:
+            # Silbentrennung am Zeilenende entfernen
+            if buffer.endswith('-'):
+                buffer = buffer[:-1] + stripped
+            else:
+                buffer = (buffer + " " + stripped).strip()
+
+            # Wenn die Zeile mit einem Punkt/Doppelpunkt endet, ist der Satz oft vorbei
+            if stripped.endswith(('.', ':', '!', '?')):
+                cleaned_lines.append(buffer)
+                buffer = ""
+
+    if buffer:
+        cleaned_lines.append(buffer)
+
+    return '\n\n'.join(cleaned_lines)
 
 def extract_text_from_pdf(pdf_file):
-    """Extrahiert Text aus einer hochgeladenen PDF-Datei und säubert ihn."""
+    """Extrahiert Text aus PDF und wendet die juristische Reinigung an."""
     text = ""
     try:
         doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
         for page in doc:
-            text += page.get_text("text")
+            text += page.get_text("text") + "\n"
         doc.close()
-        return clean_pdf_text(text)
+        return clean_jur_text(text)
     except Exception as e:
         return f"Fehler beim Lesen der PDF: {e}"
 
@@ -108,7 +135,7 @@ def handle_upload():
         content = st.session_state.uploader_key.read().decode("utf-8")
         st.session_state["main_editor_key"] = content
 
-# --- UI CONFIG ---
+# --- UI SETUP ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide", initial_sidebar_state="expanded")
 
 if "main_editor_key" not in st.session_state:
@@ -119,33 +146,15 @@ def main():
     
     st.markdown("""
         <style>
-        .block-container { 
-            padding-top: 1.5rem; 
-            padding-left: 2rem; 
-            padding-right: 2rem; 
-            max-width: 98% !important; 
-        }
-        [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
-        [data-testid="stSidebar"] p { font-size: 0.85rem !important; line-height: 1.2 !important; }
-        
+        .block-container { padding-top: 1.5rem; max-width: 98% !important; }
         .stTextArea textarea { 
-            font-family: 'Inter', 'Segoe UI', Helvetica, Arial, sans-serif; 
-            font-size: 1.1rem;
-            line-height: 1.5;
-            padding: 15px;
-            color: #1e1e1e;
+            font-family: 'Inter', sans-serif; font-size: 1.1rem; 
+            line-height: 1.5; padding: 15px; color: #1e1e1e;
         }
-        
         .sachverhalt-box {
-            background-color: #f0f2f6;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 6px solid #ff4b4b;
-            margin-bottom: 25px;
-            line-height: 1.6;
-            font-size: 1rem;
-            white-space: pre-wrap;
-            width: 100%;
+            background-color: #f0f2f6; padding: 20px; border-radius: 8px; 
+            border-left: 6px solid #ff4b4b; margin-bottom: 25px; 
+            line-height: 1.6; font-size: 1rem; white-space: pre-wrap;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -157,23 +166,20 @@ def main():
         rand_wert = st.text_input("Korrekturrand rechts (in cm)", value="6")
         if not any(unit in rand_wert for unit in ['cm', 'mm']): rand_wert += "cm"
         zeilenabstand = st.selectbox("Zeilenabstand", options=["1.0", "1.2", "1.5", "2.0"], index=1)
-        
         font_options = {"lmodern (Standard)": "lmodern", "Times": "mathptmx", "Palatino": "mathpazo", "Helvetica": "helvet"}
         font_choice = st.selectbox("Schriftart", options=list(font_options.keys()), index=0)
         selected_font_package = font_options[font_choice]
 
-    with st.sidebar.expander("📖 Fall abrufen", expanded=False):
-        fall_code = st.text_input("Fall-Code eingeben")
-
+    fall_code = st.sidebar.text_input("📖 Fall-Code eingeben")
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
-    # --- CASE LOGIC ---
+    # --- CASE LOGIC (SACHVERHALT) ---
     if st.session_state.get("sachverhalt_key") is not None:
         if "extracted_sv_text" not in st.session_state:
             st.session_state["extracted_sv_text"] = extract_text_from_pdf(st.session_state["sachverhalt_key"])
         
-        with st.expander("📄 Sachverhalt (PDF-Text bereinigt)", expanded=True):
+        with st.expander("📄 Aktueller Sachverhalt (PDF)", expanded=True):
             st.markdown(f'<div class="sachverhalt-box">{st.session_state["extracted_sv_text"]}</div>', unsafe_allow_html=True)
             if st.button("Text an Gutachten anfügen"):
                 st.session_state["main_editor_key"] += "\n\n" + st.session_state["extracted_sv_text"]
@@ -183,65 +189,52 @@ def main():
             del st.session_state["extracted_sv_text"]
 
     if fall_code:
-        pfad_zu_fall = os.path.join("fealle", f"{fall_code}.txt")
-        if os.path.exists(pfad_zu_fall):
-            with open(pfad_zu_fall, "r", encoding="utf-8") as f:
-                ganzer_text = f.read()
-            zeilen = ganzer_text.split('\n')
-            if zeilen:
-                sauberer_titel = re.sub(r'^#+\s*(Fall\s+\d+:\s*)?', '', zeilen[0]).strip()
-                rest_text = "\n".join(zeilen[1:]).strip()
-                with st.expander(f"📖 {sauberer_titel}", expanded=True):
-                    st.markdown(f'<div class="sachverhalt-box">{rest_text}</div>', unsafe_allow_html=True)
+        pfad = os.path.join("fealle", f"{fall_code}.txt")
+        if os.path.exists(pfad):
+            with open(pfad, "r", encoding="utf-8") as f:
+                content = f.read().split('\n')
+                st.sidebar.info(f"Fall geladen: {content[0]}")
+                with st.expander(f"📖 {content[0]}", expanded=True):
+                    st.markdown(f'<div class="sachverhalt-box">{" ".join(content[1:])}</div>', unsafe_allow_html=True)
 
     # --- EDITOR AREA ---
     c1, c2, c3 = st.columns([3, 1, 1])
-    with c1: kl_titel = st.text_input("Titel", "")
-    with c2: kl_datum = st.text_input("Datum", "")
-    with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
+    kl_titel = c1.text_input("Titel", "Klausur")
+    kl_datum = c2.text_input("Datum", "")
+    kl_kuerzel = c3.text_input("Kürzel / Matrikel", "")
 
-    current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Schreibe hier dein Gutachten...")
+    current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Hier schreiben...")
 
-    # --- SIDEBAR OUTLINE ---
+    # --- LIVE SIDEBAR OUTLINE ---
     if current_text:
         for line in current_text.split('\n'):
             line_s = line.strip()
             if not line_s: continue
-            found = False
-            for level, pattern in doc_parser.star_patterns.items():
+            for level, pattern in {**doc_parser.star_patterns, **doc_parser.prefix_patterns}.items():
                 if re.match(pattern, line_s):
-                    indent = "&nbsp;" * (level * 2)
-                    st.sidebar.markdown(f"{indent}{line_s}")
-                    found = True
+                    st.sidebar.markdown("&nbsp;" * (level * 2) + line_s)
                     break
-            if not found:
-                for level, pattern in doc_parser.prefix_patterns.items():
-                    if re.match(pattern, line_s):
-                        indent = "&nbsp;" * (level * 2)
-                        weight = "**" if level <= 2 else ""
-                        st.sidebar.markdown(f"{indent}{weight}{line_s}{weight}")
-                        break
 
     # --- ACTIONS ---
     st.markdown("---")
-    col_pdf, col_save, col_load, col_sachverhalt = st.columns([1, 1, 1, 1])
+    col_pdf, col_save, col_load, col_sv_up = st.columns(4)
+    
+    pdf_button = col_pdf.button("🏁 PDF generieren", use_container_width=True)
+    col_save.download_button("💾 Als TXT speichern", current_text, "Gutachten.txt", use_container_width=True)
+    col_load.file_uploader("📂 TXT laden", type=['txt'], key="uploader_key", on_change=handle_upload)
+    col_sv_up.file_uploader("📄 PDF SV importieren", type=['pdf'], key="sachverhalt_key")
 
-    with col_pdf: pdf_button = st.button("🏁 PDF generieren", use_container_width=True)
-    with col_save: st.download_button("💾 Als TXT speichern", data=current_text, file_name="Gutachten.txt", use_container_width=True)
-    with col_load: st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
-    with col_sachverhalt: 
-        st.file_uploader("📄 Sachverhalt (PDF importieren)", type=['pdf'], key="sachverhalt_key")
-
+    # --- PDF GENERATOR LOGIC ---
     if pdf_button:
         if not current_text.strip():
             st.warning("Bitte Text eingeben!")
         else:
             cls_path = os.path.join("latex_assets", "jurabook.cls")
             if not os.path.exists(cls_path):
-                st.error("🚨 jurabook.cls fehlt!")
+                st.error("🚨 jurabook.cls fehlt in /latex_assets!")
                 st.stop()
 
-            with st.spinner("PDF wird erstellt..."):
+            with st.spinner("Erstelle PDF..."):
                 parsed_content = doc_parser.parse_content(current_text.split('\n'))
                 titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
                 
@@ -249,16 +242,13 @@ def main():
                 if "helvet" in selected_font_package: 
                     font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
 
-                full_latex_header = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
+                header = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{pdfpages}
+\usepackage{pdfpages, setspace, geometry, fancyhdr}
 \addto\captionsngerman{\renewcommand{\contentsname}{Gliederung}}
 """ + font_latex + r"""
-\usepackage{setspace}
-\usepackage{geometry}
-\usepackage{fancyhdr}
 \geometry{left=2cm, right=2cm, top=2.5cm, bottom=3cm}
 \fancypagestyle{iustwrite}{
     \fancyhf{}
@@ -268,32 +258,29 @@ def main():
     \renewcommand{\headrulewidth}{0.5pt}
 }
 \begin{document}
+\sloppy
 """
                 with tempfile.TemporaryDirectory() as tmpdirname:
                     tmp_path = Path(tmpdirname)
                     shutil.copy(os.path.abspath(cls_path), tmp_path / "jurabook.cls")
                     
+                    # Kopiere Assets (Logos etc.) falls vorhanden
                     assets_folder = os.path.abspath("latex_assets")
                     if os.path.exists(assets_folder):
                         for item in os.listdir(assets_folder):
-                            s = os.path.join(assets_folder, item)
-                            d = os.path.join(tmpdirname, item)
-                            if os.path.isfile(s) and not item.endswith('.cls'):
-                                shutil.copy2(s, d)
+                            s, d = os.path.join(assets_folder, item), os.path.join(tmpdirname, item)
+                            if os.path.isfile(s) and not item.endswith('.cls'): shutil.copy2(s, d)
 
-                    sachverhalt_cmd = ""
-                    if st.session_state.get("sachverhalt_key") is not None:
+                    sv_cmd = ""
+                    if st.session_state.get("sachverhalt_key"):
                         with open(tmp_path / "temp_sv.pdf", "wb") as f:
                             f.write(st.session_state.sachverhalt_key.getbuffer())
-                        sachverhalt_cmd = r"\includepdf[pages=-]{temp_sv.pdf}"
+                        sv_cmd = r"\includepdf[pages=-]{temp_sv.pdf}"
 
-                    final_latex = full_latex_header + sachverhalt_cmd + r"""
-\pagenumbering{gobble}
-\tableofcontents\clearpage
+                    final_latex = header + sv_cmd + r"""
+\pagenumbering{gobble}\tableofcontents\clearpage
 \newgeometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm}
-\pagenumbering{arabic}
-\setcounter{page}{1}
-\pagestyle{iustwrite}\setstretch{""" + zeilenabstand + r"""}
+\pagenumbering{arabic}\setcounter{page}{1}\pagestyle{iustwrite}\setstretch{""" + zeilenabstand + r"""}
 {\noindent\Large\bfseries """ + titel_komp + r""" \par}\bigskip
 """ + parsed_content + r"\end{document}"
 
@@ -303,8 +290,9 @@ def main():
                     env = os.environ.copy()
                     env["TEXINPUTS"] = f".:{tmp_path}:{assets_folder}:"
 
-                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], cwd=tmpdirname, env=env)
-                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], cwd=tmpdirname, env=env)
+                    for _ in range(2):
+                        subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
+                                       cwd=tmpdirname, env=env, capture_output=True)
 
                     pdf_file = tmp_path / "klausur.pdf"
                     if pdf_file.exists():
