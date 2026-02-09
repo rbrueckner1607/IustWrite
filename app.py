@@ -85,7 +85,7 @@ def handle_upload():
 def main():
     doc_parser = KlausurDocument()
     
-    # CSS für Styling
+    # CSS für Styling (deine lmodern Präferenz bleibt durch jurabook.cls & settings gewahrt)
     st.markdown("""
         <style>
         .block-container { 
@@ -156,17 +156,16 @@ def main():
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
+    # Zähler-Berechnung VOR dem Editor
+    current_text_value = st.session_state.get("main_editor_key", "")
+    words = len(current_text_value.split())
+    chars = len(current_text_value)
+
+    # Anzeige des Zählers (fett gedruckt über dem Textfeld)
+    st.markdown(f"**Statistik:** `{words}` Wörter | `{chars}` Zeichen")
+
     # Editor
     current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Schreibe hier dein Gutachten...")
-
-    # --- WORT- UND ZEICHENZÄHLER (ROBUSTE VERSION) ---
-    words = len(current_text.split())
-    chars = len(current_text)
-    
-    # Wir platzieren den Counter in eine kleine Spalte rechtsbündig
-    _, stat_col = st.columns([4, 1])
-    with stat_col:
-        st.caption(f"📝 {words} Wörter | {chars} Zeichen")
 
     # --- SIDEBAR OUTLINE ---
     if current_text:
