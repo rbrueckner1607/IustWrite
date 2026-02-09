@@ -1,0 +1,49 @@
+name: Streamlit Ultra Keep Alive
+
+on:
+  schedule:
+    - cron: '0 */11 * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Playwright
+        run: |
+          pip install playwright
+          playwright install chromium --with-deps
+
+      - name: Run Browser Simulation
+        run: |
+          python -c "
+          from playwright.sync_api import sync_playwright
+          import time
+
+          try:
+              with sync_playwright() as p:
+                  browser = p.chromium.launch(headless=True)
+                  context = browser.new_context(user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+                  page = context.new_page()
+                  # HIER STEHT DEINE URL
+                  url = 'https://iustwrite-awur4kdaxwsbankju4mjck.streamlit.app'
+                  print(f'Besuche {url}...')
+                  
+                  page.goto(url, wait_until='domcontentloaded', timeout=30000)
+                  time.sleep(10) 
+                  
+                  print('Titel der Seite:', page.title())
+                  print('Ping erfolgreich!')
+                  browser.close()
+          except Exception as e:
+              print(f'Fehler beim Ping: {e}')
+              exit(1)
+          "
