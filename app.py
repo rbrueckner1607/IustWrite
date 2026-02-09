@@ -67,19 +67,25 @@ def clean_pdf_text(pdf_file):
 # --- UI SETUP ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
-# Initialisierung des Session States
-if "main_editor_key" not in st.session_state: st.session_state["main_editor_key"] = ""
-if "sv_fixed" not in st.session_state: st.session_state["sv_fixed"] = False
-if "sv_text" not in st.session_state: st.session_state["sv_text"] = ""
-if "last_sv_name" not in st.session_state: st.session_state["last_sv_name"] = ""
+# Session State Setup
+if "main_editor_key" not in st.session_state:
+    st.session_state["main_editor_key"] = ""
+if "sv_fixed" not in st.session_state:
+    st.session_state["sv_fixed"] = False
+if "sv_text" not in st.session_state:
+    st.session_state["sv_text"] = ""
+if "last_sv_name" not in st.session_state:
+    st.session_state["last_sv_name"] = ""
 
-def handle_upload():
-    if st.session_state.uploader_key:
+# Callback für Datei-Upload
+def handle_file_import():
+    if st.session_state.uploader_key is not None:
+        raw_data = st.session_state.uploader_key.read()
         try:
-            content = st.session_state.uploader_key.read().decode("utf-8")
+            content = raw_data.decode("utf-8")
             st.session_state["main_editor_key"] = content
         except Exception as e:
-            st.error(f"Fehler beim Laden: {e}")
+            st.error(f"Fehler beim Dekodieren: {e}")
 
 def main():
     doc_parser = KlausurDocument()
@@ -162,7 +168,7 @@ def main():
     kl_datum = c2.text_input("Datum", "")
     kl_kuerzel = c3.text_input("Kürzel", "")
     
-    # WICHTIG: Das Textarea wird hier über den session_state Wert gesteuert
+    # Der Editor nutzt den session_state direkt als Quelle
     current_text = st.text_area(
         "Gutachten-Editor",
         value=st.session_state["main_editor_key"],
@@ -170,7 +176,7 @@ def main():
         key="main_editor_area",
         label_visibility="collapsed"
     )
-    # Update des Speicher-Werts bei jeder Eingabe
+    # Wichtig: Speichere Änderungen sofort im State
     st.session_state["main_editor_key"] = current_text
 
     # Sidebar Gliederung
@@ -247,8 +253,8 @@ def main():
                             st.download_button("📥 PDF herunterladen", f, "Gutachten.pdf", use_container_width=True)
 
     col2.download_button("💾 Als TXT speichern", current_text, "Gutachten.txt", use_container_width=True)
-    # Import Funktion mit direktem Callback
-    col3.file_uploader("📂 TXT laden", type=['txt'], key="uploader_key", on_change=handle_upload)
+    # Import Funktion mit Callback
+    col3.file_uploader("📂 TXT laden", type=['txt'], key="uploader_key", on_change=handle_file_import)
 
 if __name__ == "__main__":
     main()
