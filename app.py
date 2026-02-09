@@ -57,18 +57,17 @@ def clean_pdf_text(pdf_file):
         for page in doc:
             text += page.get_text("text") + "\n"
         doc.close()
-        # Zeilenumbruch-Korrektur
         text = re.sub(r'(\w)-\s*\n\s*(\w)', r'\1\2', text)
-        # Harte Umbrüche entfernen für volle Breite, aber Absätze erhalten
         paragraphs = text.split('\n\n')
         cleaned = [p.replace('\n', ' ').strip() for p in paragraphs if p.strip()]
         return '\n\n'.join(cleaned)
     except Exception as e:
-        return f"Fehler: {e}"
+        return f"Fehler bei PDF-Extraktion: {e}"
 
 def handle_upload():
     if st.session_state.uploader_key:
-        st.session_state["main_editor_key"] = st.session_state.uploader_key.read().decode("utf-8")
+        content = st.session_state.uploader_key.read().decode("utf-8")
+        st.session_state["main_editor_key"] = content
 
 # --- UI SETUP ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
@@ -76,14 +75,28 @@ st.set_page_config(page_title="IustWrite Editor", layout="wide")
 if "main_editor_key" not in st.session_state: st.session_state["main_editor_key"] = ""
 if "sv_fixed" not in st.session_state: st.session_state["sv_fixed"] = False
 if "sv_text" not in st.session_state: st.session_state["sv_text"] = ""
+if "last_sv_name" not in st.session_state: st.session_state["last_sv_name"] = ""
 
 def main():
     doc_parser = KlausurDocument()
     
+    # CSS für kompakte Sidebar-Gliederung und Editor
     st.markdown("""
         <style>
         .block-container { padding-top: 1.5rem; max-width: 98% !important; }
         .stTextArea textarea { font-family: 'Inter', sans-serif; font-size: 1.1rem; line-height: 1.5; }
+        
+        /* Kompakte Gliederung in der Sidebar */
+        .sidebar-outline {
+            font-size: 0.85rem;
+            line-height: 1.1;
+            margin-bottom: 2px;
+            color: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         .sachverhalt-box {
             background-color: #f1f3f6; padding: 20px; border-radius: 8px; 
             border-left: 6px solid #ff4b4b; margin-bottom: 20px; 
@@ -106,26 +119,31 @@ def main():
 
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
+    outline_container = st.sidebar.container()
 
     # --- SACHVERHALT BEREICH ---
     sv_upload = st.file_uploader("📄 Sachverhalt PDF importieren", type=['pdf'], key="sachverhalt_key")
     
     if sv_upload:
-        if not st.session_state["sv_text"]:
+        # Prüfen, ob eine ANDERE Datei hochgeladen wurde
+        if st.session_state["last_sv_name"] != sv_upload.name:
             st.session_state["sv_text"] = clean_pdf_text(sv_upload)
+            st.session_state["last_sv_name"] = sv_upload.name
+            st.session_state["sv_fixed"] = False
 
         if not st.session_state["sv_fixed"]:
-            st.info("Sachverhalt bearbeiten:")
+            st.info("Vorbereitung (PDF-Text zurechtrücken):")
             st.session_state["sv_text"] = st.text_area("SV Editor", value=st.session_state["sv_text"], height=250, label_visibility="collapsed")
             if st.button("🔒 Sachverhalt fixieren"):
                 st.session_state["sv_fixed"] = True
                 st.rerun()
         else:
             st.markdown(f'<div class="sachverhalt-box">{st.session_state["sv_text"]}</div>', unsafe_allow_html=True)
-            if st.button("🔓 Bearbeiten"):
+            if st.button("🔓 Fixierung lösen"):
                 st.session_state["sv_fixed"] = False
                 st.rerun()
 
+    # Lokale Falle-Datei
     if fall_code:
         pfad = os.path.join("fealle", f"{fall_code}.txt")
         if os.path.exists(pfad):
@@ -140,51 +158,57 @@ def main():
     kl_datum = c2.text_input("Datum", "")
     kl_kuerzel = c3.text_input("Kürzel", "")
 
-    current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Hier Gutachten schreiben...")
+    current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Gutachten hier verfassen...")
 
-    # Gliederung Live in Sidebar
+    # Gliederung in Sidebar (Kompakt-Mode)
     if current_text:
-        for line in current_text.split('\n'):
-            for level, pattern in {**doc_parser.star_patterns, **doc_parser.prefix_patterns}.items():
-                if re.match(pattern, line.strip()):
-                    st.sidebar.markdown("&nbsp;"*(level*2) + line.strip())
-                    break
+        with outline_container:
+            for line in current_text.split('\n'):
+                line_s = line.strip()
+                for level, pattern in {**doc_parser.star_patterns, **doc_parser.prefix_patterns}.items():
+                    if re.match(pattern, line_s):
+                        px_indent = level * 10
+                        st.markdown(f'<div class="sidebar-outline" style="padding-left:{px_indent}px;">{line_s}</div>', unsafe_allow_html=True)
+                        break
 
-    # --- FOOTER ---
+    # --- ACTIONS ---
     st.markdown("---")
     col1, col2, col3 = st.columns(3)
     
     if col1.button("🏁 PDF generieren", use_container_width=True):
         if not current_text.strip():
-            st.warning("Kein Text!")
+            st.warning("Kein Text vorhanden.")
         else:
             with st.spinner("PDF wird erstellt..."):
                 header = r"""\documentclass[12pt, a4paper]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[T1]{fontenc}
-\usepackage{pdfpages, setspace, geometry, fancyhdr}
+\usepackage{pdfpages, setspace, geometry, fancyhdr, tocloft}
 \usepackage{""" + selected_font + r"""}
 \geometry{left=2cm, right=2cm, top=2.5cm, bottom=3cm}
 
-% Inhaltsverzeichnis kompakter machen
-\usepackage{tocloft}
-\setlength{\cftbeforesecskip}{2pt}
+% Kompaktes Inhaltsverzeichnis
+\setlength{\cftbeforesecskip}{1pt}
 \setlength{\cftbeforesubsecskip}{0pt}
+\renewcommand{\cfttoctitlefont}{\hfill\Large\bfseries}
+\renewcommand{\cftaftertoctitle}{\hfill}
 
 \begin{document}
 """
                 with tempfile.TemporaryDirectory() as tmp:
+                    tmp_path = Path(tmp)
                     cls_src = os.path.join("latex_assets", "jurabook.cls")
                     if os.path.exists(cls_src):
-                        shutil.copy(cls_src, os.path.join(tmp, "jurabook.cls"))
+                        shutil.copy(cls_src, tmp_path / "jurabook.cls")
+                        
                         sv_inc = ""
                         if sv_upload:
-                            with open(os.path.join(tmp, "sv.pdf"), "wb") as f:
+                            with open(tmp_path / "sv.pdf", "wb") as f:
                                 f.write(sv_upload.getbuffer())
                             sv_inc = r"\includepdf[pages=-]{sv.pdf}"
 
-                        # LaTeX mit begrenzter Kopfzeile und Inhaltsverzeichnis
                         t_str = f"{kl_titel} ({kl_datum})" if kl_datum else kl_titel
+                        
                         final_tex = header + sv_inc + \
                                     r"\pagenumbering{gobble}\tableofcontents\clearpage" + \
                                     r"\newgeometry{left=2cm, right=" + rand + r"cm, top=2.5cm, bottom=3cm}" + \
@@ -192,19 +216,20 @@ def main():
                                     r"\fancyhead[L]{\small " + kl_kuerzel + r"}\fancyhead[R]{\small " + t_str + r"}" + \
                                     r"\fancyfoot[R]{\thepage}\setstretch{" + abstand + r"}" + \
                                     r"\pagenumbering{arabic}\setcounter{page}{1}" + \
+                                    r"{\noindent\Large\bfseries " + t_str + r" \par}\bigskip" + \
                                     doc_parser.parse_content(current_text.split('\n')) + r"\end{document}"
                         
-                        with open(os.path.join(tmp, "k.tex"), "w", encoding="utf-8") as f:
+                        with open(tmp_path / "k.tex", "w", encoding="utf-8") as f:
                             f.write(final_tex)
                         
                         subprocess.run(["pdflatex", "-interaction=nonstopmode", "k.tex"], cwd=tmp)
                         subprocess.run(["pdflatex", "-interaction=nonstopmode", "k.tex"], cwd=tmp)
 
-                        if os.path.exists(os.path.join(tmp, "k.pdf")):
-                            with open(os.path.join(tmp, "k.pdf"), "rb") as f:
-                                st.download_button("📥 PDF laden", f, "Gutachten.pdf", use_container_width=True)
+                        if (tmp_path / "k.pdf").exists():
+                            with open(tmp_path / "k.pdf", "rb") as f:
+                                st.download_button("📥 PDF herunterladen", f, "Gutachten.pdf", use_container_width=True)
 
-    col2.download_button("💾 TXT speichern", current_text, "Gutachten.txt", use_container_width=True)
+    col2.download_button("💾 Als TXT speichern", current_text, "Gutachten.txt", use_container_width=True)
     col3.file_uploader("📂 TXT laden", type=['txt'], key="uploader_key", on_change=handle_upload)
 
 if __name__ == "__main__":
