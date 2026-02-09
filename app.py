@@ -45,7 +45,6 @@ class KlausurDocument:
                     break
             if not found_level:
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
-                # Sonderzeichen-Handling
                 line_s = line_s.replace('§', '\\S~').replace('&', '\\&').replace('%', '\\%')
                 latex_output.append(line_s)
         return "\n".join(latex_output)
@@ -85,11 +84,8 @@ def main():
         <style>
         .block-container { padding-top: 1.5rem; max-width: 98% !important; }
         .stTextArea textarea { font-family: 'Inter', sans-serif; font-size: 1.1rem; line-height: 1.5; }
-        
         .sidebar-outline { font-size: 0.82rem; line-height: 1.2; margin-bottom: 2px; color: #333; }
         .outline-lvl-1 { font-weight: bold; color: #000; border-bottom: 1px solid #eee; margin-top: 5px; }
-
-        /* Dunkelblaue Sachverhalt-Box */
         .sachverhalt-box {
             background-color: #f1f3f6; padding: 20px; border-radius: 8px; 
             border-left: 6px solid #003366; margin-bottom: 20px; 
@@ -104,12 +100,7 @@ def main():
     with st.sidebar.expander("⚙️ Layout"):
         rand = st.text_input("Rand rechts (cm)", "6")
         abstand = st.selectbox("Zeilenabstand", ["1.0", "1.2", "1.5", "2.0"], index=1)
-        font_opt = {
-            "lmodern (Standard)": "lmodern", 
-            "Times": "mathptmx", 
-            "Palatino": "mathpazo",
-            "Helvetica": "helvet"
-        }
+        font_opt = {"lmodern (Standard)": "lmodern", "Times": "mathptmx", "Palatino": "mathpazo", "Helvetica": "helvet"}
         selected_font = font_opt[st.selectbox("Schriftart", list(font_opt.keys()), index=0)]
 
     with st.sidebar.expander("📖 Fall abrufen", expanded=False):
@@ -119,15 +110,13 @@ def main():
     st.sidebar.title("📌 Gliederung")
     outline_container = st.sidebar.container()
 
-    # --- SACHVERHALT BEREICH (PDF) ---
+    # --- SACHVERHALT (PDF) ---
     sv_upload = st.file_uploader("📄 Sachverhalt PDF importieren", type=['pdf'], key="sachverhalt_key")
-    
     if sv_upload:
         if st.session_state["last_sv_name"] != sv_upload.name:
             st.session_state["sv_text"] = clean_pdf_text(sv_upload)
             st.session_state["last_sv_name"] = sv_upload.name
             st.session_state["sv_fixed"] = False
-
         if not st.session_state["sv_fixed"]:
             st.session_state["sv_text"] = st.text_area("SV Editor", value=st.session_state["sv_text"], height=250, label_visibility="collapsed")
             if st.button("🔒 Sachverhalt fixieren"):
@@ -139,29 +128,25 @@ def main():
                 st.session_state["sv_fixed"] = False
                 st.rerun()
 
-    # --- EXTERNE FÄLLE (Ordner fealle) ---
+    # --- EXTERNE FÄLLE ---
     if fall_code:
         pfad = os.path.join("fealle", f"{fall_code}.txt")
         if os.path.exists(pfad):
             with open(pfad, "r", encoding="utf-8") as f:
                 content = f.read().split('\n')
-                titel = content[0]
                 rest_md = "\n".join(content[1:])
-                with st.expander(f"📖 {titel}", expanded=True):
-                    # Jetzt auch hier mit dunkelblauer Linie und Markdown-Support
-                    st.markdown(f'<div class="sachverhalt-box">', unsafe_allow_html=True)
+                with st.expander(f"📖 {content[0]}", expanded=True):
+                    st.markdown('<div class="sachverhalt-box">', unsafe_allow_html=True)
                     st.markdown(rest_md)
-                    st.markdown(f'</div>', unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
 
     # --- MAIN EDITOR ---
     c1, c2, c3 = st.columns([3, 1, 1])
     kl_titel = c1.text_input("Titel", "Klausur")
     kl_datum = c2.text_input("Datum", "")
     kl_kuerzel = c3.text_input("Kürzel", "")
-
     current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Gutachten hier verfassen...")
 
-    # Gliederung in Sidebar
     if current_text:
         with outline_container:
             for line in current_text.split('\n'):
@@ -173,7 +158,6 @@ def main():
                         st.markdown(f'<div class="{css_class}" style="padding-left:{px_indent}px;">{line_s}</div>', unsafe_allow_html=True)
                         break
 
-    # --- ACTIONS ---
     st.markdown("---")
     col1, col2, col3 = st.columns(3)
     
@@ -182,16 +166,17 @@ def main():
             st.warning("Kein Text!")
         else:
             with st.spinner("PDF wird erstellt..."):
-                # Helvetica-Check & Encoding gegen "verpØichtet"
                 font_package = f"\\usepackage{{{selected_font}}}"
                 if selected_font == "helvet":
                     font_package += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
 
                 header = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
-\usepackage[utf8]{inputenc} % Wichtig gegen Encoding-Fehler
+\usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
+\usepackage{cmap} % Verbessert Zeichen-Mapping im PDF
 \usepackage{pdfpages, setspace, geometry, fancyhdr, tocloft}
+\usepackage[protrusion=true, expansion=true]{microtype} % Verhindert Ligatur-Fehler
 """ + font_package + r"""
 \geometry{left=2cm, right=2cm, top=2.5cm, bottom=3cm}
 \setlength{\cftbeforesecskip}{1pt}
@@ -212,7 +197,6 @@ def main():
                         sv_inc = r"\includepdf[pages=-]{sv.pdf}"
 
                     t_str = f"{kl_titel} ({kl_datum})" if kl_datum else kl_titel
-                    
                     final_tex = header + sv_inc + \
                                 r"\pagenumbering{gobble}\tableofcontents\clearpage" + \
                                 r"\newgeometry{left=2cm, right=" + rand + r"cm, top=2.5cm, bottom=3cm}" + \
@@ -231,6 +215,7 @@ def main():
                     subprocess.run(["pdflatex", "-interaction=nonstopmode", "k.tex"], cwd=tmp)
 
                     if (tmp_p / "k.pdf").exists():
+                        st.success("✅ PDF erfolgreich erstellt!")
                         with open(tmp_p / "k.pdf", "rb") as f:
                             st.download_button("📥 PDF herunterladen", f, "Gutachten.pdf", use_container_width=True)
                     else:
