@@ -62,7 +62,7 @@ def clean_pdf_text(pdf_file):
         cleaned = [p.replace('\n', ' ').strip() for p in paragraphs if p.strip()]
         return '\n\n'.join(cleaned)
     except Exception as e:
-        return f"Fehler bei PDF-Extraktion: {e}"
+        return f"Fehler: {e}"
 
 def handle_upload():
     if st.session_state.uploader_key:
@@ -72,6 +72,7 @@ def handle_upload():
 # --- UI SETUP ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide")
 
+# Session State Initialisierung
 if "main_editor_key" not in st.session_state: st.session_state["main_editor_key"] = ""
 if "sv_fixed" not in st.session_state: st.session_state["sv_fixed"] = False
 if "sv_text" not in st.session_state: st.session_state["sv_text"] = ""
@@ -83,25 +84,33 @@ def main():
     st.markdown("""
         <style>
         .block-container { padding-top: 1.5rem; max-width: 98% !important; }
-        .stTextArea textarea { font-family: 'Inter', sans-serif; font-size: 1.1rem; line-height: 1.5; background-color: rgba(255,255,255,0.6); border-radius: 10px; }
+        .stTextArea textarea { font-family: 'Inter', sans-serif; font-size: 1.1rem; line-height: 1.5; background: rgba(255,255,255,0.7); border-radius: 10px; }
         
+        /* Sidebar Styling */
         .sidebar-outline { font-size: 0.82rem; line-height: 1.2; margin-bottom: 2px; color: #333; }
         .outline-lvl-1 { font-weight: bold; color: #000; border-bottom: 1px solid rgba(0,0,0,0.1); margin-top: 5px; }
-        
-        /* Glassy Sachverhalt-Box mit stabiler blauer Linie LINKS */
-        .sachverhalt-container {
-            border-left: 6px solid #003366 !important;
+
+        /* Die ultimative Box mit blauer Linie LINKS */
+        .glassy-box {
+            display: flex;
             background: rgba(241, 243, 246, 0.7);
             backdrop-filter: blur(10px);
-            padding: 20px;
-            border-radius: 0 12px 12px 0;
+            border-radius: 8px;
             margin-bottom: 25px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            overflow: hidden;
         }
-        .sachverhalt-content {
+        .blue-line {
+            width: 8px;
+            background-color: #003366;
+            flex-shrink: 0;
+        }
+        .box-content {
+            padding: 20px;
             line-height: 1.6;
             font-size: 1.05rem;
             color: #1e293b;
+            flex-grow: 1;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -115,7 +124,7 @@ def main():
         font_opt = {"lmodern (Standard)": "lmodern", "Times": "mathptmx", "Palatino": "mathpazo", "Helvetica": "helvet"}
         selected_font = font_opt[st.selectbox("Schriftart", list(font_opt.keys()), index=0)]
 
-    with st.sidebar.expander("📖 Fall abrufen", expanded=False):
+    with st.sidebar.expander("📖 Fall abrufen"):
         fall_code = st.text_input("Fall-Code")
 
     st.sidebar.markdown("---")
@@ -129,13 +138,14 @@ def main():
             st.session_state["sv_text"] = clean_pdf_text(sv_upload)
             st.session_state["last_sv_name"] = sv_upload.name
             st.session_state["sv_fixed"] = False
+
         if not st.session_state["sv_fixed"]:
-            st.session_state["sv_text"] = st.text_area("SV Editor", value=st.session_state["sv_text"], height=250, label_visibility="collapsed")
+            st.session_state["sv_text"] = st.text_area("SV Editor", value=st.session_state["sv_text"], height=200, label_visibility="collapsed")
             if st.button("🔒 Sachverhalt fixieren"):
                 st.session_state["sv_fixed"] = True
                 st.rerun()
         else:
-            st.markdown(f'<div class="sachverhalt-container"><div class="sachverhalt-content">{st.session_state["sv_text"]}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'''<div class="glassy-box"><div class="blue-line"></div><div class="box-content">{st.session_state["sv_text"]}</div></div>''', unsafe_allow_html=True)
             if st.button("🔓 Fixierung lösen"):
                 st.session_state["sv_fixed"] = False
                 st.rerun()
@@ -146,11 +156,9 @@ def main():
         if os.path.exists(pfad):
             with open(pfad, "r", encoding="utf-8") as f:
                 content = f.read().split('\n')
-                rest_md = "\n".join(content[1:])
                 with st.expander(f"📖 {content[0]}", expanded=True):
-                    # Glassy Box mit blauer Linie auch für Markdown
-                    st.markdown('<div class="sachverhalt-container"><div class="sachverhalt-content">', unsafe_allow_html=True)
-                    st.markdown(rest_md)
+                    st.markdown(f'<div class="glassy-box"><div class="blue-line"></div><div class="box-content">', unsafe_allow_html=True)
+                    st.markdown("\n".join(content[1:]))
                     st.markdown('</div></div>', unsafe_allow_html=True)
 
     # --- MAIN EDITOR ---
@@ -158,8 +166,11 @@ def main():
     kl_titel = c1.text_input("Titel", "Klausur")
     kl_datum = c2.text_input("Datum", "")
     kl_kuerzel = c3.text_input("Kürzel", "")
-    current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Gutachten hier verfassen...")
+    
+    # Text im Session State halten, damit Reruns nichts löschen
+    current_text = st.text_area("", height=500, key="main_editor_key", placeholder="Gutachten hier verfassen...")
 
+    # Sidebar Gliederung
     if current_text:
         with outline_container:
             for line in current_text.split('\n'):
@@ -183,10 +194,9 @@ def main():
                 if selected_font == "helvet":
                     font_package += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
 
-                # Inhaltsverzeichnis Titel zu "Gliederung" umbenennen
                 header = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
-\addto\captionsngerman{\renewcommand{\contentsname}{Gliederung}}
+\addto\captionsngerman{\renewcommand{\contentsname}{Gliederung}} % Umbenennung
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{cmap, pdfpages, setspace, geometry, fancyhdr, tocloft}
@@ -211,7 +221,6 @@ def main():
                         sv_inc = r"\includepdf[pages=-]{sv.pdf}"
 
                     t_str = f"{kl_titel} ({kl_datum})" if kl_datum else kl_titel
-                    
                     final_tex = header + sv_inc + \
                                 r"\pagenumbering{gobble}\tableofcontents\clearpage" + \
                                 r"\newgeometry{left=2cm, right=" + rand + r"cm, top=2.5cm, bottom=3cm}" + \
@@ -233,8 +242,6 @@ def main():
                         st.success("✅ PDF erfolgreich erstellt!")
                         with open(tmp_p / "k.pdf", "rb") as f:
                             st.download_button("📥 PDF herunterladen", f, "Gutachten.pdf", use_container_width=True)
-                    else:
-                        st.error("LaTeX Fehler.")
 
     col2.download_button("💾 Als TXT speichern", current_text, "Gutachten.txt", use_container_width=True)
     col3.file_uploader("📂 TXT laden", type=['txt'], key="uploader_key", on_change=handle_upload)
