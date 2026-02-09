@@ -14,7 +14,7 @@ class KlausurDocument:
             2: r'^\s*[A-H]\.(\s|$)',
             3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.(\s|$)',
             4: r'^\s*\d+\.(\s|$)',
-            5: r'^\s*[a-z]\)\s*',      
+            5: r'^\s*[a-z]\)\s*',       
             6: r'^\s*[a-z]{2}\)\s*',    
             7: r'^\s*\([a-z]\)\s*',     
             8: r'^\s*\([a-z]{2}\)\s*'   
@@ -97,6 +97,7 @@ def main():
         [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
         [data-testid="stSidebar"] p { font-size: 0.85rem !important; line-height: 1.2 !important; }
         
+        /* UPDATE: Bearbeiterfreundliche, moderne Schriftart für den Editor */
         .stTextArea textarea { 
             font-family: 'Inter', 'Segoe UI', Helvetica, Arial, sans-serif; 
             font-size: 1.1rem;
@@ -114,17 +115,6 @@ def main():
             line-height: 1.6;
             font-size: 1rem;
             width: 100%;
-        }
-
-        .stats-container {
-            display: flex;
-            justify-content: flex-end;
-            gap: 20px;
-            margin-top: -15px;
-            margin-bottom: 20px;
-            color: #666;
-            font-size: 0.85rem;
-            font-family: sans-serif;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -167,14 +157,8 @@ def main():
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
-    # HAUPTEDITOR
-    current_text = st.text_area("", value=st.session_state["main_editor_key"], height=600, key="main_editor_widget", placeholder="Schreibe hier dein Gutachten...")
-    st.session_state["main_editor_key"] = current_text
-
-    # --- WORT- UND ZEICHENZÄHLER ---
-    w_count = len([w for w in current_text.split() if w.strip()])
-    c_count = len(current_text)
-    st.markdown(f'<div class="stats-container"><span>Wörter: <b>{w_count}</b></span><span>Zeichen: <b>{c_count}</b></span></div>', unsafe_allow_html=True)
+    # Das Editorfenster nutzt nun die neue CSS-Klasse
+    current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Schreibe hier dein Gutachten...")
 
     # --- SIDEBAR OUTLINE ---
     if current_text:
