@@ -5,6 +5,7 @@ import streamlit as st
 import tempfile
 import shutil
 from pathlib import Path
+import fitz  # PyMuPDF für die PDF-Extraktion
 
 # --- OPTIMIERTE PARSER KLASSE ---
 class KlausurDocument:
@@ -14,7 +15,7 @@ class KlausurDocument:
             2: r'^\s*[A-H]\.(\s|$)',
             3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.(\s|$)',
             4: r'^\s*\d+\.(\s|$)',
-            5: r'^\s*[a-z]\)\s*',       
+            5: r'^\s*[a-z]\)\s*',      
             6: r'^\s*[a-z]{2}\)\s*',    
             7: r'^\s*\([a-z]\)\s*',     
             8: r'^\s*\([a-z]{2}\)\s*'   
@@ -71,21 +72,35 @@ class KlausurDocument:
                 latex_output.append(line_s)
         return "\n".join(latex_output)
 
-# --- UI CONFIG ---
-st.set_page_config(page_title="IustWrite Editor", layout="wide", initial_sidebar_state="expanded")
-
-if "main_editor_key" not in st.session_state:
-    st.session_state["main_editor_key"] = ""
+# --- HILFSFUNKTIONEN ---
+def extract_text_from_pdf(pdf_file):
+    """Extrahiert Text aus einer hochgeladenen PDF-Datei."""
+    text = ""
+    try:
+        # PDF aus dem Stream lesen
+        doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
+        for page in doc:
+            text += page.get_text()
+        doc.close()
+        return text
+    except Exception as e:
+        return f"Fehler beim Lesen der PDF: {e}"
 
 def handle_upload():
     if st.session_state.uploader_key is not None:
         content = st.session_state.uploader_key.read().decode("utf-8")
         st.session_state["main_editor_key"] = content
 
+# --- UI CONFIG ---
+st.set_page_config(page_title="IustWrite Editor", layout="wide", initial_sidebar_state="expanded")
+
+if "main_editor_key" not in st.session_state:
+    st.session_state["main_editor_key"] = ""
+
 def main():
     doc_parser = KlausurDocument()
     
-    # CSS für maximale Breite, bewegliche Sidebar und LESERLICHE Schrift
+    # CSS für Styling
     st.markdown("""
         <style>
         .block-container { 
@@ -97,7 +112,6 @@ def main():
         [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
         [data-testid="stSidebar"] p { font-size: 0.85rem !important; line-height: 1.2 !important; }
         
-        /* UPDATE: Bearbeiterfreundliche, moderne Schriftart für den Editor */
         .stTextArea textarea { 
             font-family: 'Inter', 'Segoe UI', Helvetica, Arial, sans-serif; 
             font-size: 1.1rem;
@@ -114,6 +128,7 @@ def main():
             margin-bottom: 25px;
             line-height: 1.6;
             font-size: 1rem;
+            white-space: pre-wrap;
             width: 100%;
         }
         </style>
@@ -121,11 +136,12 @@ def main():
 
     st.title("⚖️ IustWrite Editor")
 
-    # --- SIDEBAR SETTINGS (EINGEKLAPPT) ---
+    # --- SIDEBAR SETTINGS ---
     with st.sidebar.expander("⚙️ Layout-Einstellungen", expanded=False):
         rand_wert = st.text_input("Korrekturrand rechts (in cm)", value="6")
         if not any(unit in rand_wert for unit in ['cm', 'mm']): rand_wert += "cm"
         zeilenabstand = st.selectbox("Zeilenabstand", options=["1.0", "1.2", "1.5", "2.0"], index=1)
+        
         font_options = {"lmodern (Standard)": "lmodern", "Times": "mathptmx", "Palatino": "mathpazo", "Helvetica": "helvet"}
         font_choice = st.selectbox("Schriftart", options=list(font_options.keys()), index=0)
         selected_font_package = font_options[font_choice]
@@ -136,7 +152,24 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
-    # --- CASE LOGIC ---
+    # --- CASE LOGIC (SACHVERHALT ANZEIGE) ---
+    
+    # 1. Sachverhalt aus PDF (falls hochgeladen)
+    if st.session_state.get("sachverhalt_key") is not None:
+        # Wir speichern den extrahierten Text im session_state, um ihn nicht jedes Mal neu zu parsen
+        if "extracted_sv_text" not in st.session_state:
+            st.session_state["extracted_sv_text"] = extract_text_from_pdf(st.session_state["sachverhalt_key"])
+        
+        with st.expander("📄 Sachverhalt (aus hochgeladener PDF)", expanded=True):
+            st.markdown(f'<div class="sachverhalt-box">{st.session_state["extracted_sv_text"]}</div>', unsafe_allow_html=True)
+            if st.button("Text an Gutachten anfügen"):
+                st.session_state["main_editor_key"] += "\n\n" + st.session_state["extracted_sv_text"]
+                st.rerun()
+    else:
+        if "extracted_sv_text" in st.session_state:
+            del st.session_state["extracted_sv_text"]
+
+    # 2. Sachverhalt aus lokalem Ordner (via Fall-Code)
     if fall_code:
         pfad_zu_fall = os.path.join("fealle", f"{fall_code}.txt")
         if os.path.exists(pfad_zu_fall):
@@ -146,7 +179,7 @@ def main():
             if zeilen:
                 sauberer_titel = re.sub(r'^#+\s*(Fall\s+\d+:\s*)?', '', zeilen[0]).strip()
                 rest_text = "\n".join(zeilen[1:]).strip()
-                with st.expander(f"📄 {sauberer_titel}", expanded=True):
+                with st.expander(f"📖 {sauberer_titel}", expanded=True):
                     st.markdown(f'<div class="sachverhalt-box">{rest_text}</div>', unsafe_allow_html=True)
         else:
             st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
@@ -157,7 +190,6 @@ def main():
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
-    # Das Editorfenster nutzt nun die neue CSS-Klasse
     current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Schreibe hier dein Gutachten...")
 
     # --- SIDEBAR OUTLINE ---
@@ -187,7 +219,9 @@ def main():
     with col_pdf: pdf_button = st.button("🏁 PDF generieren", use_container_width=True)
     with col_save: st.download_button("💾 Als TXT speichern", data=current_text, file_name="Gutachten.txt", use_container_width=True)
     with col_load: st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
-    with col_sachverhalt: sachverhalt_file = st.file_uploader("📄 Extra Sachverhalt (PDF)", type=['pdf'], key="sachverhalt_key")
+    with col_sachverhalt: 
+        # Dieser Uploader triggert oben die Anzeige des Sachverhalts
+        st.file_uploader("📄 Sachverhalt (PDF importieren)", type=['pdf'], key="sachverhalt_key")
 
     if pdf_button:
         if not current_text.strip():
@@ -195,7 +229,7 @@ def main():
         else:
             cls_path = os.path.join("latex_assets", "jurabook.cls")
             if not os.path.exists(cls_path):
-                st.error("🚨 jurabook.cls fehlt!")
+                st.error("🚨 jurabook.cls fehlt im Ordner latex_assets!")
                 st.stop()
 
             with st.spinner("PDF wird erstellt..."):
@@ -203,7 +237,8 @@ def main():
                 titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
                 
                 font_latex = f"\\usepackage{{{selected_font_package}}}"
-                if "helvet" in selected_font_package: font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
+                if "helvet" in selected_font_package: 
+                    font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
 
                 full_latex_header = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
@@ -246,9 +281,10 @@ def main():
                                 shutil.copy2(s, d)
 
                     sachverhalt_cmd = ""
-                    if sachverhalt_file is not None:
+                    # Hier wird die Original-PDF (falls vorhanden) vor das Gutachten geheftet
+                    if st.session_state.get("sachverhalt_key") is not None:
                         with open(tmp_path / "temp_sv.pdf", "wb") as f:
-                            f.write(sachverhalt_file.getbuffer())
+                            f.write(st.session_state.sachverhalt_key.getbuffer())
                         sachverhalt_cmd = r"\includepdf[pages=-]{temp_sv.pdf}"
 
                     final_latex = full_latex_header + sachverhalt_cmd + r"""
