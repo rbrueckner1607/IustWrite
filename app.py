@@ -83,25 +83,25 @@ def main():
     st.markdown("""
         <style>
         .block-container { padding-top: 1.5rem; max-width: 98% !important; }
-        .stTextArea textarea { font-family: 'Inter', sans-serif; font-size: 1.1rem; line-height: 1.5; }
-        .sidebar-outline { font-size: 0.82rem; line-height: 1.2; margin-bottom: 2px; color: #333; }
-        .outline-lvl-1 { font-weight: bold; color: #000; border-bottom: 1px solid #eee; margin-top: 5px; }
+        .stTextArea textarea { font-family: 'Inter', sans-serif; font-size: 1.1rem; line-height: 1.5; background-color: rgba(255,255,255,0.6); border-radius: 10px; }
         
-        /* Sachverhalt-Box mit stabiler blauer Linie links */
-        .sachverhalt-box {
-            background-color: #f1f3f6; 
-            padding: 15px 25px; 
-            border-left: 6px solid #003366 !important; 
-            border-top: none !important;
-            border-right: none !important;
-            border-bottom: none !important;
-            border-radius: 0 8px 8px 0;
-            margin-bottom: 25px; 
-            line-height: 1.6; 
-            font-size: 1.05rem; 
-            width: 100%;
-            display: block;
-            box-sizing: border-box;
+        .sidebar-outline { font-size: 0.82rem; line-height: 1.2; margin-bottom: 2px; color: #333; }
+        .outline-lvl-1 { font-weight: bold; color: #000; border-bottom: 1px solid rgba(0,0,0,0.1); margin-top: 5px; }
+        
+        /* Glassy Sachverhalt-Box mit stabiler blauer Linie LINKS */
+        .sachverhalt-container {
+            border-left: 6px solid #003366 !important;
+            background: rgba(241, 243, 246, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 0 12px 12px 0;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .sachverhalt-content {
+            line-height: 1.6;
+            font-size: 1.05rem;
+            color: #1e293b;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -135,24 +135,23 @@ def main():
                 st.session_state["sv_fixed"] = True
                 st.rerun()
         else:
-            st.markdown(f'<div class="sachverhalt-box">{st.session_state["sv_text"]}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="sachverhalt-container"><div class="sachverhalt-content">{st.session_state["sv_text"]}</div></div>', unsafe_allow_html=True)
             if st.button("🔓 Fixierung lösen"):
                 st.session_state["sv_fixed"] = False
                 st.rerun()
 
-    # --- EXTERNE FÄLLE (Ordner fealle) ---
+    # --- EXTERNE FÄLLE ---
     if fall_code:
         pfad = os.path.join("fealle", f"{fall_code}.txt")
         if os.path.exists(pfad):
             with open(pfad, "r", encoding="utf-8") as f:
                 content = f.read().split('\n')
-                titel = content[0]
                 rest_md = "\n".join(content[1:])
-                with st.expander(f"📖 {titel}", expanded=True):
-                    # Stabile linke Linie für Markdown
-                    st.markdown('<div class="sachverhalt-box">', unsafe_allow_html=True)
+                with st.expander(f"📖 {content[0]}", expanded=True):
+                    # Glassy Box mit blauer Linie auch für Markdown
+                    st.markdown('<div class="sachverhalt-container"><div class="sachverhalt-content">', unsafe_allow_html=True)
                     st.markdown(rest_md)
-                    st.markdown('</div>', unsafe_allow_html=True)
+                    st.markdown('</div></div>', unsafe_allow_html=True)
 
     # --- MAIN EDITOR ---
     c1, c2, c3 = st.columns([3, 1, 1])
@@ -184,8 +183,10 @@ def main():
                 if selected_font == "helvet":
                     font_package += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
 
+                # Inhaltsverzeichnis Titel zu "Gliederung" umbenennen
                 header = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
+\addto\captionsngerman{\renewcommand{\contentsname}{Gliederung}}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{cmap, pdfpages, setspace, geometry, fancyhdr, tocloft}
@@ -211,7 +212,6 @@ def main():
 
                     t_str = f"{kl_titel} ({kl_datum})" if kl_datum else kl_titel
                     
-                    # Hier wird \noindent nur vor dem allerersten Absatz nach dem Titel gesetzt
                     final_tex = header + sv_inc + \
                                 r"\pagenumbering{gobble}\tableofcontents\clearpage" + \
                                 r"\newgeometry{left=2cm, right=" + rand + r"cm, top=2.5cm, bottom=3cm}" + \
