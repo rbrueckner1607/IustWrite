@@ -76,12 +76,10 @@ class KlausurDocument:
 def extract_text_from_pdf(pdf_file):
     text = ""
     try:
-        # Stream aus dem Upload-Objekt lesen
         doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
         for page in doc:
             page_text = page.get_text("text")
             if page_text:
-                # Entfernt Bindestriche am Zeilenende (De-Hyphenation)
                 page_text = re.sub(r'-\s*\n\s*', '', page_text)
                 text += page_text + "\n"
         doc.close()
@@ -92,18 +90,21 @@ def extract_text_from_pdf(pdf_file):
 # --- UI CONFIG ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide", initial_sidebar_state="expanded")
 
-if "main_editor_key" not in st.session_state:
-    st.session_state["main_editor_key"] = ""
+# Session State Initialisierung
+if "main_editor_content" not in st.session_state:
+    st.session_state["main_editor_content"] = ""
+if "sachverhalt_content" not in st.session_state:
+    st.session_state["sachverhalt_content"] = ""
 
 def handle_upload():
     if st.session_state.uploader_key is not None:
         content = st.session_state.uploader_key.read().decode("utf-8")
-        st.session_state["main_editor_key"] = content
+        st.session_state["main_editor_content"] = content
 
 def main():
     doc_parser = KlausurDocument()
     
-    # CSS für Layout und die BLAUE Sachverhalt-Box
+    # CSS für Layout, Editor und die BEARBEITBARE blaue Box
     st.markdown("""
         <style>
         .block-container { 
@@ -112,9 +113,8 @@ def main():
             padding-right: 2rem; 
             max-width: 98% !important; 
         }
-        [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
-        [data-testid="stSidebar"] p { font-size: 0.85rem !important; line-height: 1.2 !important; }
         
+        /* Der Editor-Bereich */
         .stTextArea textarea { 
             font-family: 'Inter', 'Segoe UI', Helvetica, Arial, sans-serif; 
             font-size: 1.1rem;
@@ -122,16 +122,15 @@ def main():
             padding: 15px;
             color: #1e1e1e;
         }
-        
-        .sachverhalt-box {
-            background-color: #f0f4f8;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 6px solid #007bff; /* BLAU statt rot */
-            margin-bottom: 25px;
-            line-height: 1.6;
-            font-size: 1rem;
-            width: 100%;
+
+        /* Styling für die Sachverhalt-Box (Textarea als Box getarnt) */
+        div[data-baseweb="textarea"].sachverhalt-textarea textarea {
+            background-color: #f0f4f8 !important;
+            border-left: 6px solid #007bff !important;
+            border-radius: 8px !important;
+            font-size: 1rem !important;
+            line-height: 1.6 !important;
+            color: #333 !important;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -149,46 +148,33 @@ def main():
 
     with st.sidebar.expander("📖 Fall abrufen", expanded=False):
         fall_code = st.text_input("Fall-Code eingeben")
+        if fall_code:
+            pfad_zu_fall = os.path.join("fealle", f"{fall_code}.txt")
+            if os.path.exists(pfad_zu_fall):
+                with open(pfad_zu_fall, "r", encoding="utf-8") as f:
+                    ganzer_text = f.read()
+                zeilen = ganzer_text.split('\n')
+                if zeilen:
+                    st.session_state["sachverhalt_content"] = "\n".join(zeilen[1:]).strip()
+            else:
+                st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
 
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
-    # --- CASE LOGIC & PDF UPLOAD ---
-    sachverhalt_text_to_show = ""
-    sachverhalt_titel = ""
-
-    # 1. Check: Externer Fall-Code
-    if fall_code:
-        pfad_zu_fall = os.path.join("fealle", f"{fall_code}.txt")
-        if os.path.exists(pfad_zu_fall):
-            with open(pfad_zu_fall, "r", encoding="utf-8") as f:
-                ganzer_text = f.read()
-            zeilen = ganzer_text.split('\n')
-            if zeilen:
-                sachverhalt_titel = re.sub(r'^#+\s*(Fall\s+\d+:\s*)?', '', zeilen[0]).strip()
-                sachverhalt_text_to_show = "\n".join(zeilen[1:]).strip()
-        else:
-            st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
-
-    # UI-Elemente für Datei-Aktionen
-    st.markdown("---")
-    col_pdf, col_save, col_load, col_sachverhalt = st.columns([1, 1, 1, 1])
-
-    with col_pdf: pdf_button = st.button("🏁 PDF generieren", use_container_width=True)
-    with col_save: st.download_button("💾 Als TXT speichern", data=st.session_state["main_editor_key"], file_name="Gutachten.txt", use_container_width=True)
-    with col_load: st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
-    
-    # PDF Sachverhalt Upload
-    with col_sachverhalt: 
-        sachverhalt_file = st.file_uploader("📄 Sachverhalt (PDF import)", type=['pdf'], key="sachverhalt_key")
-        if sachverhalt_file is not None and not fall_code:
-            sachverhalt_text_to_show = extract_text_from_pdf(sachverhalt_file)
-            sachverhalt_titel = f"Importiert: {sachverhalt_file.name}"
-
-    # Sachverhalt Box anzeigen (wenn vorhanden)
-    if sachverhalt_text_to_show:
-        with st.expander(f"📄 {sachverhalt_titel}", expanded=True):
-            st.markdown(f'<div class="sachverhalt-box">{sachverhalt_text_to_show}</div>', unsafe_allow_html=True)
+    # --- SACHVERHALT BEREICH (Zuerst oben) ---
+    if st.session_state["sachverhalt_content"]:
+        with st.expander("📄 Sachverhalt bearbeiten", expanded=True):
+            # Nutzt CSS-Klasse für blaue Umrandung
+            st.session_state["sachverhalt_content"] = st.text_area(
+                "Sachverhalt-Text", 
+                value=st.session_state["sachverhalt_content"], 
+                height=200, 
+                label_visibility="collapsed",
+                key="sv_editor"
+            )
+            # Kleiner CSS-Hack um die Box blau zu färben
+            st.markdown('<style>div[data-testid="stTextArea"]:nth-of-type(1) textarea { border-left: 6px solid #007bff !important; background-color: #f0f4f8; }</style>', unsafe_allow_html=True)
 
     # --- EDITOR AREA ---
     c1, c2, c3 = st.columns([3, 1, 1])
@@ -196,9 +182,17 @@ def main():
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
-    current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Schreibe hier dein Gutachten...")
+    # Haupteditor
+    current_text = st.text_area(
+        "", 
+        value=st.session_state["main_editor_content"],
+        height=600, 
+        placeholder="Schreibe hier dein Gutachten...",
+        key="main_editor"
+    )
+    st.session_state["main_editor_content"] = current_text
 
-    # --- SIDEBAR OUTLINE (Dynamisch) ---
+    # --- DYNAMISCHE GLIEDERUNG ---
     if current_text:
         for line in current_text.split('\n'):
             line_s = line.strip()
@@ -218,6 +212,28 @@ def main():
                         st.sidebar.markdown(f"{indent}{weight}{line_s}{weight}")
                         break
 
+    # --- BUTTONS & UPLOADS (Jetzt UNTER dem Textfeld) ---
+    st.markdown("---")
+    col_pdf, col_save, col_load, col_sachverhalt = st.columns([1, 1, 1, 1])
+
+    with col_pdf: 
+        pdf_button = st.button("🏁 PDF generieren", use_container_width=True)
+    
+    with col_save: 
+        st.download_button("💾 Als TXT speichern", data=current_text, file_name="Gutachten.txt", use_container_width=True)
+    
+    with col_load: 
+        st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
+    
+    with col_sachverhalt: 
+        sachverhalt_file = st.file_uploader("📄 Sachverhalt import (PDF)", type=['pdf'], key="sachverhalt_key")
+        if sachverhalt_file is not None:
+            # Importiert Text aus PDF in den Sachverhalt-Speicher
+            extracted = extract_text_from_pdf(sachverhalt_file)
+            st.session_state["sachverhalt_content"] = extracted
+            # Seite neu laden um Editor oben zu füllen
+            st.rerun()
+
     # --- PDF GENERATOR LOGIK ---
     if pdf_button:
         if not current_text.strip():
@@ -225,7 +241,7 @@ def main():
         else:
             cls_path = os.path.join("latex_assets", "jurabook.cls")
             if not os.path.exists(cls_path):
-                st.error("🚨 jurabook.cls fehlt im Ordner latex_assets!")
+                st.error("🚨 jurabook.cls fehlt!")
                 st.stop()
 
             with st.spinner("PDF wird erstellt..."):
@@ -272,10 +288,9 @@ def main():
                             if os.path.isfile(s) and not item.endswith('.cls'):
                                 shutil.copy2(s, d)
 
-                    # Sachverhalt als PDF anhängen (Original PDF, falls hochgeladen)
                     sachverhalt_cmd = ""
                     if sachverhalt_file is not None:
-                        sachverhalt_file.seek(0) # Stream zurücksetzen
+                        sachverhalt_file.seek(0)
                         with open(tmp_path / "temp_sv.pdf", "wb") as f:
                             f.write(sachverhalt_file.getbuffer())
                         sachverhalt_cmd = r"\includepdf[pages=-]{temp_sv.pdf}"
