@@ -5,7 +5,7 @@ import streamlit as st
 import tempfile
 import shutil
 from pathlib import Path
-import pdfplumber  # Neu für die PDF-Konvertierung
+import fitz  # PyMuPDF
 
 # --- OPTIMIERTE PARSER KLASSE ---
 class KlausurDocument:
@@ -72,16 +72,21 @@ class KlausurDocument:
                 latex_output.append(line_s)
         return "\n".join(latex_output)
 
-# --- HELPER FÜR PDF EXTRAKTION ---
+# --- HELPER FÜR PDF EXTRAKTION MIT PYMUPDF ---
 def extract_text_from_pdf(pdf_file):
     text = ""
-    with pdfplumber.open(pdf_file) as pdf:
-        for page in pdf.pages:
-            page_text = page.extract_text()
+    try:
+        # Stream aus dem Upload-Objekt lesen
+        doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
+        for page in doc:
+            page_text = page.get_text("text")
             if page_text:
-                # Entfernt Bindestriche am Zeilenende (z.B. "Haus- \n dach" -> "Hausdach")
+                # Entfernt Bindestriche am Zeilenende (De-Hyphenation)
                 page_text = re.sub(r'-\s*\n\s*', '', page_text)
                 text += page_text + "\n"
+        doc.close()
+    except Exception as e:
+        return f"Fehler beim PDF-Einlesen: {e}"
     return text.strip()
 
 # --- UI CONFIG ---
@@ -98,7 +103,7 @@ def handle_upload():
 def main():
     doc_parser = KlausurDocument()
     
-    # CSS für maximale Breite, bewegliche Sidebar und LESERLICHE Schrift
+    # CSS für Layout und die BLAUE Sachverhalt-Box
     st.markdown("""
         <style>
         .block-container { 
@@ -133,7 +138,7 @@ def main():
 
     st.title("⚖️ IustWrite Editor")
 
-    # --- SIDEBAR SETTINGS (EINGEKLAPPT) ---
+    # --- SIDEBAR SETTINGS ---
     with st.sidebar.expander("⚙️ Layout-Einstellungen", expanded=False):
         rand_wert = st.text_input("Korrekturrand rechts (in cm)", value="6")
         if not any(unit in rand_wert for unit in ['cm', 'mm']): rand_wert += "cm"
@@ -148,11 +153,11 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
-    # --- CASE LOGIC (EXTERN + PDF UPLOAD) ---
+    # --- CASE LOGIC & PDF UPLOAD ---
     sachverhalt_text_to_show = ""
-    sachverhalt_titel = "Sachverhalt"
+    sachverhalt_titel = ""
 
-    # 1. Priorität: Fall-Code
+    # 1. Check: Externer Fall-Code
     if fall_code:
         pfad_zu_fall = os.path.join("fealle", f"{fall_code}.txt")
         if os.path.exists(pfad_zu_fall):
@@ -165,7 +170,7 @@ def main():
         else:
             st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
 
-    # --- ACTIONS UND PDF SACHVERHALT UPLOAD ---
+    # UI-Elemente für Datei-Aktionen
     st.markdown("---")
     col_pdf, col_save, col_load, col_sachverhalt = st.columns([1, 1, 1, 1])
 
@@ -173,14 +178,14 @@ def main():
     with col_save: st.download_button("💾 Als TXT speichern", data=st.session_state["main_editor_key"], file_name="Gutachten.txt", use_container_width=True)
     with col_load: st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
     
-    # PDF SACHVERHALT LOGIK
+    # PDF Sachverhalt Upload
     with col_sachverhalt: 
-        sachverhalt_file = st.file_uploader("📄 Extra Sachverhalt (PDF)", type=['pdf'], key="sachverhalt_key")
+        sachverhalt_file = st.file_uploader("📄 Sachverhalt (PDF import)", type=['pdf'], key="sachverhalt_key")
         if sachverhalt_file is not None and not fall_code:
             sachverhalt_text_to_show = extract_text_from_pdf(sachverhalt_file)
-            sachverhalt_titel = sachverhalt_file.name
+            sachverhalt_titel = f"Importiert: {sachverhalt_file.name}"
 
-    # SACHVERHALT ANZEIGEN (DA WO DAS FENSTER IST)
+    # Sachverhalt Box anzeigen (wenn vorhanden)
     if sachverhalt_text_to_show:
         with st.expander(f"📄 {sachverhalt_titel}", expanded=True):
             st.markdown(f'<div class="sachverhalt-box">{sachverhalt_text_to_show}</div>', unsafe_allow_html=True)
@@ -193,7 +198,7 @@ def main():
 
     current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Schreibe hier dein Gutachten...")
 
-    # --- SIDEBAR OUTLINE ---
+    # --- SIDEBAR OUTLINE (Dynamisch) ---
     if current_text:
         for line in current_text.split('\n'):
             line_s = line.strip()
@@ -213,14 +218,14 @@ def main():
                         st.sidebar.markdown(f"{indent}{weight}{line_s}{weight}")
                         break
 
-    # --- PDF GENERIERUNG LOGIK ---
+    # --- PDF GENERATOR LOGIK ---
     if pdf_button:
         if not current_text.strip():
             st.warning("Bitte Text eingeben!")
         else:
             cls_path = os.path.join("latex_assets", "jurabook.cls")
             if not os.path.exists(cls_path):
-                st.error("🚨 jurabook.cls fehlt!")
+                st.error("🚨 jurabook.cls fehlt im Ordner latex_assets!")
                 st.stop()
 
             with st.spinner("PDF wird erstellt..."):
@@ -235,9 +240,7 @@ def main():
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{pdfpages}
-
 \addto\captionsngerman{\renewcommand{\contentsname}{Gliederung}}
-
 """ + font_latex + r"""
 \usepackage{setspace}
 \usepackage{geometry}
@@ -246,7 +249,6 @@ def main():
 \setcounter{tocdepth}{8}
 \setcounter{secnumdepth}{8}
 \setlength{\parindent}{0pt}
-
 \fancypagestyle{iustwrite}{
     \fancyhf{}
     \fancyhead[L]{\small """ + kl_kuerzel + r"""}
@@ -270,8 +272,10 @@ def main():
                             if os.path.isfile(s) and not item.endswith('.cls'):
                                 shutil.copy2(s, d)
 
+                    # Sachverhalt als PDF anhängen (Original PDF, falls hochgeladen)
                     sachverhalt_cmd = ""
                     if sachverhalt_file is not None:
+                        sachverhalt_file.seek(0) # Stream zurücksetzen
                         with open(tmp_path / "temp_sv.pdf", "wb") as f:
                             f.write(sachverhalt_file.getbuffer())
                         sachverhalt_cmd = r"\includepdf[pages=-]{temp_sv.pdf}"
