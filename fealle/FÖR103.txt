@@ -1,15 +1,22 @@
 Luftabwehr für Osteuropa?
 
 Nachdem die sicherheitspolitische Lage in Osteuropa eine neue Eskalationsstufe erreicht hat, erwägt die Bundesregierung unter strengster Geheimhaltung, das neu entwickelte Raketenabwehrsystem „Aegis-NextGen“ an die Ukraine zu liefern. Dieses System nutzt eine hochsensible KI-Steuerung, die teilweise auf geheimen Patenten aus den USA basiert. In der Bundespressekonferenz verweigert der Regierungssprecher jegliche Auskunft zu dem Vorhaben. Die oppositionelle A-Fraktion im Deutschen Bundestag richtet daraufhin eine Große Anfrage an die Bundesregierung mit folgenden Auskunftsbegehren:
-1. Wie stellten sich die Positionen der einzelnen Ressorts in der letzten, noch laufenden Abstimmungsrunde dar? Welche Ministerien haben Vorbehalte gegen die Lieferung geäußert?
-2. Auf welchen mathematischen Algorithmen basiert die KI-Steuerung, die das System gegen feindliche Störsender immun macht?
-3. Welche rechtlichen Auflagen haben die USA als Mit-Patentinhaber für die Weitergabe des Systems an Dritte formuliert?
+
+> **1. Frage:** Wie stellten sich die Positionen der einzelnen Ressorts in der letzten, noch laufenden Abstimmungsrunde dar? Welche Ministerien haben Vorbehalte gegen die Lieferung geäußert?
+>
+> **2. Frage:** Auf welchen mathematischen Algorithmen basiert die KI-Steuerung, die das System gegen feindliche Störsender immun macht?
+>
+> **3. Frage:** Welche rechtlichen Auflagen haben die USA als Mit-Patentinhaber für die Weitergabe des Systems an Dritte formuliert?
+
 Die Bundesregierung lehnt die Beantwortung aller drei Fragen ab. Zur Begründung führt sie an:
-• Zu Frage 1: Die interne Willensbildung der Regierung sei ein „geschützter Raum“. Eine Offenlegung der noch nicht abgeschlossenen Beratungen würde die notwendi- ge Kompromissfähigkeit der Koalition und die Handlungsfähigkeit der Exekutive beeinträchtigen.
-• Zu Frage 2: Hier stehe das Staatswohl einer Auskunft entgegen. Die Preisgabe technischer Algorithmen würde die Wirksamkeit des Systems weltweit gefährden und die nationale Sicherheit unmittelbar beeinträchtigen.
-• Zu Frage 3: Internationale Absprachen unterlägen einer strikten Vertraulichkeit. Eine Preisgabe würde das Vertrauen der Bündnispartner nachhaltig erschüttern.
-Die A-Fraktion hält die Totalverweigerung für verfassungswidrig. Sie rügt, dass das Parla- ment nicht zum „Zuschauer der Exekutive“ degradiert werden dürfe. Ein Verweis auf das Staatswohl reiche nicht aus, um das Kontrollrecht aus Art. 38 Abs. 1 S. 2 GG komplett aus- zuhebeln, zumal eine Information in der Geheimschutzstelle des Bundestages als milderes
-Mittel möglich gewesen wäre. Die Fraktion erhebt daraufhin form- und fristgerecht Klage im Wege des Organstreitverfahrens vor dem Bundesverfassungsgericht.
+
+> **Zu Frage 1:** Die interne Willensbildung der Regierung sei ein „geschützter Raum“. Eine Offenlegung der noch nicht abgeschlossenen Beratungen würde die notwendige Kompromissfähigkeit der Koalition und die Handlungsfähigkeit der Exekutive beeinträchtigen.
+>
+> **Zu Frage 2:** Hier stehe das Staatswohl einer Auskunft entgegen. Die Preisgabe technischer Algorithmen würde die Wirksamkeit des Systems weltweit gefährden und die nationale Sicherheit unmittelbar beeinträchtigen.
+>
+> **Zu Frage 3:** Internationale Absprachen unterlägen einer strikten Vertraulichkeit. Eine Preisgabe würde das Vertrauen der Bündnispartner nachhaltig erschüttern.
+
+Die A-Fraktion hält die Totalverweigerung für verfassungswidrig. Sie rügt, dass das Parlament nicht zum „Zuschauer der Exekutive“ degradiert werden dürfe. Ein Verweis auf das Staatswohl reiche nicht aus, um das Kontrollrecht aus Art. 38 Abs. 1 S. 2 GG komplett auszuhebeln, zumal eine Information in der Geheimschutzstelle des Bundestages als milderes Mittel möglich gewesen wäre. Die Fraktion erhebt daraufhin form- und fristgerecht Klage im Wege des Organstreitverfahrens vor dem Bundesverfassungsgericht.
 
 ---
-**Frage:** Prüfen Sie die Erfolgsaussichten des Antrags der A-Fraktion.
+**Prüfen Sie die Erfolgsaussichten des Antrags der A-Fraktion.**
