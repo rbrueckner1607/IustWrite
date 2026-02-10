@@ -3,6 +3,7 @@ Das baufällige Erbe
 K ist Eigentümer eines barocken Stadtpalais in Weimar, das seit 1990 in der Denkmalliste eingetragen ist. Das Gebäude ist in einem desolaten Zustand; eine denkmalgerechte Sanierung würde laut Gutachten 3 Mio. Euro kosten. K beabsichtigt, das Palais abzureißen, um auf dem Grundstück einen modernen Bürokomplex (Baukosten: 4 Mio. Euro) zu errichten, der eine jährliche Rendite von 7 % verspricht. Ein Erhalt des Palais würde hingegen selbst bei optimaler Vermietung dauerhaft zu einer negativen Rendite führen. K stellt bei der unteren Denkmalschutzbehörde (D) einen Antrag auf Erteilung einer Abrissgenehmigung gemäß § 15 des fiktiven Brandenburgischen Denkmalschutzgesetzes (BbgDSchG).
 
 > **§ 15 BbgDSchG – Erhaltung von Denkmalen**
+>
 > (1) Denkmale sind instandzuhalten und vor Gefährdung zu schützen.
 >
 > (2) Ein Denkmal darf nur mit Genehmigung der Denkmalschutzbehörde zerstört oder beseitigt werden.
