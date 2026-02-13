@@ -110,7 +110,7 @@ def main():
             background-color: #f0f2f6;
             padding: 20px;
             border-radius: 8px;
-            border-left: 6px solid #001f3f;
+            border-left: 6px solid #4682B4;
             margin-bottom: 25px;
             line-height: 1.6;
             font-size: 1rem;
