@@ -186,15 +186,13 @@ def main():
 
     with col_pdf: pdf_button = st.button("🏁 PDF generieren", use_container_width=True)
     with col_save:
-    # Dateinamen generieren (Standardwerte nutzen, falls Felder leer sind)
-    dateiname = f"{kl_titel or 'Gutachten'}_{kl_kuerzel or 'Name'}.txt"
-    
-    st.download_button(
-        label="💾 Als TXT speichern", 
-        data=current_text, 
-        file_name=dateiname, 
-        use_container_width=True
-    )
+        dateiname = f"{kl_titel or 'Gutachten'}_{kl_kuerzel or 'Name'}.txt"
+        st.download_button(
+            label="💾 Als TXT speichern", 
+            data=current_text, 
+            file_name=dateiname, 
+            use_container_width=True
+        )
     with col_load: st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
     with col_sachverhalt: sachverhalt_file = st.file_uploader("📄 Sachverhalt beifügen (PDF)", type=['pdf'], key="sachverhalt_key")
 
