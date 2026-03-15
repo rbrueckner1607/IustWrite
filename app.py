@@ -227,10 +227,10 @@ def main():
 \usepackage{xurl}
 \usepackage{xcolor}
 
-% --- FARB-KÜRZEL für Text ---
-\definecolor{darkred}{RGB}{165, 32, 25}     % Gedecktes Weinrot
-\definecolor{darkblue}{RGB}{25, 55, 112}    % Dunkles Marineblau
-\definecolor{darkgreen}{RGB}{30, 90, 40}    % Dunkles Tannengrün
+% --- Textfarben mir Alias ---
+\definecolor{myRed}{RGB}{190, 20, 20}
+\definecolor{myBlue}{RGB}{0, 80, 160}
+\definecolor{myGreen}{RGB}{0, 120, 50}
 
 \newcommand{\red}[1]{{\color{darkred}#1}}
 \newcommand{\blue}[1]{{\color{darkblue}#1}}
