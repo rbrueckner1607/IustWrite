@@ -165,7 +165,7 @@ def main():
         char_count = len(current_text)
         word_count = len(current_text.split())
         # Anzeige direkt unter dem Editor
-        st.markdown(f"*(Metrik: {char_count} Zeichen | {word_count} Wörter)*")
+        st.markdown(f"*(📝 {char_count} Zeichen | {word_count} Wörter)*")
 
     # --- SIDEBAR OUTLINE ---
     if current_text:
