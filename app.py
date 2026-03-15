@@ -223,6 +223,8 @@ def main():
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{pdfpages}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xurl}
 
 \addto\captionsngerman{\renewcommand{\contentsname}{Gliederung}}
 
