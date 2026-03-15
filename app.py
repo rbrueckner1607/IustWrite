@@ -232,9 +232,9 @@ def main():
 \definecolor{myBlue}{RGB}{0, 80, 160}
 \definecolor{myGreen}{RGB}{0, 120, 50}
 
-\newcommand{\red}[1]{{\color{darkred}#1}}
-\newcommand{\blue}[1]{{\color{darkblue}#1}}
-\newcommand{\green}[1]{{\color{darkgreen}#1}}
+\newcommand{\red}[1]{{\color{myRed}#1}}
+\newcommand{\blue}[1]{{\color{myBlue}#1}}
+\newcommand{\green}[1]{{\color{myGreen}#1}}
 
 \addto\captionsngerman{\renewcommand{\contentsname}{Gliederung}}
 
