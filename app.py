@@ -185,8 +185,15 @@ def main():
     col_pdf, col_save, col_load, col_sachverhalt = st.columns([1, 1, 1, 1])
 
     with col_pdf: pdf_button = st.button("🏁 PDF generieren", use_container_width=True)
+    Python
     with col_save:
-        dateiname = f"{kl_titel or 'Gutachten'}_{kl_kuerzel or 'Name'}.txt"
+        t = (kl_titel or "Gutachten").replace(" ", "_")
+        d = (kl_datum or "Datum").replace(" ", "_")
+        k = (kl_kuerzel or "Kürzel").replace(" ", "_")
+        
+        # Den Dateinamen zusammenbauen
+        dateiname = f"{t}_{d}_{k}.txt"
+        
         st.download_button(
             label="💾 Als TXT speichern", 
             data=current_text, 
