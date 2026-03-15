@@ -160,6 +160,13 @@ def main():
     # Das Editorfenster nutzt nun die neue CSS-Klasse
     current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Schreibe hier dein Gutachten...")
 
+    # --- NEU: ZEICHENZÄHLER ---
+    if current_text:
+        char_count = len(current_text)
+        word_count = len(current_text.split())
+        # Anzeige direkt unter dem Editor
+        st.markdown(f"*(Metrik: {char_count} Zeichen | {word_count} Wörter)*")
+
     # --- SIDEBAR OUTLINE ---
     if current_text:
         for line in current_text.split('\n'):
