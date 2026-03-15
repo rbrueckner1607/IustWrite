@@ -225,6 +225,16 @@ def main():
 \usepackage{pdfpages}
 \usepackage[hidelinks]{hyperref}
 \usepackage{xurl}
+\usepackage{xcolor}
+
+% --- FARB-KÜRZEL für Text ---
+\definecolor{darkred}{RGB}{165, 32, 25}     % Gedecktes Weinrot
+\definecolor{darkblue}{RGB}{25, 55, 112}    % Dunkles Marineblau
+\definecolor{darkgreen}{RGB}{30, 90, 40}    % Dunkles Tannengrün
+
+\newcommand{\red}[1]{{\color{darkred}#1}}
+\newcommand{\blue}[1]{{\color{darkblue}#1}}
+\newcommand{\green}[1]{{\color{darkgreen}#1}}
 
 \addto\captionsngerman{\renewcommand{\contentsname}{Gliederung}}
 
