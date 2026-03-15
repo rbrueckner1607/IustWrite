@@ -291,7 +291,19 @@ def main():
                     if pdf_file.exists():
                         st.success("PDF erfolgreich erstellt!")
                         with open(pdf_file, "rb") as f:
-                            st.download_button("📥 Download PDF", f, "Gutachten.pdf", use_container_width=True)
+                            # Namen für das PDF nach dem gleichen Schema generieren
+                            t_pdf = (kl_titel or "Gutachten").replace(" ", "_")
+                            d_pdf = (kl_datum or "Datum").replace(" ", "_")
+                            k_pdf = (kl_kuerzel or "Kuerzel").replace(" ", "_")
+                            
+                            pdf_name = f"{t_pdf}_{d_pdf}_{k_pdf}.pdf"
+                            
+                            st.download_button(
+                                label="📥 Download PDF", 
+                                data=f, 
+                                file_name=pdf_name, 
+                                use_container_width=True
+                            )
                     else:
                         st.error("LaTeX Fehler!")
                         if result:
