@@ -77,11 +77,23 @@ class KlausurDocument:
                         break
 
             if not found_level:
+                # 1. Fußnoten (bleibt wie es ist)
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
-                line_s = re.sub(r'\\hinweis\{(.*?)\}', r'\\\\begin{hinweisbox}\1\\\\end{hinweisbox}', line_s)
-                line_s = line_s.replace('&', '\\&').replace('%', '\\%')
+                
+                # 2. Hinweisbox (Sichere Methode ohne re.sub für den Ersatz)
+                if "\\hinweis{" in line_s:
+                    # Wir suchen den Inhalt zwischen \hinweis{ und }
+                    match = re.search(r'\\hinweis\{(.*?)\}', line_s)
+                    if match:
+                        inhalt = match.group(1)
+                        # Wir bauen den String manuell zusammen - so gehen keine Backslashes verloren
+                        line_s = f"\\begin{{hinweisbox}}{inhalt}\\end{{hinweisbox}}"
+                
+                # 3. Sonderzeichen (Nur wenn kein LaTeX-Befehl in der Zeile ist)
+                if "\\begin" not in line_s:
+                    line_s = line_s.replace('&', '\\&').replace('%', '\\%')
+                
                 latex_output.append(line_s)
-        return "\n".join(latex_output)
 
 # --- UI CONFIG ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide", initial_sidebar_state="expanded")
