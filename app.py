@@ -217,6 +217,69 @@ def main():
             file_name=dateiname, 
             use_container_width=True
         )
+    # --- TEX EXPORT (100% PDF-IDENTISCH) ---
+        parsed_content = doc_parser.parse_content(current_text.split('\n'))
+        titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
+        
+        font_latex = f"\\usepackage{{{selected_font_package}}}"
+        if "helvet" in selected_font_package: font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
+
+        # Der exakte LaTeX-Code wie in der PDF-Logik
+        full_tex_code = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
+\usepackage[ngerman]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{pdfpages}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xurl}
+\usepackage{xcolor}
+
+\definecolor{myRed}{RGB}{190, 20, 20}
+\definecolor{myBlue}{RGB}{0, 80, 160}
+\definecolor{myGreen}{RGB}{0, 120, 50}
+
+\newcommand{\red}[1]{{\color{myRed}#1}}
+\newcommand{\blue}[1]{{\color{myBlue}#1}}
+\newcommand{\green}[1]{{\color{myGreen}#1}}
+
+\addto\captionsngerman{\renewcommand{\contentsname}{Gliederung}}
+""" + font_latex + r"""
+\usepackage{setspace}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\geometry{left=2cm, right=2cm, top=2.5cm, bottom=3cm}
+\setcounter{tocdepth}{8}
+\setcounter{secnumdepth}{8}
+\setlength{\parindent}{0pt}
+
+\fancypagestyle{iustwrite}{
+    \fancyhf{}
+    \fancyhead[L]{\small """ + kl_kuerzel + r"""}
+    \fancyhead[R]{\small """ + titel_komp + r"""}
+    \fancyfoot[R]{\thepage}
+    \renewcommand{\headrulewidth}{0.5pt}
+}
+
+\begin{document}
+\sloppy
+\pagenumbering{gobble}
+\tableofcontents\clearpage
+\newgeometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm}
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\pagestyle{iustwrite}\setstretch{""" + zeilenabstand + r"""}
+{\noindent\Large\bfseries """ + titel_komp + r""" \par}\bigskip
+""" + parsed_content + r"""
+\end{document}"""
+
+        st.download_button(
+            label="📄 Als TEX speichern",
+            data=full_tex_code,
+            file_name=f"{dateiname_basis}.tex",
+            mime="text/x-tex",
+            use_container_width=True
+        )
+    
     with col_load: st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
     with col_sachverhalt: sachverhalt_file = st.file_uploader("📄 Sachverhalt beifügen (PDF)", type=['pdf'], key="sachverhalt_key")
 
