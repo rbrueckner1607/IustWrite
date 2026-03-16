@@ -78,6 +78,7 @@ class KlausurDocument:
 
             if not found_level:
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
+                line_s = re.sub(r'\\hinweis\{(.*?)\}', r'\\begin{hinweisbox}\1\\end{hinweisbox}', line_s)
                 line_s = line_s.replace('&', '\\&').replace('%', '\\%')
                 latex_output.append(line_s)
         return "\n".join(latex_output)
@@ -241,6 +242,7 @@ def main():
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{pdfpages}
+\usepackage[most]{tcolorbox}
 \usepackage[hidelinks]{hyperref}
 \usepackage{xurl}
 \usepackage{xcolor}
@@ -264,6 +266,22 @@ def main():
 \setcounter{tocdepth}{8}
 \setcounter{secnumdepth}{8}
 \setlength{\parindent}{0pt}
+
+\newtcolorbox{hinweisbox}{
+    colback=white,
+    colframe=black,
+    fonttitle=\bfseries,
+    title=Hinweis:,
+    arc=0mm,
+    outer arc=0mm,
+    left=3mm,
+    right=3mm,
+    top=2mm,
+    bottom=2mm,
+    boxrule=0.6pt,
+    width=\linewidth,
+    breakable
+}
 
 \fancypagestyle{iustwrite}{
     \fancyhf{}
