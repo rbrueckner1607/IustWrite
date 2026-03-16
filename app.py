@@ -202,29 +202,33 @@ def main():
     st.markdown("---")
     col_pdf, col_save, col_load, col_sachverhalt = st.columns([1, 1, 1, 1])
 
-    with col_pdf: pdf_button = st.button("🏁 PDF generieren", use_container_width=True)
+    # 1. Dateiname VORAB zentral definieren (verhindert NameError)
+    t_clean = (kl_titel or "Gutachten").replace(" ", "_")
+    d_clean = (kl_datum or "Datum").replace(" ", "_")
+    k_clean = (kl_kuerzel or "Kuerzel").replace(" ", "_")
+    dateiname_basis = f"{t_clean}_{d_clean}_{k_clean}"
+
+    with col_pdf: 
+        pdf_button = st.button("🏁 PDF generieren", use_container_width=True)
+
     with col_save:
-        t = (kl_titel or "Gutachten").replace(" ", "_")
-        d = (kl_datum or "Datum").replace(" ", "_")
-        k = (kl_kuerzel or "Kürzel").replace(" ", "_")
-        
-        # Den Dateinamen zusammenbauen
-        dateiname = f"{t}_{d}_{k}.txt"
-        
+        # TXT-Button
         st.download_button(
             label="💾 Als TXT speichern", 
             data=current_text, 
-            file_name=dateiname, 
+            file_name=f"{dateiname_basis}.txt", 
             use_container_width=True
         )
-    # --- TEX EXPORT (100% PDF-IDENTISCH) ---
+
+        # TEX-Button (Direkt darunter in derselben Spalte)
+        # Wir bereiten den Inhalt vor
         parsed_content = doc_parser.parse_content(current_text.split('\n'))
         titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
         
         font_latex = f"\\usepackage{{{selected_font_package}}}"
-        if "helvet" in selected_font_package: font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
+        if "helvet" in selected_font_package: 
+            font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
 
-        # Der exakte LaTeX-Code wie in der PDF-Logik
         full_tex_code = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
 \usepackage[utf8]{inputenc}
@@ -279,9 +283,12 @@ def main():
             mime="text/x-tex",
             use_container_width=True
         )
-    
-    with col_load: st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
-    with col_sachverhalt: sachverhalt_file = st.file_uploader("📄 Sachverhalt beifügen (PDF)", type=['pdf'], key="sachverhalt_key")
+
+    with col_load: 
+        st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
+
+    with col_sachverhalt: 
+        sachverhalt_file = st.file_uploader("📄 Sachverhalt beifügen (PDF)", type=['pdf'], key="sachverhalt_key")
 
     if pdf_button:
         if not current_text.strip():
