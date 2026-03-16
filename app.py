@@ -39,14 +39,25 @@ class KlausurDocument:
                 continue
 
             found_level = False
+            # --- 1. BLOCK: Verarbeitung der Sternchen-Überschriften (Versteckte Gliederung) ---
             for level, pattern in self.star_patterns.items():
-                if re.match(pattern, line_s):
+                match = re.match(pattern, line_s)
+                if match:
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*"}
                     cmd = cmds.get(level, "subsubsection*")
-                    latex_output.append(f"\\{cmd}{{{line_s}}}")
+                    
+                    # Hier wird der Marker (z.B. "Teil 1*") abgeschnitten
+                    display_text = line_s[match.end():].strip()
+                    
+                    # Falls kein Text nach dem Sternchen folgt, nimm die Zeile ohne Stern
+                    if not display_text:
+                        display_text = line_s.replace('*', '').strip()
+                        
+                    latex_output.append(f"\\{cmd}{{{display_text}}}")
                     found_level = True
                     break
 
+            # --- 2. BLOCK: Verarbeitung der normalen Überschriften (In Gliederung) ---
             if not found_level:
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
