@@ -14,7 +14,7 @@ class KlausurDocument:
             2: r'^\s*[A-H]\.(\s|$)',
             3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.(\s|$)',
             4: r'^\s*\d+\.(\s|$)',
-            5: r'^\s*[a-z]\)\s*',       
+            5: r'^\s*[a-z]\)\s*',        
             6: r'^\s*[a-z]{2}\)\s*',    
             7: r'^\s*\([a-z]\)\s*',     
             8: r'^\s*\([a-z]{2}\)\s*'   
@@ -39,25 +39,20 @@ class KlausurDocument:
                 continue
 
             found_level = False
-            # --- 1. BLOCK: Verarbeitung der Sternchen-Überschriften (Versteckte Gliederung) ---
+            # --- 1. Sternchen-Überschriften ---
             for level, pattern in self.star_patterns.items():
                 match = re.match(pattern, line_s)
                 if match:
                     cmds = {1: "section*", 2: "subsection*", 3: "subsubsection*"}
                     cmd = cmds.get(level, "subsubsection*")
-                    
-                    # Hier wird der Marker (z.B. "Teil 1*") abgeschnitten
                     display_text = line_s[match.end():].strip()
-                    
-                    # Falls kein Text nach dem Sternchen folgt, nimm die Zeile ohne Stern
                     if not display_text:
                         display_text = line_s.replace('*', '').strip()
-                        
                     latex_output.append(f"\\{cmd}{{{display_text}}}")
                     found_level = True
                     break
 
-            # --- 2. BLOCK: Verarbeitung der normalen Überschriften (In Gliederung) ---
+            # --- 2. Normale Überschriften ---
             if not found_level:
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
@@ -70,30 +65,28 @@ class KlausurDocument:
                         
                         toc_indent = f"{max(0, level - 1)}em" 
                         latex_output.append(f"\\{cmd}{{{line_s}}}")
-                        
                         toc_cmd = "subsubsection" if level >= 3 else cmd.replace("*", "")
                         latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{toc_indent}}}{line_s}}}")
                         found_level = True
                         break
 
             if not found_level:
-                # 1. Fußnoten (bleibt wie es ist)
+                # 1. Fußnoten
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
                 
-                # 2. Hinweisbox (Sichere Methode ohne re.sub für den Ersatz)
+                # 2. Hinweisbox (Sichere Methode ohne re.sub Verluste)
                 if "\\hinweis{" in line_s:
-                    # Wir suchen den Inhalt zwischen \hinweis{ und }
                     match = re.search(r'\\hinweis\{(.*?)\}', line_s)
                     if match:
                         inhalt = match.group(1)
-                        # Wir bauen den String manuell zusammen - so gehen keine Backslashes verloren
                         line_s = f"\\begin{{hinweisbox}}{inhalt}\\end{{hinweisbox}}"
                 
-                # 3. Sonderzeichen (Nur wenn kein LaTeX-Befehl in der Zeile ist)
+                # 3. Sonderzeichen (Nur wenn kein Befehl drin ist)
                 if "\\begin" not in line_s:
                     line_s = line_s.replace('&', '\\&').replace('%', '\\%')
                 
                 latex_output.append(line_s)
+        return "\n".join(latex_output)
 
 # --- UI CONFIG ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide", initial_sidebar_state="expanded")
@@ -109,43 +102,16 @@ def handle_upload():
 def main():
     doc_parser = KlausurDocument()
     
-    # CSS für maximale Breite, bewegliche Sidebar und LESERLICHE Schrift
     st.markdown("""
         <style>
-        .block-container { 
-            padding-top: 1.5rem; 
-            padding-left: 2rem; 
-            padding-right: 2rem; 
-            max-width: 98% !important; 
-        }
-        [data-testid="stSidebar"] .stMarkdown { margin-bottom: -18px; }
-        [data-testid="stSidebar"] p { font-size: 0.85rem !important; line-height: 1.2 !important; }
-        
-        /* UPDATE: Bearbeiterfreundliche, moderne Schriftart für den Editor */
-        .stTextArea textarea { 
-            font-family: 'Inter', 'Segoe UI', Helvetica, Arial, sans-serif; 
-            font-size: 1.1rem;
-            line-height: 1.5;
-            padding: 15px;
-            color: #1e1e1e;
-        }
-        
-        .sachverhalt-box {
-            background-color: #f0f2f6;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 6px solid #4682B4;
-            margin-bottom: 25px;
-            line-height: 1.6;
-            font-size: 1rem;
-            width: 100%;
-        }
+        .block-container { padding-top: 1.5rem; padding-left: 2rem; padding-right: 2rem; max-width: 98% !important; }
+        .stTextArea textarea { font-family: 'Inter', sans-serif; font-size: 1.1rem; line-height: 1.5; padding: 15px; color: #1e1e1e; }
+        .sachverhalt-box { background-color: #f0f2f6; padding: 20px; border-radius: 8px; border-left: 6px solid #4682B4; margin-bottom: 25px; }
         </style>
         """, unsafe_allow_html=True)
 
     st.title("⚖️ IustWrite Editor")
 
-    # --- SIDEBAR SETTINGS (EINGEKLAPPT) ---
     with st.sidebar.expander("⚙️ Layout-Einstellungen", expanded=False):
         rand_wert = st.text_input("Korrekturrand rechts (in cm)", value="6")
         if not any(unit in rand_wert for unit in ['cm', 'mm']): rand_wert += "cm"
@@ -160,7 +126,6 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
-    # --- CASE LOGIC ---
     if fall_code:
         pfad_zu_fall = os.path.join("fealle", f"{fall_code}.txt")
         if os.path.exists(pfad_zu_fall):
@@ -172,82 +137,23 @@ def main():
                 rest_text = "\n".join(zeilen[1:]).strip()
                 with st.expander(f"📄 {sauberer_titel}", expanded=True):
                     st.markdown(f'<div class="sachverhalt-box">{rest_text}</div>', unsafe_allow_html=True)
-        else:
-            st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
 
-    # --- EDITOR AREA ---
     c1, c2, c3 = st.columns([3, 1, 1])
     with c1: kl_titel = st.text_input("Titel", "")
     with c2: kl_datum = st.text_input("Datum", "")
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
-    # Das Editorfenster nutzt nun die neue CSS-Klasse
-    current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Schreibe hier dein Gutachten...")
+    current_text = st.text_area("", height=600, key="main_editor_key")
 
-    # --- NEU: ZEICHENZÄHLER ---
-    if current_text:
-        char_count = len(current_text)
-        word_count = len(current_text.split())
-        # Anzeige direkt unter dem Editor
-        st.markdown(f"*📝 {char_count} Zeichen | {word_count} Wörter*")
-
-    # --- SIDEBAR OUTLINE ---
-    if current_text:
-        for line in current_text.split('\n'):
-            line_s = line.strip()
-            if not line_s: continue
-            found = False
-            for level, pattern in doc_parser.star_patterns.items():
-                if re.match(pattern, line_s):
-                    indent = "&nbsp;" * (level * 2)
-                    st.sidebar.markdown(f"{indent}{line_s}")
-                    found = True
-                    break
-            if not found:
-                for level, pattern in doc_parser.prefix_patterns.items():
-                    if re.match(pattern, line_s):
-                        indent = "&nbsp;" * (level * 2)
-                        weight = "**" if level <= 2 else ""
-                        st.sidebar.markdown(f"{indent}{weight}{line_s}{weight}")
-                        break
-
-    # --- ACTIONS ---
-    st.markdown("---")
-    col_pdf, col_save, col_load, col_sachverhalt = st.columns([1, 1, 1, 1])
-
-    with col_pdf: pdf_button = st.button("🏁 PDF generieren", use_container_width=True)
-    with col_save:
-        t = (kl_titel or "Gutachten").replace(" ", "_")
-        d = (kl_datum or "Datum").replace(" ", "_")
-        k = (kl_kuerzel or "Kürzel").replace(" ", "_")
-        
-        # Den Dateinamen zusammenbauen
-        dateiname = f"{t}_{d}_{k}.txt"
-        
-        st.download_button(
-            label="💾 Als TXT speichern", 
-            data=current_text, 
-            file_name=dateiname, 
-            use_container_width=True
-        )
-    with col_load: st.file_uploader("📂 Datei laden", type=['txt'], key="uploader_key", on_change=handle_upload)
-    with col_sachverhalt: sachverhalt_file = st.file_uploader("📄 Sachverhalt beifügen (PDF)", type=['pdf'], key="sachverhalt_key")
-
-    if pdf_button:
+    if pdf_button := st.button("🏁 PDF generieren", use_container_width=True):
         if not current_text.strip():
             st.warning("Bitte Text eingeben!")
         else:
             cls_path = os.path.join("latex_assets", "jurabook.cls")
-            if not os.path.exists(cls_path):
-                st.error("🚨 jurabook.cls fehlt!")
-                st.stop()
-
             with st.spinner("PDF wird erstellt..."):
                 parsed_content = doc_parser.parse_content(current_text.split('\n'))
                 titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
-                
                 font_latex = f"\\usepackage{{{selected_font_package}}}"
-                if "helvet" in selected_font_package: font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
 
                 full_latex_header = r"""\documentclass[12pt, a4paper, oneside]{jurabook}
 \usepackage[ngerman]{babel}
@@ -256,119 +162,45 @@ def main():
 \usepackage{pdfpages}
 \usepackage[most]{tcolorbox}
 \usepackage[hidelinks]{hyperref}
-\usepackage{xurl}
 \usepackage{xcolor}
-
-% --- Textfarben mir Alias ---
-\definecolor{myRed}{RGB}{190, 20, 20}
-\definecolor{myBlue}{RGB}{0, 80, 160}
-\definecolor{myGreen}{RGB}{0, 120, 50}
-
-\newcommand{\red}[1]{{\color{myRed}#1}}
-\newcommand{\blue}[1]{{\color{myBlue}#1}}
-\newcommand{\green}[1]{{\color{myGreen}#1}}
-
-\addto\captionsngerman{\renewcommand{\contentsname}{Gliederung}}
-
 """ + font_latex + r"""
 \usepackage{setspace}
 \usepackage{geometry}
-\usepackage{fancyhdr}
 \geometry{left=2cm, right=2cm, top=2.5cm, bottom=3cm}
-\setcounter{tocdepth}{8}
 \setcounter{secnumdepth}{8}
 \setlength{\parindent}{0pt}
 
 \newtcolorbox{hinweisbox}{
-    colback=white,
-    colframe=black,
-    fonttitle=\bfseries,
-    title=Hinweis:,
-    arc=0mm,
-    outer arc=0mm,
-    left=3mm,
-    right=3mm,
-    top=2mm,
-    bottom=2mm,
-    boxrule=0.6pt,
-    width=\linewidth,
-    breakable
+    colback=white, colframe=black, fonttitle=\bfseries, title=Hinweis:,
+    arc=0mm, outer arc=0mm, left=3mm, right=3mm, top=2mm, bottom=2mm,
+    boxrule=0.6pt, width=\linewidth, breakable
 }
 
-\fancypagestyle{iustwrite}{
-    \fancyhf{}
-    \fancyhead[L]{\small """ + kl_kuerzel + r"""}
-    \fancyhead[R]{\small """ + titel_komp + r"""}
-    \fancyfoot[R]{\thepage}
-    \renewcommand{\headrulewidth}{0.5pt}
-    \fancyhfoffset[R]{0pt}
-}
 \begin{document}
 \sloppy
 """
                 with tempfile.TemporaryDirectory() as tmpdirname:
                     tmp_path = Path(tmpdirname)
-                    shutil.copy(os.path.abspath(cls_path), tmp_path / "jurabook.cls")
+                    if os.path.exists(cls_path): shutil.copy(cls_path, tmp_path / "jurabook.cls")
                     
-                    assets_folder = os.path.abspath("latex_assets")
-                    if os.path.exists(assets_folder):
-                        for item in os.listdir(assets_folder):
-                            s = os.path.join(assets_folder, item)
-                            d = os.path.join(tmpdirname, item)
-                            if os.path.isfile(s) and not item.endswith('.cls'):
-                                shutil.copy2(s, d)
-
-                    sachverhalt_cmd = ""
-                    if sachverhalt_file is not None:
-                        with open(tmp_path / "temp_sv.pdf", "wb") as f:
-                            f.write(sachverhalt_file.getbuffer())
-                        sachverhalt_cmd = r"\includepdf[pages=-]{temp_sv.pdf}"
-
-                    final_latex = full_latex_header + sachverhalt_cmd + r"""
+                    final_latex = full_latex_header + r"""
 \pagenumbering{gobble}
 \tableofcontents\clearpage
 \newgeometry{left=2cm, right=""" + rand_wert + r""", top=2.5cm, bottom=3cm}
 \pagenumbering{arabic}
-\setcounter{page}{1}
-\pagestyle{iustwrite}\setstretch{""" + zeilenabstand + r"""}
+\setstretch{""" + zeilenabstand + r"""}
 {\noindent\Large\bfseries """ + titel_komp + r""" \par}\bigskip
 """ + parsed_content + r"\end{document}"
 
                     with open(tmp_path / "klausur.tex", "w", encoding="utf-8") as f:
                         f.write(final_latex)
                     
-                    env = os.environ.copy()
-                    env["TEXINPUTS"] = f".:{tmp_path}:{assets_folder}:"
-
-                    result = None
-                    for _ in range(2):
-                        result = subprocess.run(
-                            ["pdflatex", "-interaction=nonstopmode", "klausur.tex"], 
-                            cwd=tmpdirname, env=env, capture_output=True, text=False
-                        )
-
+                    subprocess.run(["pdflatex", "-interaction=nonstopmode", "klausur.tex"], cwd=tmpdirname)
                     pdf_file = tmp_path / "klausur.pdf"
                     if pdf_file.exists():
-                        st.success("PDF erfolgreich erstellt!")
+                        st.success("Erfolgreich!")
                         with open(pdf_file, "rb") as f:
-                            # Namen für das PDF nach dem gleichen Schema generieren
-                            t_pdf = (kl_titel or "Gutachten").replace(" ", "_")
-                            d_pdf = (kl_datum or "Datum").replace(" ", "_")
-                            k_pdf = (kl_kuerzel or "Kuerzel").replace(" ", "_")
-                            
-                            pdf_name = f"{t_pdf}_{d_pdf}_{k_pdf}.pdf"
-                            
-                            st.download_button(
-                                label="📥 Download PDF", 
-                                data=f, 
-                                file_name=pdf_name, 
-                                use_container_width=True
-                            )
-                    else:
-                        st.error("LaTeX Fehler!")
-                        if result:
-                            error_log = result.stdout.decode('utf-8', errors='replace')
-                            st.code(error_log)
+                            st.download_button("📥 Download PDF", f, file_name="Gutachten.pdf")
 
 if __name__ == "__main__":
     main()
