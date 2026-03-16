@@ -78,7 +78,7 @@ class KlausurDocument:
 
             if not found_level:
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
-                line_s = re.sub(r'\\hinweis\{(.*?)\}', r'\\begin{hinweisbox}\1\\end{hinweisbox}', line_s)
+                line_s = re.sub(r'\\hinweis\{(.*?)\}', r'\\\\begin{hinweisbox}\1\\\\end{hinweisbox}', line_s)
                 line_s = line_s.replace('&', '\\&').replace('%', '\\%')
                 latex_output.append(line_s)
         return "\n".join(latex_output)
