@@ -201,18 +201,27 @@ def main():
     c1, c2, c3 = st.columns([3, 1, 1])
     
     with c1: 
-        kl_titel = st.text_input("Titel", value=t_saved) # Hier stand vorher t_val
+        kl_titel = st.text_input("Titel", value=t_saved)
     with c2: 
-        kl_datum = st.text_input("Datum", value=d_saved) # Hier d_saved nutzen
+        kl_datum = st.text_input("Datum", value=d_saved)
     with c3: 
-        kl_kuerzel = st.text_input("Kürzel / Matrikel", value=k_saved) # Hier k_saved nutzen
+        kl_kuerzel = st.text_input("Kürzel / Matrikel", value=k_saved)
 
-    # --- SPEICHERN AM ENDE ---
+    # ZUERST: Das Textfeld definieren, damit 'current_text' existiert!
+    current_text = st.text_area(
+        "", 
+        value=st.session_state["main_editor_key"],
+        height=600, 
+        key="main_editor_widget"
+    )
+
+    # JETZT ERST: Speichern (da jetzt kl_titel UND current_text bekannt sind)
     try:
         ls.setItem("iustwrite_titel", kl_titel)
         ls.setItem("iustwrite_datum", kl_datum)
         ls.setItem("iustwrite_kuerzel", kl_kuerzel)
         ls.setItem("iustwrite_backup", current_text)
+        st.session_state["main_editor_key"] = current_text
     except:
         pass
 
