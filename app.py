@@ -133,6 +133,20 @@ def main():
     st.title("⚖️ IustWrite Editor")
 
     # --- SIDEBAR SETTINGS (EINGEKLAPPT) ---
+
+    if st.sidebar.button("🗑️ Neues Gutachten (Leeren)", use_container_width=True, help="Löscht den aktuellen Text im Editor und im Browser-Backup."):
+    # Session State leeren
+    st.session_state["main_editor_key"] = ""
+    # Browser-Speicher leeren
+    try:
+        ls.removeItem("iustwrite_backup")
+    except:
+        pass
+    # App neu starten, um das Textfeld zu leeren
+    st.rerun()
+
+st.sidebar.markdown("---") # Trennlinie
+    
     with st.sidebar.expander("⚙️ Layout-Einstellungen", expanded=False):
         rand_wert = st.text_input("Korrekturrand rechts (in cm)", value="6")
         if not any(unit in rand_wert for unit in ['cm', 'mm']): rand_wert += "cm"
