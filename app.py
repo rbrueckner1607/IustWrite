@@ -197,23 +197,15 @@ def main():
         else:
             st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
 
-    # --- EDITOR AREA ---
+    # --- 4. EDITOR AREA (Anzeige der geladenen Daten) ---
     c1, c2, c3 = st.columns([3, 1, 1])
     
     with c1: 
-        kl_titel = st.text_input("Titel", value=t_val)
+        kl_titel = st.text_input("Titel", value=t_saved) # Hier stand vorher t_val
     with c2: 
-        kl_datum = st.text_input("Datum", value=d_val)
+        kl_datum = st.text_input("Datum", value=d_saved) # Hier d_saved nutzen
     with c3: 
-        kl_kuerzel = st.text_input("Kürzel / Matrikel", value=k_val)
-
-    # Das Haupt-Textfeld
-    current_text = st.text_area(
-        "", 
-        value=st.session_state["main_editor_key"],
-        height=600, 
-        key="main_editor_widget"
-    )
+        kl_kuerzel = st.text_input("Kürzel / Matrikel", value=k_saved) # Hier k_saved nutzen
 
     # --- SPEICHERN AM ENDE ---
     try:
