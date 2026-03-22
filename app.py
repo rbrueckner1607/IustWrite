@@ -9,24 +9,7 @@ from streamlit_local_storage import LocalStorage
 from streamlit_autorefresh import st_autorefresh
 
 # --- OPTIMIERTE PARSER KLASSE ---
-class KlausurDocument:
-    def main():
-    # --- INITIALISIERUNG & AUTO-SAVE ---
-    ls = LocalStorage()                                # <-- NEU
-    doc_parser = KlausurDocument()
-    
-    # Taktgeber für das automatische Speichern (30 Sek.)
-    st_autorefresh(interval=30000, key="autosave_heartbeat") # <-- NEU
-
-    # Lädt das Backup aus dem Browser, falls vorhanden
-    if "main_editor_key" not in st.session_state or st.session_state["main_editor_key"] == "":
-        try:
-            stored = ls.getItem("iustwrite_backup")
-            if stored:
-                st.session_state["main_editor_key"] = stored
-        except:
-            pass
-            
+class KlausurDocument:      
     def __init__(self):
         self.prefix_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
@@ -113,7 +96,21 @@ def handle_upload():
         st.session_state["main_editor_key"] = content
 
 def main():
+    # --- 1. HIER EINSETZEN (INITIALISIERUNG & AUTO-SAVE) ---
+    ls = LocalStorage() 
     doc_parser = KlausurDocument()
+    
+    # Taktgeber für das automatische Speichern (30 Sek.)
+    st_autorefresh(interval=30000, key="autosave_heartbeat")
+
+    # Lädt das Backup aus dem Browser, falls vorhanden
+    if "main_editor_key" not in st.session_state or st.session_state["main_editor_key"] == "":
+        try:
+            stored = ls.getItem("iustwrite_backup")
+            if stored:
+                st.session_state["main_editor_key"] = stored
+        except:
+            pass
     
     # CSS für maximale Breite, bewegliche Sidebar und LESERLICHE Schrift
     st.markdown("""
