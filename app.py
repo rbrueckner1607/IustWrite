@@ -98,22 +98,23 @@ def handle_upload():
 def main():
     ls = LocalStorage() 
     doc_parser = KlausurDocument()
-    # Autorefresh bleibt für das Backup im Hintergrund
+    
+    # 1. Autorefresh (alle 30 Sek) - Wir geben ihm einen fixen Key
     st_autorefresh(interval=30000, key="autosave_heartbeat")
 
-    # --- 1. LADEN (Absolute Basis) ---
-    # Wir holen nur den Haupttext aus dem Browser
-    try:
-        e_saved = ls.getItem("iustwrite_backup") or ""
-        t_saved = ls.getItem("iustwrite_titel") or ""
-        d_saved = ls.getItem("iustwrite_datum") or ""
-        k_saved = ls.getItem("iustwrite_kuerzel") or ""
-    except:
-        e_saved = t_saved = d_saved = k_saved = ""
-
-    # Nur beim allerersten Laden der Seite füllen wir den State
+    # 2. INITIAL-LADEN (Nur beim allerersten Start der App)
     if "main_editor_key" not in st.session_state:
-        st.session_state["main_editor_key"] = e_saved
+        try:
+            # Wir holen das Backup direkt aus dem Browser
+            saved_text = ls.getItem("iustwrite_backup")
+            st.session_state["main_editor_key"] = saved_text if saved_text else ""
+            
+            # Stammdaten ebenfalls einmalig laden
+            st.session_state["stamm_titel"] = ls.getItem("iustwrite_titel") or ""
+            st.session_state["stamm_datum"] = ls.getItem("iustwrite_datum") or ""
+            st.session_state["stamm_kuerzel"] = ls.getItem("iustwrite_kuerzel") or ""
+        except:
+            st.session_state["main_editor_key"] = ""
 
     # --- 3. SESSION STATE INITIALISIEREN ---
     if "main_editor_key" not in st.session_state or not st.session_state["main_editor_key"]:
@@ -200,31 +201,30 @@ def main():
         else:
             st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
 
-    # --- 2. STAMMDATEN (Ganz simpel) ---
+    # 3. DIE EINGABEFELDER (Wir binden sie fest an den Session State via 'key')
     c1, c2, c3 = st.columns([3, 1, 1])
     with c1: 
-        kl_titel = st.text_input("Titel", value=t_saved)
+        st.text_input("Titel", key="stamm_titel")
     with c2: 
-        kl_datum = st.text_input("Datum", value=d_saved)
+        st.text_input("Datum", key="stamm_datum")
     with c3: 
-        kl_kuerzel = st.text_input("Kürzel / Matrikel", value=k_saved)
+        st.text_input("Kürzel / Matrikel", key="stamm_kuerzel")
 
-    # --- 3. DER EDITOR (Das Herzstück) ---
-    # Wir nutzen 'value' aus dem State, damit der Text stabil bleibt
+    # 4. DER EDITOR (Das Herzstück)
+    # WICHTIG: Kein 'value=', sondern nur 'key='. Das macht den State zum Chef.
     current_text = st.text_area(
         "", 
-        value=st.session_state["main_editor_key"],
         height=600, 
-        key="main_editor_widget"
+        key="main_editor_key" # Direkt verknüpft mit dem State
     )
 
-    # JETZT ERST: Speichern (da jetzt kl_titel UND current_text bekannt sind)
+    # 5. SOFORT-BACKUP (Nach jeder Änderung)
+    # Wir schreiben die aktuellen Werte aus dem State zurück in den Browser
     try:
-        ls.setItem("iustwrite_titel", kl_titel)
-        ls.setItem("iustwrite_datum", kl_datum)
-        ls.setItem("iustwrite_kuerzel", kl_kuerzel)
-        ls.setItem("iustwrite_backup", current_text)
-        st.session_state["main_editor_key"] = current_text
+        ls.setItem("iustwrite_backup", st.session_state["main_editor_key"])
+        ls.setItem("iustwrite_titel", st.session_state["stamm_titel"])
+        ls.setItem("iustwrite_datum", st.session_state["stamm_datum"])
+        ls.setItem("iustwrite_kuerzel", st.session_state["stamm_kuerzel"])
     except:
         pass
 
