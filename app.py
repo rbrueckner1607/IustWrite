@@ -96,19 +96,23 @@ def handle_upload():
         st.session_state["main_editor_key"] = content
 
 def main():
-    # --- 1. HIER EINSETZEN (INITIALISIERUNG & AUTO-SAVE) ---
     ls = LocalStorage() 
     doc_parser = KlausurDocument()
-    
-    # Taktgeber für das automatische Speichern (30 Sek.)
     st_autorefresh(interval=30000, key="autosave_heartbeat")
 
-    # Lädt das Backup aus dem Browser, falls vorhanden
+    # --- ERWEITERTES BACKUP LADEN ---
+    # Wir prüfen, ob wir schon Daten im State haben, sonst holen wir sie aus dem Browser
     if "main_editor_key" not in st.session_state or st.session_state["main_editor_key"] == "":
         try:
-            stored = ls.getItem("iustwrite_backup")
-            if stored:
-                st.session_state["main_editor_key"] = stored
+            # Holen aller Stammdaten aus dem LocalStorage
+            for key in ["iustwrite_backup", "iustwrite_titel", "iustwrite_datum", "iustwrite_kuerzel"]:
+                stored = ls.getItem(key)
+                if stored:
+                    # Zuordnung: Browser-Speicher -> Session State
+                    if key == "iustwrite_backup": st.session_state["main_editor_key"] = stored
+                    if key == "iustwrite_titel": st.session_state["stamm_titel"] = stored
+                    if key == "iustwrite_datum": st.session_state["stamm_datum"] = stored
+                    if key == "iustwrite_kuerzel": st.session_state["stamm_kuerzel"] = stored
         except:
             pass
     
@@ -195,11 +199,16 @@ def main():
 
     # --- EDITOR AREA ---
     c1, c2, c3 = st.columns([3, 1, 1])
-    with c1: kl_titel = st.text_input("Titel", "")
-    with c2: kl_datum = st.text_input("Datum", "")
-    with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
+    
+    # Wir nutzen .get(), um Fehler zu vermeiden, falls der Key noch nicht existiert
+    with c1: 
+        kl_titel = st.text_input("Titel", value=st.session_state.get("stamm_titel", ""))
+    with c2: 
+        kl_datum = st.text_input("Datum", value=st.session_state.get("stamm_datum", ""))
+    with c3: 
+        kl_kuerzel = st.text_input("Kürzel / Matrikel", value=st.session_state.get("stamm_kuerzel", ""))
 
-    # Das Editorfenster nutzt nun die neue CSS-Klasse
+    # Das Editorfenster
     current_text = st.text_area(
         "", 
         value=st.session_state["main_editor_key"],
@@ -207,13 +216,21 @@ def main():
         key="main_editor_widget"
     )
 
-    # DIESER BLOCK SPEICHERT AUTOMATISCH:
-    if current_text != st.session_state["main_editor_key"]:
+    # --- SPEICHER-LOGIK (WIRD BEI JEDEM REFRESH AUSGEFÜHRT) ---
+    # Hier schreiben wir alle aktuellen Werte in den Browser-Speicher
+    try:
+        ls.setItem("iustwrite_backup", current_text)
+        ls.setItem("iustwrite_titel", kl_titel)
+        ls.setItem("iustwrite_datum", kl_datum)
+        ls.setItem("iustwrite_kuerzel", kl_kuerzel)
+        
+        # Wir aktualisieren auch den Session State, damit beim Tippen nichts verloren geht
         st.session_state["main_editor_key"] = current_text
-        try:
-            ls.setItem("iustwrite_backup", current_text)
-        except:
-            pass
+        st.session_state["stamm_titel"] = kl_titel
+        st.session_state["stamm_datum"] = kl_datum
+        st.session_state["stamm_kuerzel"] = kl_kuerzel
+    except:
+        pass
 
     # --- NEU: ZEICHENZÄHLER ---
     if current_text:
