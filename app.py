@@ -100,21 +100,21 @@ def main():
     doc_parser = KlausurDocument()
     st_autorefresh(interval=30000, key="autosave_heartbeat")
 
-    # 1. Zuerst alle Variablen "gebären" (Sicherheitsnetz)
-t_saved = d_saved = k_saved = e_saved = ""
+    # --- 1. VARIABLEN VORBEREITEN (Sicherheitsnetz) ---
+    t_saved = d_saved = k_saved = e_saved = ""
 
-    # 2. Jetzt versuchen, sie mit echten Daten zu füllen
+    # --- 2. DATEN AUS DEM BROWSER LADEN (mit korrekter Einrückung) ---
     try:
-    t_saved = ls.getItem("iustwrite_titel") or ""
-    d_saved = ls.getItem("iustwrite_datum") or ""
-    k_saved = ls.getItem("iustwrite_kuerzel") or ""
-    e_saved = ls.getItem("iustwrite_backup") or ""
+        t_saved = ls.getItem("iustwrite_titel") or ""
+        d_saved = ls.getItem("iustwrite_datum") or ""
+        k_saved = ls.getItem("iustwrite_kuerzel") or ""
+        e_saved = ls.getItem("iustwrite_backup") or ""
     except:
-         pass
+        pass
 
-    # 3. Jetzt ist dieser Aufruf SICHER, weil e_saved oben definiert wurde
-if "main_editor_key" not in st.session_state or not st.session_state["main_editor_key"]:
-    st.session_state["main_editor_key"] = e_saved
+    # --- 3. SESSION STATE INITIALISIEREN ---
+    if "main_editor_key" not in st.session_state or not st.session_state["main_editor_key"]:
+        st.session_state["main_editor_key"] = e_saved
     
     # CSS für maximale Breite, bewegliche Sidebar und LESERLICHE Schrift
     st.markdown("""
