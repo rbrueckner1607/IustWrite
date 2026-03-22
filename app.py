@@ -193,41 +193,33 @@ def main():
         else:
             st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
 
-    # --- EDITOR AREA ---
+    # 1. ZUERST: Die Eingabefelder (Stammdaten)
     c1, c2, c3 = st.columns([3, 1, 1])
-    
     with c1: 
-        kl_titel = st.text_input(
-            "Titel", 
-            value=st.session_state.get("stamm_titel", ""),
-            key="stamm_titel"  # Dieser Key verknüpft das Feld fest mit dem State
-        )
+        kl_titel = st.text_input("Titel", value=st.session_state.get("stamm_titel", ""), key="stamm_titel")
     with c2: 
-        kl_datum = st.text_input(
-            "Datum", 
-            value=st.session_state.get("stamm_datum", ""),
-            key="stamm_datum"
-        )
+        kl_datum = st.text_input("Datum", value=st.session_state.get("stamm_datum", ""), key="stamm_datum")
     with c3: 
-        kl_kuerzel = st.text_input(
-            "Kürzel / Matrikel", 
-            value=st.session_state.get("stamm_kuerzel", ""),
-            key="stamm_kuerzel"
-        )
+        kl_kuerzel = st.text_input("Kürzel / Matrikel", value=st.session_state.get("stamm_kuerzel", ""), key="stamm_kuerzel")
 
-    # --- SPEICHER-LOGIK (WIRD BEI JEDEM REFRESH AUSGEFÜHRT) ---
-    # Hier schreiben wir alle aktuellen Werte in den Browser-Speicher
+    # 2. DANN: Das Editorfenster (Hier wird current_text definiert!)
+    current_text = st.text_area(
+        "", 
+        value=st.session_state.get("main_editor_key", ""),
+        height=600, 
+        key="main_editor_widget"
+    )
+
+    # 3. DANACH: Alle Funktionen, die current_text benutzen
+    # --- SPEICHER-LOGIK ---
     try:
         ls.setItem("iustwrite_backup", current_text)
         ls.setItem("iustwrite_titel", kl_titel)
         ls.setItem("iustwrite_datum", kl_datum)
         ls.setItem("iustwrite_kuerzel", kl_kuerzel)
         
-        # Wir aktualisieren auch den Session State, damit beim Tippen nichts verloren geht
+        # Session State aktualisieren
         st.session_state["main_editor_key"] = current_text
-        st.session_state["stamm_titel"] = kl_titel
-        st.session_state["stamm_datum"] = kl_datum
-        st.session_state["stamm_kuerzel"] = kl_kuerzel
     except:
         pass
 
