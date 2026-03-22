@@ -101,17 +101,19 @@ def main():
     st_autorefresh(interval=30000, key="autosave_heartbeat")
 
     # --- STABILES LADEN (Ganz oben in main) ---
+    t_saved = d_saved = k_saved = e_saved = ""
+    
     try:
-        t_val = ls.getItem("iustwrite_titel") or ""
-        d_val = ls.getItem("iustwrite_datum") or ""
-        k_val = ls.getItem("iustwrite_kuerzel") or ""
-        e_val = ls.getItem("iustwrite_backup") or ""
-    except:
-        t_val = d_val = k_val = e_val = ""
+    t_saved = ls.getItem("iustwrite_titel") or ""
+    d_saved = ls.getItem("iustwrite_datum") or ""
+    k_saved = ls.getItem("iustwrite_kuerzel") or ""
+    e_saved = ls.getItem("iustwrite_backup") or ""
+except:
+    pass # Falls es scheitert, bleiben sie einfach "" (leer)
 
-    # Falls der Session State noch leer ist, füllen wir ihn mit den Browser-Daten
-    if "main_editor_key" not in st.session_state or st.session_state["main_editor_key"] == "":
-        st.session_state["main_editor_key"] = e_saved
+# 3. Jetzt ist dieser Aufruf SICHER, weil e_saved oben definiert wurde
+if "main_editor_key" not in st.session_state or not st.session_state["main_editor_key"]:
+    st.session_state["main_editor_key"] = e_saved
     
     # CSS für maximale Breite, bewegliche Sidebar und LESERLICHE Schrift
     st.markdown("""
