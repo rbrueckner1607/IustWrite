@@ -98,19 +98,22 @@ def handle_upload():
 def main():
     ls = LocalStorage() 
     doc_parser = KlausurDocument()
+    # Autorefresh bleibt für das Backup im Hintergrund
     st_autorefresh(interval=30000, key="autosave_heartbeat")
 
-    # --- 1. VARIABLEN VORBEREITEN (Sicherheitsnetz) ---
-    t_saved = d_saved = k_saved = e_saved = ""
-
-    # --- 2. DATEN AUS DEM BROWSER LADEN (mit korrekter Einrückung) ---
+    # --- 1. LADEN (Absolute Basis) ---
+    # Wir holen nur den Haupttext aus dem Browser
     try:
+        e_saved = ls.getItem("iustwrite_backup") or ""
         t_saved = ls.getItem("iustwrite_titel") or ""
         d_saved = ls.getItem("iustwrite_datum") or ""
         k_saved = ls.getItem("iustwrite_kuerzel") or ""
-        e_saved = ls.getItem("iustwrite_backup") or ""
     except:
-        pass
+        e_saved = t_saved = d_saved = k_saved = ""
+
+    # Nur beim allerersten Laden der Seite füllen wir den State
+    if "main_editor_key" not in st.session_state:
+        st.session_state["main_editor_key"] = e_saved
 
     # --- 3. SESSION STATE INITIALISIEREN ---
     if "main_editor_key" not in st.session_state or not st.session_state["main_editor_key"]:
@@ -197,9 +200,8 @@ def main():
         else:
             st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
 
-    # --- 4. EDITOR AREA (Anzeige der geladenen Daten) ---
+    # --- 2. STAMMDATEN (Ganz simpel) ---
     c1, c2, c3 = st.columns([3, 1, 1])
-    
     with c1: 
         kl_titel = st.text_input("Titel", value=t_saved)
     with c2: 
@@ -207,7 +209,8 @@ def main():
     with c3: 
         kl_kuerzel = st.text_input("Kürzel / Matrikel", value=k_saved)
 
-    # ZUERST: Das Textfeld definieren, damit 'current_text' existiert!
+    # --- 3. DER EDITOR (Das Herzstück) ---
+    # Wir nutzen 'value' aus dem State, damit der Text stabil bleibt
     current_text = st.text_area(
         "", 
         value=st.session_state["main_editor_key"],
