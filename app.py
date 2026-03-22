@@ -164,26 +164,18 @@ def main():
     st.sidebar.title("📌 Gliederung")
 
     if fall_code:
-        # Achte darauf, dass der Ordner auf GitHub exakt "fealle" (wie im Code) 
-        # oder "faelle" heißt.
         pfad_zu_fall = os.path.join("fealle", f"{fall_code}.txt")
-        
         if os.path.exists(pfad_zu_fall):
             with open(pfad_zu_fall, "r", encoding="utf-8") as f:
                 ganzer_text = f.read()
-            
             zeilen = ganzer_text.split('\n')
             if zeilen:
-                # Extrahiert den Titel aus der ersten Zeile
                 sauberer_titel = re.sub(r'^#+\s*(Fall\s+\d+:\s*)?', '', zeilen[0]).strip()
-                # Der Rest ist der Sachverhalt
                 rest_text = "\n".join(zeilen[1:]).strip()
-                
-                # Anzeige im Hauptfenster über dem Editor
-                with st.expander(f"📄 Sachverhalt: {sauberer_titel}", expanded=True):
+                with st.expander(f"📄 {sauberer_titel}", expanded=True):
                     st.markdown(f'<div class="sachverhalt-box">{rest_text}</div>', unsafe_allow_html=True)
         else:
-            st.sidebar.error(f"Code {fall_code} nicht gefunden (Pfad: {pfad_zu_fall})")
+            st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
 
     # --- EDITOR AREA ---
     c1, c2, c3 = st.columns([3, 1, 1])
