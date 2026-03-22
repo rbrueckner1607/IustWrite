@@ -100,32 +100,19 @@ def main():
     doc_parser = KlausurDocument()
     st_autorefresh(interval=30000, key="autosave_heartbeat")
 
-    # --- INITIALISIERUNG & BACKUP LADEN ---
-    if "stamm_titel" not in st.session_state:
-        try:
-            # 1. Daten holen
-            t_backup = ls.getItem("iustwrite_titel")
-            d_backup = ls.getItem("iustwrite_datum")
-            k_backup = ls.getItem("iustwrite_kuerzel")
-            e_backup = ls.getItem("iustwrite_backup")
+    # --- STABILES LADEN AUS DEM BROWSER ---
+    # Wir holen uns die Werte einmalig ab
+    try:
+        t_saved = ls.getItem("iustwrite_titel") or ""
+        d_saved = ls.getItem("iustwrite_datum") or ""
+        k_saved = ls.getItem("iustwrite_kuerzel") or ""
+        e_saved = ls.getItem("iustwrite_backup") or ""
+    except:
+        t_saved = d_saved = k_saved = e_saved = ""
 
-            # 2. In den State schreiben
-            st.session_state["stamm_titel"] = t_backup if t_backup else ""
-            st.session_state["stamm_datum"] = d_backup if d_backup else ""
-            st.session_state["stamm_kuerzel"] = k_backup if k_backup else ""
-            st.session_state["main_editor_key"] = e_backup if e_backup else ""
-
-            # 3. DER TRICK: Wenn wir Daten gefunden haben, triggern wir einen 
-            # sofortigen Rerun, damit die Widgets die neuen Werte auch wirklich fressen.
-            if t_backup or d_backup or k_backup or e_backup:
-                st.rerun()
-        except:
-            # Standardwerte setzen, falls noch nichts da ist
-            st.session_state["stamm_titel"] = ""
-            st.session_state["stamm_datum"] = ""
-            st.session_state["stamm_kuerzel"] = ""
-            st.session_state["main_editor_key"] = ""
-            pass
+    # Falls der Session State noch leer ist, füllen wir ihn mit den Browser-Daten
+    if "main_editor_key" not in st.session_state or st.session_state["main_editor_key"] == "":
+        st.session_state["main_editor_key"] = e_saved
     
     # CSS für maximale Breite, bewegliche Sidebar und LESERLICHE Schrift
     st.markdown("""
@@ -212,14 +199,13 @@ def main():
     c1, c2, c3 = st.columns([3, 1, 1])
     
     with c1: 
-        # KEIN 'value=' mehr nutzen, wenn 'key=' dabei ist!
-        kl_titel = st.text_input("Titel", key="stamm_titel")
+        kl_titel = st.text_input("Titel", value=t_saved)
     with c2: 
-        kl_datum = st.text_input("Datum", key="stamm_datum")
+        kl_datum = st.text_input("Datum", value=d_saved)
     with c3: 
-        kl_kuerzel = st.text_input("Kürzel / Matrikel", key="stamm_kuerzel")
+        kl_kuerzel = st.text_input("Kürzel / Matrikel", value=k_saved)
 
-    # Das Editorfenster
+    # Das Haupt-Textfeld
     current_text = st.text_area(
         "", 
         value=st.session_state["main_editor_key"],
@@ -227,15 +213,14 @@ def main():
         key="main_editor_widget"
     )
 
-    # 3. DANACH: Alle Funktionen, die current_text benutzen
-    # --- SPEICHER-LOGIK ---
+    # --- SPEICHERN ---
     try:
-        ls.setItem("iustwrite_backup", current_text)
         ls.setItem("iustwrite_titel", kl_titel)
         ls.setItem("iustwrite_datum", kl_datum)
         ls.setItem("iustwrite_kuerzel", kl_kuerzel)
+        ls.setItem("iustwrite_backup", current_text)
         
-        # Session State aktualisieren
+        # Den State aktuell halten für den Editor-Inhalt
         st.session_state["main_editor_key"] = current_text
     except:
         pass
