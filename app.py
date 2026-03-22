@@ -101,22 +101,26 @@ def main():
     st_autorefresh(interval=30000, key="autosave_heartbeat")
 
     # --- INITIALISIERUNG & BACKUP LADEN ---
-    # Wir laden die Daten direkt in die Keys, die die Widgets (Eingabefelder) nutzen
     if "stamm_titel" not in st.session_state:
         try:
-            # Daten aus dem LocalStorage holen
-            titel_backup = ls.getItem("iustwrite_titel")
-            datum_backup = ls.getItem("iustwrite_datum")
-            kuerzel_backup = ls.getItem("iustwrite_kuerzel")
-            editor_backup = ls.getItem("iustwrite_backup")
+            # 1. Daten holen
+            t_backup = ls.getItem("iustwrite_titel")
+            d_backup = ls.getItem("iustwrite_datum")
+            k_backup = ls.getItem("iustwrite_kuerzel")
+            e_backup = ls.getItem("iustwrite_backup")
 
-            # In den Session State schreiben (nur wenn sie existieren)
-            st.session_state["stamm_titel"] = titel_backup if titel_backup else ""
-            st.session_state["stamm_datum"] = datum_backup if datum_backup else ""
-            st.session_state["stamm_kuerzel"] = kuerzel_backup if kuerzel_backup else ""
-            st.session_state["main_editor_key"] = editor_backup if editor_backup else ""
+            # 2. In den State schreiben
+            st.session_state["stamm_titel"] = t_backup if t_backup else ""
+            st.session_state["stamm_datum"] = d_backup if d_backup else ""
+            st.session_state["stamm_kuerzel"] = k_backup if k_backup else ""
+            st.session_state["main_editor_key"] = e_backup if e_backup else ""
+
+            # 3. DER TRICK: Wenn wir Daten gefunden haben, triggern wir einen 
+            # sofortigen Rerun, damit die Widgets die neuen Werte auch wirklich fressen.
+            if t_backup or d_backup or k_backup or e_backup:
+                st.rerun()
         except:
-            # Falls LocalStorage noch nicht bereit ist, leere Strings setzen
+            # Standardwerte setzen, falls noch nichts da ist
             st.session_state["stamm_titel"] = ""
             st.session_state["stamm_datum"] = ""
             st.session_state["stamm_kuerzel"] = ""
