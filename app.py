@@ -119,24 +119,22 @@ def main():
     if "main_editor_key" not in st.session_state or not st.session_state["main_editor_key"]:
         st.session_state["main_editor_key"] = e_saved
 
+    # --- INTERNE FUNKTION ZUM LÖSCHEN ---
     def reset_gutachten():
-    # 1. Session State leeren
-    st.session_state["main_editor_key"] = ""
-    st.session_state["stamm_titel"] = ""
-    st.session_state["stamm_datum"] = ""
-    st.session_state["stamm_kuerzel"] = ""
-    
-    # LocalStorage leeren (via das ls-Objekt)
-    try:
-        ls.removeItem("iustwrite_backup")
-        ls.removeItem("iustwrite_titel")
-        ls.removeItem("iustwrite_datum")
-        ls.removeItem("iustwrite_kuerzel")
-    except:
-        pass
-    
-    # Optional: Ein kleiner Hinweis für den User
-    st.toast("Neues Gutachten erstellt. Speicher bereinigt.")
+        # Diese Zeilen MÜSSEN eingerückt sein (4 Leerzeichen)
+        st.session_state["main_editor_key"] = ""
+        st.session_state["stamm_titel"] = ""
+        st.session_state["stamm_datum"] = ""
+        st.session_state["stamm_kuerzel"] = ""
+        
+        try:
+            ls.removeItem("iustwrite_backup")
+            ls.removeItem("iustwrite_titel")
+            ls.removeItem("iustwrite_datum")
+            ls.removeItem("iustwrite_kuerzel")
+        except:
+            pass
+        st.toast("Neues Gutachten gestartet.")
     
     # CSS für maximale Breite, bewegliche Sidebar und LESERLICHE Schrift
     st.markdown("""
