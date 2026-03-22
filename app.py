@@ -5,9 +5,28 @@ import streamlit as st
 import tempfile
 import shutil
 from pathlib import Path
+from streamlit_local_storage import LocalStorage
+from streamlit_autorefresh import st_autorefresh
 
 # --- OPTIMIERTE PARSER KLASSE ---
 class KlausurDocument:
+    def main():
+    # --- INITIALISIERUNG & AUTO-SAVE ---
+    ls = LocalStorage()                                # <-- NEU
+    doc_parser = KlausurDocument()
+    
+    # Taktgeber für das automatische Speichern (30 Sek.)
+    st_autorefresh(interval=30000, key="autosave_heartbeat") # <-- NEU
+
+    # Lädt das Backup aus dem Browser, falls vorhanden
+    if "main_editor_key" not in st.session_state or st.session_state["main_editor_key"] == "":
+        try:
+            stored = ls.getItem("iustwrite_backup")
+            if stored:
+                st.session_state["main_editor_key"] = stored
+        except:
+            pass
+            
     def __init__(self):
         self.prefix_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+(\.|)(\s|$)',
@@ -184,7 +203,20 @@ def main():
     with c3: kl_kuerzel = st.text_input("Kürzel / Matrikel", "")
 
     # Das Editorfenster nutzt nun die neue CSS-Klasse
-    current_text = st.text_area("", height=600, key="main_editor_key", placeholder="Schreibe hier dein Gutachten...")
+    current_text = st.text_area(
+        "", 
+        value=st.session_state["main_editor_key"],
+        height=600, 
+        key="main_editor_widget"
+    )
+
+    # DIESER BLOCK SPEICHERT AUTOMATISCH:
+    if current_text != st.session_state["main_editor_key"]:
+        st.session_state["main_editor_key"] = current_text
+        try:
+            ls.setItem("iustwrite_backup", current_text)
+        except:
+            pass
 
     # --- NEU: ZEICHENZÄHLER ---
     if current_text:
