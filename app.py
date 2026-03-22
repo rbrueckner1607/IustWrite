@@ -100,18 +100,19 @@ def main():
     doc_parser = KlausurDocument()
     st_autorefresh(interval=30000, key="autosave_heartbeat")
 
-    # --- STABILES LADEN (Ganz oben in main) ---
-    t_saved = d_saved = k_saved = e_saved = ""
-    
+    # 1. Zuerst alle Variablen "gebären" (Sicherheitsnetz)
+t_saved = d_saved = k_saved = e_saved = ""
+
+    # 2. Jetzt versuchen, sie mit echten Daten zu füllen
     try:
     t_saved = ls.getItem("iustwrite_titel") or ""
     d_saved = ls.getItem("iustwrite_datum") or ""
     k_saved = ls.getItem("iustwrite_kuerzel") or ""
     e_saved = ls.getItem("iustwrite_backup") or ""
-except:
-    pass # Falls es scheitert, bleiben sie einfach "" (leer)
+    except:
+         pass
 
-# 3. Jetzt ist dieser Aufruf SICHER, weil e_saved oben definiert wurde
+    # 3. Jetzt ist dieser Aufruf SICHER, weil e_saved oben definiert wurde
 if "main_editor_key" not in st.session_state or not st.session_state["main_editor_key"]:
     st.session_state["main_editor_key"] = e_saved
     
