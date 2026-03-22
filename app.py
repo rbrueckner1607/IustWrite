@@ -6,7 +6,7 @@ import tempfile
 import shutil
 from pathlib import Path
 from streamlit_local_storage import LocalStorage
-from streamlit_autorefresh import st_autorefresh
+from st_autorefresh import st_autorefresh
 
 # --- OPTIMIERTE PARSER KLASSE ---
 class KlausurDocument:      
