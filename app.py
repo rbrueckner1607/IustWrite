@@ -100,15 +100,14 @@ def main():
     doc_parser = KlausurDocument()
     st_autorefresh(interval=30000, key="autosave_heartbeat")
 
-    # --- STABILES LADEN AUS DEM BROWSER ---
-    # Wir holen uns die Werte einmalig ab
+    # --- STABILES LADEN (Ganz oben in main) ---
     try:
-        t_saved = ls.getItem("iustwrite_titel") or ""
-        d_saved = ls.getItem("iustwrite_datum") or ""
-        k_saved = ls.getItem("iustwrite_kuerzel") or ""
-        e_saved = ls.getItem("iustwrite_backup") or ""
+        t_val = ls.getItem("iustwrite_titel") or ""
+        d_val = ls.getItem("iustwrite_datum") or ""
+        k_val = ls.getItem("iustwrite_kuerzel") or ""
+        e_val = ls.getItem("iustwrite_backup") or ""
     except:
-        t_saved = d_saved = k_saved = e_saved = ""
+        t_val = d_val = k_val = e_val = ""
 
     # Falls der Session State noch leer ist, füllen wir ihn mit den Browser-Daten
     if "main_editor_key" not in st.session_state or st.session_state["main_editor_key"] == "":
@@ -199,11 +198,11 @@ def main():
     c1, c2, c3 = st.columns([3, 1, 1])
     
     with c1: 
-        kl_titel = st.text_input("Titel", value=t_saved)
+        kl_titel = st.text_input("Titel", value=t_val)
     with c2: 
-        kl_datum = st.text_input("Datum", value=d_saved)
+        kl_datum = st.text_input("Datum", value=d_val)
     with c3: 
-        kl_kuerzel = st.text_input("Kürzel / Matrikel", value=k_saved)
+        kl_kuerzel = st.text_input("Kürzel / Matrikel", value=k_val)
 
     # Das Haupt-Textfeld
     current_text = st.text_area(
@@ -213,15 +212,12 @@ def main():
         key="main_editor_widget"
     )
 
-    # --- SPEICHERN ---
+    # --- SPEICHERN AM ENDE ---
     try:
         ls.setItem("iustwrite_titel", kl_titel)
         ls.setItem("iustwrite_datum", kl_datum)
         ls.setItem("iustwrite_kuerzel", kl_kuerzel)
         ls.setItem("iustwrite_backup", current_text)
-        
-        # Den State aktuell halten für den Editor-Inhalt
-        st.session_state["main_editor_key"] = current_text
     except:
         pass
 
