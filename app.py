@@ -104,15 +104,11 @@ def main():
     # Wir prüfen, ob wir schon Daten im State haben, sonst holen wir sie aus dem Browser
     if "main_editor_key" not in st.session_state or st.session_state["main_editor_key"] == "":
         try:
-            # Holen aller Stammdaten aus dem LocalStorage
-            for key in ["iustwrite_backup", "iustwrite_titel", "iustwrite_datum", "iustwrite_kuerzel"]:
-                stored = ls.getItem(key)
-                if stored:
-                    # Zuordnung: Browser-Speicher -> Session State
-                    if key == "iustwrite_backup": st.session_state["main_editor_key"] = stored
-                    if key == "iustwrite_titel": st.session_state["stamm_titel"] = stored
-                    if key == "iustwrite_datum": st.session_state["stamm_datum"] = stored
-                    if key == "iustwrite_kuerzel": st.session_state["stamm_kuerzel"] = stored
+            # Hier laden wir die Daten aus dem Browser in den Session State
+            st.session_state["main_editor_key"] = ls.getItem("iustwrite_backup") or ""
+            st.session_state["stamm_titel"] = ls.getItem("iustwrite_titel") or ""
+            st.session_state["stamm_datum"] = ls.getItem("iustwrite_datum") or ""
+            st.session_state["stamm_kuerzel"] = ls.getItem("iustwrite_kuerzel") or ""
         except:
             pass
     
@@ -200,21 +196,24 @@ def main():
     # --- EDITOR AREA ---
     c1, c2, c3 = st.columns([3, 1, 1])
     
-    # Wir nutzen .get(), um Fehler zu vermeiden, falls der Key noch nicht existiert
     with c1: 
-        kl_titel = st.text_input("Titel", value=st.session_state.get("stamm_titel", ""))
+        kl_titel = st.text_input(
+            "Titel", 
+            value=st.session_state.get("stamm_titel", ""),
+            key="stamm_titel"  # Dieser Key verknüpft das Feld fest mit dem State
+        )
     with c2: 
-        kl_datum = st.text_input("Datum", value=st.session_state.get("stamm_datum", ""))
+        kl_datum = st.text_input(
+            "Datum", 
+            value=st.session_state.get("stamm_datum", ""),
+            key="stamm_datum"
+        )
     with c3: 
-        kl_kuerzel = st.text_input("Kürzel / Matrikel", value=st.session_state.get("stamm_kuerzel", ""))
-
-    # Das Editorfenster
-    current_text = st.text_area(
-        "", 
-        value=st.session_state["main_editor_key"],
-        height=600, 
-        key="main_editor_widget"
-    )
+        kl_kuerzel = st.text_input(
+            "Kürzel / Matrikel", 
+            value=st.session_state.get("stamm_kuerzel", ""),
+            key="stamm_kuerzel"
+        )
 
     # --- SPEICHER-LOGIK (WIRD BEI JEDEM REFRESH AUSGEFÜHRT) ---
     # Hier schreiben wir alle aktuellen Werte in den Browser-Speicher
