@@ -2,3 +2,4 @@ streamlit
 pymupdf
 pathlib
 streamlit-local-storage
+st-autorefresh
