@@ -100,16 +100,27 @@ def main():
     doc_parser = KlausurDocument()
     st_autorefresh(interval=30000, key="autosave_heartbeat")
 
-    # --- ERWEITERTES BACKUP LADEN ---
-    # Wir prüfen, ob wir schon Daten im State haben, sonst holen wir sie aus dem Browser
-    if "main_editor_key" not in st.session_state or st.session_state["main_editor_key"] == "":
+    # --- INITIALISIERUNG & BACKUP LADEN ---
+    # Wir laden die Daten direkt in die Keys, die die Widgets (Eingabefelder) nutzen
+    if "stamm_titel" not in st.session_state:
         try:
-            # Hier laden wir die Daten aus dem Browser in den Session State
-            st.session_state["main_editor_key"] = ls.getItem("iustwrite_backup") or ""
-            st.session_state["stamm_titel"] = ls.getItem("iustwrite_titel") or ""
-            st.session_state["stamm_datum"] = ls.getItem("iustwrite_datum") or ""
-            st.session_state["stamm_kuerzel"] = ls.getItem("iustwrite_kuerzel") or ""
+            # Daten aus dem LocalStorage holen
+            titel_backup = ls.getItem("iustwrite_titel")
+            datum_backup = ls.getItem("iustwrite_datum")
+            kuerzel_backup = ls.getItem("iustwrite_kuerzel")
+            editor_backup = ls.getItem("iustwrite_backup")
+
+            # In den Session State schreiben (nur wenn sie existieren)
+            st.session_state["stamm_titel"] = titel_backup if titel_backup else ""
+            st.session_state["stamm_datum"] = datum_backup if datum_backup else ""
+            st.session_state["stamm_kuerzel"] = kuerzel_backup if kuerzel_backup else ""
+            st.session_state["main_editor_key"] = editor_backup if editor_backup else ""
         except:
+            # Falls LocalStorage noch nicht bereit ist, leere Strings setzen
+            st.session_state["stamm_titel"] = ""
+            st.session_state["stamm_datum"] = ""
+            st.session_state["stamm_kuerzel"] = ""
+            st.session_state["main_editor_key"] = ""
             pass
     
     # CSS für maximale Breite, bewegliche Sidebar und LESERLICHE Schrift
@@ -193,19 +204,21 @@ def main():
         else:
             st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
 
-    # 1. ZUERST: Die Eingabefelder (Stammdaten)
+    # --- EDITOR AREA ---
     c1, c2, c3 = st.columns([3, 1, 1])
+    
     with c1: 
-        kl_titel = st.text_input("Titel", value=st.session_state.get("stamm_titel", ""), key="stamm_titel")
+        # KEIN 'value=' mehr nutzen, wenn 'key=' dabei ist!
+        kl_titel = st.text_input("Titel", key="stamm_titel")
     with c2: 
-        kl_datum = st.text_input("Datum", value=st.session_state.get("stamm_datum", ""), key="stamm_datum")
+        kl_datum = st.text_input("Datum", key="stamm_datum")
     with c3: 
-        kl_kuerzel = st.text_input("Kürzel / Matrikel", value=st.session_state.get("stamm_kuerzel", ""), key="stamm_kuerzel")
+        kl_kuerzel = st.text_input("Kürzel / Matrikel", key="stamm_kuerzel")
 
-    # 2. DANN: Das Editorfenster (Hier wird current_text definiert!)
+    # Das Editorfenster
     current_text = st.text_area(
         "", 
-        value=st.session_state.get("main_editor_key", ""),
+        value=st.session_state["main_editor_key"],
         height=600, 
         key="main_editor_widget"
     )
