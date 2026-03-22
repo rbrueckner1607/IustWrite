@@ -132,23 +132,26 @@ def main():
 
     st.title("⚖️ IustWrite Editor")
 
-    # --- SIDEBAR SETTINGS (EINGEKLAPPT) ---
+   # --- SIDEBAR SETTINGS (EINGEKLAPPT) ---
 
-   if st.sidebar.button("🗑️ Neues Gutachten", use_container_width=True, help="Löscht den aktuellen Text im Editor und im Browser-Backup."):
-    # Diese drei Zeilen MÜSSEN eingerückt sein (4 Leerzeichen)
-    st.session_state["main_editor_key"] = ""
-    try:
-        ls.removeItem("iustwrite_backup")
-    except:
-        pass
-    st.rerun()
+    # 1. DER "NEU"-BUTTON
+    if st.sidebar.button("🗑️ Neues Gutachten", use_container_width=True, help="Löscht den aktuellen Text im Editor und im Browser-Backup."):
+        # Alles hier drunter muss 4 Leerzeichen weiter rechts stehen als das 'if'
+        st.session_state["main_editor_key"] = ""
+        try:
+            ls.removeItem("iustwrite_backup")
+        except:
+            pass
+        st.rerun()
 
-# 2. TRENNLINIE UND BESTEHENDE EINSTELLUNGEN
-st.sidebar.markdown("---")
+    # 2. TRENNLINIE UND BESTEHENDE EINSTELLUNGEN
+    # Diese Zeile muss wieder auf derselben Ebene wie das 'if' stehen
+    st.sidebar.markdown("---")
     
     with st.sidebar.expander("⚙️ Layout-Einstellungen", expanded=False):
         rand_wert = st.text_input("Korrekturrand rechts (in cm)", value="6")
-        if not any(unit in rand_wert for unit in ['cm', 'mm']): rand_wert += "cm"
+        if not any(unit in rand_wert for unit in ['cm', 'mm']): 
+            rand_wert += "cm"
         zeilenabstand = st.selectbox("Zeilenabstand", options=["1.0", "1.2", "1.5", "2.0"], index=1)
         font_options = {"lmodern (Standard)": "lmodern", "Times": "mathptmx", "Palatino": "mathpazo", "Helvetica": "helvet"}
         font_choice = st.selectbox("Schriftart", options=list(font_options.keys()), index=0)
@@ -159,22 +162,6 @@ st.sidebar.markdown("---")
 
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
-
-    # --- CASE LOGIC ---
-    if fall_code:
-        pfad_zu_fall = os.path.join("fealle", f"{fall_code}.txt")
-        if os.path.exists(pfad_zu_fall):
-            with open(pfad_zu_fall, "r", encoding="utf-8") as f:
-                ganzer_text = f.read()
-            zeilen = ganzer_text.split('\n')
-            if zeilen:
-                sauberer_titel = re.sub(r'^#+\s*(Fall\s+\d+:\s*)?', '', zeilen[0]).strip()
-                rest_text = "\n".join(zeilen[1:]).strip()
-                with st.expander(f"📄 {sauberer_titel}", expanded=True):
-                    st.markdown(f'<div class="sachverhalt-box">{rest_text}</div>', unsafe_allow_html=True)
-        else:
-            st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
-
     # --- EDITOR AREA ---
     c1, c2, c3 = st.columns([3, 1, 1])
     with c1: kl_titel = st.text_input("Titel", "")
