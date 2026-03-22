@@ -99,22 +99,21 @@ def main():
     ls = LocalStorage() 
     doc_parser = KlausurDocument()
     
-    # 1. Autorefresh (alle 30 Sek) - Wir geben ihm einen fixen Key
+    # 1. Autorefresh
     st_autorefresh(interval=30000, key="autosave_heartbeat")
 
-    # 2. INITIAL-LADEN (Nur beim allerersten Start der App)
-    if "main_editor_key" not in st.session_state:
+    # 2. INITIALISIERUNG DES SESSION STATE
+    # Wir prüfen, ob die App zum ersten Mal lädt
+    if "initialized" not in st.session_state:
         try:
-            # Wir holen das Backup direkt aus dem Browser
             saved_text = ls.getItem("iustwrite_backup")
             st.session_state["main_editor_key"] = saved_text if saved_text else ""
-            
-            # Stammdaten ebenfalls einmalig laden
             st.session_state["stamm_titel"] = ls.getItem("iustwrite_titel") or ""
             st.session_state["stamm_datum"] = ls.getItem("iustwrite_datum") or ""
             st.session_state["stamm_kuerzel"] = ls.getItem("iustwrite_kuerzel") or ""
         except:
-            st.session_state["main_editor_key"] = ""
+            pass
+        st.session_state["initialized"] = True
 
     # --- 3. SESSION STATE INITIALISIEREN ---
     if "main_editor_key" not in st.session_state or not st.session_state["main_editor_key"]:
@@ -201,32 +200,33 @@ def main():
         else:
             st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
 
-    # 3. DIE EINGABEFELDER (Wir binden sie fest an den Session State via 'key')
+    # --- TITELZEILE ---
     c1, c2, c3 = st.columns([3, 1, 1])
     with c1: 
-        st.text_input("Titel", key="stamm_titel")
+        kl_titel = st.text_input("Titel", key="stamm_titel")
     with c2: 
-        st.text_input("Datum", key="stamm_datum")
+        kl_datum = st.text_input("Datum", key="stamm_datum")
     with c3: 
-        st.text_input("Kürzel / Matrikel", key="stamm_kuerzel")
+        kl_kuerzel = st.text_input("Kürzel / Matrikel", key="stamm_kuerzel")
 
-    # 4. DER EDITOR (Das Herzstück)
-    # WICHTIG: Kein 'value=', sondern nur 'key='. Das macht den State zum Chef.
+    # --- EDITOR ---
+    # Wir nutzen den State direkt als Key. 
+    # Änderungen in 'main_editor_key' fließen sofort in 'current_text'.
     current_text = st.text_area(
         "", 
         height=600, 
-        key="main_editor_key" # Direkt verknüpft mit dem State
+        key="main_editor_key"
     )
 
     # 5. SOFORT-BACKUP (Nach jeder Änderung)
-    # Wir schreiben die aktuellen Werte aus dem State zurück in den Browser
-    try:
-        ls.setItem("iustwrite_backup", st.session_state["main_editor_key"])
-        ls.setItem("iustwrite_titel", st.session_state["stamm_titel"])
-        ls.setItem("iustwrite_datum", st.session_state["stamm_datum"])
-        ls.setItem("iustwrite_kuerzel", st.session_state["stamm_kuerzel"])
-    except:
-        pass
+    if st.session_state["main_editor_key"]:
+        try:
+            ls.setItem("iustwrite_backup", st.session_state["main_editor_key"])
+            ls.setItem("iustwrite_titel", st.session_state["stamm_titel"])
+            ls.setItem("iustwrite_datum", st.session_state["stamm_datum"])
+            ls.setItem("iustwrite_kuerzel", st.session_state["stamm_kuerzel"])
+        except:
+            pass
 
     # --- NEU: ZEICHENZÄHLER ---
     if current_text:
