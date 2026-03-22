@@ -99,34 +99,15 @@ def main():
     ls = LocalStorage() 
     doc_parser = KlausurDocument()
     
-    # 1. Autorefresh
-    st_autorefresh(interval=30000, key="autosave_heartbeat")
-
-    # 2. INITIALISIERUNG DES SESSION STATE
-    # Wir prüfen, ob die App zum ersten Mal lädt
-    if "initialized" not in st.session_state:
-        try:
-            saved_text = ls.getItem("iustwrite_backup")
-            st.session_state["main_editor_key"] = saved_text if saved_text else ""
-            st.session_state["stamm_titel"] = ls.getItem("iustwrite_titel") or ""
-            st.session_state["stamm_datum"] = ls.getItem("iustwrite_datum") or ""
-            st.session_state["stamm_kuerzel"] = ls.getItem("iustwrite_kuerzel") or ""
-        except:
-            pass
-        st.session_state["initialized"] = True
-
-    # --- 3. SESSION STATE INITIALISIEREN ---
-    if "main_editor_key" not in st.session_state or not st.session_state["main_editor_key"]:
-        st.session_state["main_editor_key"] = e_saved
-
-    # --- INTERNE FUNKTION ZUM LÖSCHEN ---
+    # --- 1. DIE LÖSCH-FUNKTION (Nur einmal definieren) ---
     def reset_gutachten():
-        # Diese Zeilen MÜSSEN eingerückt sein (4 Leerzeichen)
+        # Session State leeren
         st.session_state["main_editor_key"] = ""
         st.session_state["stamm_titel"] = ""
         st.session_state["stamm_datum"] = ""
         st.session_state["stamm_kuerzel"] = ""
         
+        # Browser-Speicher leeren
         try:
             ls.removeItem("iustwrite_backup")
             ls.removeItem("iustwrite_titel")
@@ -135,6 +116,24 @@ def main():
         except:
             pass
         st.toast("Neues Gutachten gestartet.")
+
+    # --- 2. INITIAL-LADEN (Beim ersten Seitenaufruf) ---
+    if "initialized" not in st.session_state:
+        try:
+            st.session_state["main_editor_key"] = ls.getItem("iustwrite_backup") or ""
+            st.session_state["stamm_titel"] = ls.getItem("iustwrite_titel") or ""
+            st.session_state["stamm_datum"] = ls.getItem("iustwrite_datum") or ""
+            st.session_state["stamm_kuerzel"] = ls.getItem("iustwrite_kuerzel") or ""
+        except:
+            st.session_state["main_editor_key"] = ""
+            # Falls Felder fehlen, leer initialisieren
+            for k in ["stamm_titel", "stamm_datum", "stamm_kuerzel"]:
+                if k not in st.session_state: st.session_state[k] = ""
+        
+        st.session_state["initialized"] = True
+
+    # --- 3. UI-ELEMENTE (Autorefresh & Button) ---
+    st_autorefresh(interval=30000, key="autosave_heartbeat")
     
     # CSS für maximale Breite, bewegliche Sidebar und LESERLICHE Schrift
     st.markdown("""
@@ -174,13 +173,12 @@ def main():
 
    # --- SIDEBAR SETTINGS (EINGEKLAPPT) ---
 
-   # --- DER BUTTON IN DER SIDEBAR ---
-    # Beachte: 'on_click' ruft die Funktion oben auf, sobald geklickt wird.
+   # Der Button nutzt nun die oben definierte Funktion
     st.sidebar.button(
         "🗑️ Neues Gutachten", 
         on_click=reset_gutachten, 
-        use_container_width=True, 
-        help="Löscht den aktuellen Text im Editor und im Browser-Backup."
+        use_container_width=True,
+        help="Löscht Text und Backup."
     )
 
     # 2. TRENNLINIE UND BESTEHENDE EINSTELLUNGEN
