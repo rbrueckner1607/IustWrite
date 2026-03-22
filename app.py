@@ -118,6 +118,25 @@ def main():
     # --- 3. SESSION STATE INITIALISIEREN ---
     if "main_editor_key" not in st.session_state or not st.session_state["main_editor_key"]:
         st.session_state["main_editor_key"] = e_saved
+
+    def reset_gutachten():
+    # 1. Session State leeren
+    st.session_state["main_editor_key"] = ""
+    st.session_state["stamm_titel"] = ""
+    st.session_state["stamm_datum"] = ""
+    st.session_state["stamm_kuerzel"] = ""
+    
+    # LocalStorage leeren (via das ls-Objekt)
+    try:
+        ls.removeItem("iustwrite_backup")
+        ls.removeItem("iustwrite_titel")
+        ls.removeItem("iustwrite_datum")
+        ls.removeItem("iustwrite_kuerzel")
+    except:
+        pass
+    
+    # Optional: Ein kleiner Hinweis für den User
+    st.toast("Neues Gutachten erstellt. Speicher bereinigt.")
     
     # CSS für maximale Breite, bewegliche Sidebar und LESERLICHE Schrift
     st.markdown("""
@@ -157,15 +176,14 @@ def main():
 
    # --- SIDEBAR SETTINGS (EINGEKLAPPT) ---
 
-    # 1. DER "NEU"-BUTTON
-    if st.sidebar.button("🗑️ Neues Gutachten", use_container_width=True, help="Löscht den aktuellen Text im Editor und im Browser-Backup."):
-        # Alles hier drunter muss 4 Leerzeichen weiter rechts stehen als das 'if'
-        st.session_state["main_editor_key"] = ""
-        try:
-            ls.removeItem("iustwrite_backup")
-        except:
-            pass
-        st.rerun()
+   # --- DER BUTTON IN DER SIDEBAR ---
+    # Beachte: 'on_click' ruft die Funktion oben auf, sobald geklickt wird.
+    st.sidebar.button(
+        "🗑️ Neues Gutachten", 
+        on_click=reset_gutachten, 
+        use_container_width=True, 
+        help="Löscht den aktuellen Text im Editor und im Browser-Backup."
+    )
 
     # 2. TRENNLINIE UND BESTEHENDE EINSTELLUNGEN
     # Diese Zeile muss wieder auf derselben Ebene wie das 'if' stehen
