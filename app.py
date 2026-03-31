@@ -79,10 +79,13 @@ class KlausurDocument:
                 latex_output.append(line_s)
         return "\n".join(latex_output)
 
-# --- 2. HILFSFUNKTION: NORM-TEXT SCRAPEN ---
+# --- 2. HILFSFUNKTION: NORM-TEXT SCRAPEN (MIT BROWSER-TARNUNG) ---
 def fetch_norm_content(url):
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
     try:
-        response = requests.get(url, timeout=5)
+        response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         response.encoding = 'iso-8859-15' 
         soup = BeautifulSoup(response.text, 'html.parser')
