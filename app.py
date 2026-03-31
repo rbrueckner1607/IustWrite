@@ -221,6 +221,32 @@ def main():
     with st.sidebar.expander("📖 Fall abrufen", expanded=False):
         fall_code = st.text_input("Fall-Code eingeben")
 
+    # --- JETZT HIER DIE NORMEN EINBAUEN ---
+    if current_text:
+        # Sucht nach § 433 BGB oder Art. 1 GG
+        found_norms = re.findall(r'(§+|Art\.)\s*(\d+[a-z]?)\s*([A-Z]{2,5})', current_text)
+        
+        if found_norms:
+            st.sidebar.markdown("---")
+            st.sidebar.caption("🔗 Erkannte Normen")
+            
+            seen_norms = set()
+            # Erstellt 3 schmale Spalten direkt in der Sidebar
+            cols = st.sidebar.columns(3)
+            col_idx = 0
+            
+            for prefix, num, law in found_norms:
+                ref_label = f"{num} {law}"
+                # Eindeutige ID für den Button-Key ohne Leerzeichen
+                unique_id = f"side_btn_{prefix}_{num}_{law}".replace(" ", "").replace(".", "")
+                
+                if unique_id not in seen_norms:
+                    if cols[col_idx % 3].button(ref_label, key=unique_id, use_container_width=True):
+                        show_law_popup(num, law, prefix)
+                    
+                    seen_norms.add(unique_id)
+                    col_idx += 1
+
     st.sidebar.markdown("---")
     st.sidebar.title("📌 Gliederung")
 
