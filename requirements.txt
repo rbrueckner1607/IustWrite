@@ -3,3 +3,5 @@ pymupdf
 pathlib
 streamlit-local-storage
 streamlit-autorefresh
+requests
+beautifulsoup4
