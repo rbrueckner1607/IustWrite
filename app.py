@@ -2,6 +2,7 @@ import subprocess
 import os
 import re
 import streamlit as st
+import webbrowser
 import tempfile
 import shutil
 from pathlib import Path
@@ -83,6 +84,29 @@ class KlausurDocument:
                 line_s = line_s.replace('&', '\\&').replace('%', '\\%')
                 latex_output.append(line_s)
         return "\n".join(latex_output)
+        
+@st.dialog("Norm-Vorschau")
+def show_law_popup(num, law, prefix):
+    # Mapping für die URLs (erweiterbar)
+    mapping = {"BGB": "bgb", "GG": "gg", "STGB": "stgb", "ZPO": "zpo", "VWGOP": "vwgo"}
+    law_code = mapping.get(law.upper(), law.lower())
+    full_ref = f"{prefix} {num} {law}"
+    
+    # URL Logik (Unterscheidung Art. vs §)
+    url_prefix = "art" if "Art" in prefix or law.upper() == "GG" else "__"
+    clean_num = re.sub(r'[^0-9a-z]', '', num.lower())
+    url = f"https://www.gesetze-im-internet.de/{law_code}/{url_prefix}_{clean_num}.html"
+    
+    st.subheader(full_ref)
+    
+    # Textfeld zum einfachen Kopieren der Zitation
+    st.text_input("Zitation kopieren:", value=full_ref)
+    
+    # Der Link zur echten Seite
+    st.link_button("🌐 Auf gesetze-im-internet.de öffnen", url, use_container_width=True)
+    
+    st.divider()
+    st.caption("Nutze Strg+C im Textfeld oben, um die Norm schnell zu kopieren.")
 
 # --- UI CONFIG ---
 st.set_page_config(page_title="IustWrite Editor", layout="wide", initial_sidebar_state="expanded")
@@ -213,6 +237,34 @@ def main():
                     st.markdown(f'<div class="sachverhalt-box">{rest_text}</div>', unsafe_allow_html=True)
         else:
             st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
+   
+    # --- START NORMEN-LOGIK ---
+    if current_text:
+        # Wir suchen im Text nach Mustern wie § 433 BGB oder Art. 1 GG
+        found_norms = re.findall(r'(§+|Art\.)\s*(\d+[a-z]?)\s*([A-Z]{2,5})', current_text)
+        
+        if found_norms:
+            st.sidebar.markdown("---")
+            st.sidebar.caption("🔗 Erkannte Normen")
+            
+            seen_norms = set()
+            # Erstellt 3 schmale Spalten nebeneinander
+            cols = st.sidebar.columns(3)
+            col_idx = 0
+            
+            for prefix, num, law in found_norms:
+                ref_label = f"{num} {law}"
+                unique_id = f"{prefix}_{num}_{law}"
+                
+                if unique_id not in seen_norms:
+                    # Kleiner, unaufdringlicher Button
+                    if cols[col_idx % 3].button(ref_label, key=f"btn_{unique_id}", use_container_width=True):
+                        show_law_popup(num, law, prefix)
+                    
+                    seen_norms.add(unique_id)
+                    col_idx += 1
+    # --- ENDE NORMEN-LOGIK ---
+            
 
     # --- TITELZEILE ---
     c1, c2, c3 = st.columns([3, 1, 1])
