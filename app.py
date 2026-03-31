@@ -237,7 +237,25 @@ def main():
                     st.markdown(f'<div class="sachverhalt-box">{rest_text}</div>', unsafe_allow_html=True)
         else:
             st.sidebar.error(f"Fall {fall_code} nicht gefunden.")
-   
+            
+    # --- TITELZEILE ---
+    c1, c2, c3 = st.columns([3, 1, 1])
+    with c1: 
+        kl_titel = st.text_input("Titel", key="stamm_titel")
+    with c2: 
+        kl_datum = st.text_input("Datum", key="stamm_datum")
+    with c3: 
+        kl_kuerzel = st.text_input("Kürzel / Matrikel", key="stamm_kuerzel")
+
+    # --- EDITOR ---
+    # Wir nutzen den State direkt als Key. 
+    # Änderungen in 'main_editor_key' fließen sofort in 'current_text'.
+    current_text = st.text_area(
+        "", 
+        height=600, 
+        key="main_editor_key"
+    )
+
     # --- START NORMEN-LOGIK ---
     if current_text:
         # Wir suchen im Text nach Mustern wie § 433 BGB oder Art. 1 GG
@@ -264,25 +282,6 @@ def main():
                     seen_norms.add(unique_id)
                     col_idx += 1
     # --- ENDE NORMEN-LOGIK ---
-            
-
-    # --- TITELZEILE ---
-    c1, c2, c3 = st.columns([3, 1, 1])
-    with c1: 
-        kl_titel = st.text_input("Titel", key="stamm_titel")
-    with c2: 
-        kl_datum = st.text_input("Datum", key="stamm_datum")
-    with c3: 
-        kl_kuerzel = st.text_input("Kürzel / Matrikel", key="stamm_kuerzel")
-
-    # --- EDITOR ---
-    # Wir nutzen den State direkt als Key. 
-    # Änderungen in 'main_editor_key' fließen sofort in 'current_text'.
-    current_text = st.text_area(
-        "", 
-        height=600, 
-        key="main_editor_key"
-    )
 
     # 5. SOFORT-BACKUP (Nach jeder Änderung)
     if st.session_state["main_editor_key"]:
