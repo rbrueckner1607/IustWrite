@@ -66,36 +66,34 @@ class KlausurDocument:
             # --- 2. BLOCK: Verarbeitung der normalen Überschriften (In Gliederung) ---
             if not found_level:
                 for level, pattern in self.prefix_patterns.items():
-                      if re.match(pattern, line_s):
-                         if level >= 3:
+                    if re.match(pattern, line_s):
+                        if level >= 3:
                             cmd = "subsubsection*"
-                         elif level == 2:
+                        elif level == 2:
                             cmd = "subsection*"
-                         else:
+                        else:
                             cmd = "section*"
-            
-                         # --- INDIVIDUELLE EINRÜCKUNG (PDF TOC) ---
-                         # Hier definieren wir die Abstände manuell:
-                         if level == 1:   # Teil 1
+                        
+                        # --- INDIVIDUELLE EINRÜCKUNG (PDF TOC) ---
+                        if level == 1:   # Teil 1
                             indent_val = 0.0
-                         elif level == 2: # A. (Abstand zu Level 1 geringer)
+                        elif level == 2: # A.
                             indent_val = 0.8
-                         elif level == 3: # I. (Abstand zu Level 2 geringer)
+                        elif level == 3: # I.
                             indent_val = 1.6
-                         else:            # Ab Level 4 (1., a), aa), (1)...) größere Sprünge
-                         # Rechnet ab Level 3 in 1.2er Schritten weiter
+                        else:            # Ab Level 4 (1., a), aa), (1)...)
+                            # Rechnet ab Level 3 in 1.2er Schritten weiter
                             indent_val = 1.6 + (level - 3) * 1.2
-            
-                         toc_indent = f"{indent_val}em"
-            
-                         latex_output.append(f"\\{cmd}{{{line_s}}}")
-            
-                         toc_cmd = "subsubsection" if level >= 3 else cmd.replace("*", "")
-                         latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{toc_indent}}}{line_s}}}")
-            
-                         found_level = True
-                         break
-
+                        
+                        toc_indent = f"{indent_val}em"
+                        
+                        latex_output.append(f"\\{cmd}{{{line_s}}}")
+                        
+                        toc_cmd = "subsubsection" if level >= 3 else cmd.replace("*", "")
+                        latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{toc_indent}}}{line_s}}}")
+                        
+                        found_level = True
+                        break
             if not found_level:
                 line_s = re.sub(self.footnote_pattern, r'\\footnote{\1}', line_s)
                 line_s = line_s.replace('&', '\\&').replace('%', '\\%')
