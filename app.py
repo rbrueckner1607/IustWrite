@@ -17,10 +17,10 @@ class KlausurDocument:
             3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.(\s|$)',
             4: r'^\s*\d+\.(\s|$)',
             5: r'^\s*[a-z]\)\s*',
-            6: r'^\s*\(\d+\)\s*',       
-            7: r'^\s*[a-z]{2}\)\s*',
-            8: r'^\s*\([a-z]\)\s*', 
-            9: r'^\s*\([a-z]{2}\)\s*'
+            6: r'^\s*\(\d+\)\s*',       # NEU: (1)
+            7: r'^\s*[a-z]{2}\)\s*',    # aa)
+            8: r'^\s*\([a-z]\)\s*',     # (a)
+            9: r'^\s*\([a-z]{2}\)\s*'   # (aa)
         }
 
         # Falls du die Sternchen-Logik (versteckte Gliederung) 
