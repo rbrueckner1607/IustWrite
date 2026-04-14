@@ -80,7 +80,7 @@ class KlausurDocument:
                         if level == 1:   # Teil 1
                             indent_val = 0.0
                         elif level == 2: # A.
-                            indent_val = -0.8
+                            indent_val = -1.6
                         elif level == 3: # I.
                             indent_val = -1.6
                         else:            # Ab Level 4 (1., a), aa), (1)...)
