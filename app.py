@@ -16,18 +16,22 @@ class KlausurDocument:
             2: r'^\s*[A-H]\.(\s|$)',
             3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.(\s|$)',
             4: r'^\s*\d+\.(\s|$)',
-            5: r'^\s*[a-z]\)\s*',       
-            6: r'^\s*[a-z]{2}\)\s*',    
-            7: r'^\s*\([a-z]\)\s*',     
-            8: r'^\s*\([a-z]{2}\)\s*'   
+            5: r'^\s*[a-z]\)\s*',
+            6: r'^\s*\(\d+\)\s*',       
+            7: r'^\s*[a-z]{2}\)\s*',
+            8: r'^\s*\([a-z]\)\s*', 
+            9: r'^\s*\([a-z]{2}\)\s*'
         }
 
+        # Falls du die Sternchen-Logik (versteckte Gliederung) 
+        # ebenfalls erweitern willst, hier das neue Pattern:
         self.star_patterns = {
             1: r'^\s*(Teil|Tatkomplex|Aufgabe)\s+\d+\*(\s|$)',
             2: r'^\s*[A-H]\*(\s|$)',
             3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\*(\s|$)',
             4: r'^\s*\d+\*(\s|$)',
-            5: r'^\s*[a-z]\)\*(\s|$)'
+            5: r'^\s*[a-z]\)\*(\s|$)',
+            6: r'^\s*\(\d+\)\*(\s|$)'
         }
 
         self.footnote_pattern = r'\\fn\((.*?)\)'
@@ -323,8 +327,8 @@ def main():
 \usepackage{geometry}
 \usepackage{fancyhdr}
 \geometry{left=2cm, right=2cm, top=2.5cm, bottom=3cm}
-\setcounter{tocdepth}{8}
-\setcounter{secnumdepth}{8}
+\setcounter{tocdepth}{9}
+\setcounter{secnumdepth}{9}
 \setlength{\parindent}{0pt}
 
 \fancypagestyle{iustwrite}{
