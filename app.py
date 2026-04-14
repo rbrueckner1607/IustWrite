@@ -63,7 +63,7 @@ class KlausurDocument:
                     found_level = True
                     break
 
-            # --- 2. BLOCK: Verarbeitung der normalen Überschriften (In Gliederung) ---
+           # --- 2. BLOCK: Verarbeitung der normalen Überschriften (In Gliederung) ---
             if not found_level:
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
@@ -74,19 +74,21 @@ class KlausurDocument:
                         else:
                             cmd = "section*"
                         
-                        # --- INDIVIDUELLE EINRÜCKUNG (PDF TOC) ---
+                        # --- FORMATIERUNG & EINRÜCKUNG ---
                         if level == 1:   # Teil 1
-                            indent_val = 0.0
                             display_text = f"\\textbf{{{line_s}}}"
+                            indent_val = 0.0
                         else:
+                            # Standard für alle anderen Ebenen: nicht fett
                             display_text = line_s
-                        elif level == 2: # A.
-                            indent_val = -1.8
-                        elif level == 3: # I.
-                            indent_val = -2.0
-                        else:            # Ab Level 4 (1., a), aa), (1)...)
-                            # Rechnet ab Level 3 in 1.2er Schritten weiter
-                            indent_val = -2.0 + (level - 3) * 1.0
+                            
+                            # Spezifische Einrückungen für die Ebenen ab 2
+                            if level == 2:   # A.
+                                indent_val = -1.8
+                            elif level == 3: # I.
+                                indent_val = -2.0
+                            else:            # Ab Level 4 (1., a), aa), (1)...)
+                                indent_val = -2.0 + (level - 3) * 1.0
                         
                         toc_indent = f"{indent_val}em"
                         
@@ -94,6 +96,7 @@ class KlausurDocument:
                         
                         toc_cmd = "subsubsection" if level >= 3 else cmd.replace("*", "")
                         latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{toc_indent}}}{display_text}}}")
+                        
                         found_level = True
                         break
             if not found_level:
