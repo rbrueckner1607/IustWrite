@@ -17,10 +17,10 @@ class KlausurDocument:
             3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.(\s|$)',
             4: r'^\s*\d+\.(\s|$)',
             5: r'^\s*[a-z]\)\s*',
-            6: r'^\s*[a-z]{2}\)\s*',    # aa) bleibt Level 6
-            7: r'^\s*\(\d+\)\s*',       # (1) wird Level 7
-            8: r'^\s*\([a-z]\)\s*',     # (a)
-            9: r'^\s*\([a-z]{2}\)\s*'   # (aa)
+            6: r'^\s*[a-z]{2}\)\s*',   
+            7: r'^\s*\(\d+\)\s*',       
+            8: r'^\s*\([a-z]\)\s*', 
+            9: r'^\s*\([a-z]{2}\)\s*' 
         }
 
         # Falls du die Sternchen-Logik (versteckte Gliederung) 
@@ -80,9 +80,9 @@ class KlausurDocument:
                         if level == 1:   # Teil 1
                             indent_val = 0.0
                         elif level == 2: # A.
-                            indent_val = 0.8
+                            indent_val = -0.8
                         elif level == 3: # I.
-                            indent_val = 1.6
+                            indent_val = -1.6
                         else:            # Ab Level 4 (1., a), aa), (1)...)
                             # Rechnet ab Level 3 in 1.2er Schritten weiter
                             indent_val = 1.6 + (level - 3) * 1.2
