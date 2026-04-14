@@ -85,7 +85,7 @@ class KlausurDocument:
                             indent_val = -1.6
                         else:            # Ab Level 4 (1., a), aa), (1)...)
                             # Rechnet ab Level 3 in 1.2er Schritten weiter
-                            indent_val = 1.6 + (level - 3) * 1.2
+                            indent_val = -1.6 + (level - 3) * 1.2
                         
                         toc_indent = f"{indent_val}em"
                         
