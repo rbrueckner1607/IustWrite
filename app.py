@@ -254,6 +254,11 @@ def main():
     with c3: 
         kl_kuerzel = st.text_input("Kürzel / Matrikel", key="stamm_kuerzel")
 
+    if kl_datum.strip():
+        titel_komp = f"{kl_titel} ({kl_datum})"
+    else:
+        titel_komp = kl_titel
+
     # --- EDITOR ---
     # Wir nutzen den State direkt als Key. 
     # Änderungen in 'main_editor_key' fließen sofort in 'current_text'.
@@ -325,7 +330,10 @@ def main():
         # TEX-Button (Direkt darunter in derselben Spalte)
         # Wir bereiten den Inhalt vor
         parsed_content = doc_parser.parse_content(current_text.split('\n'))
-        titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
+        if kl_datum.strip():
+            titel_komp = f"{kl_titel} ({kl_datum})"
+        else:
+            titel_komp = kl_titel
         
         font_latex = f"\\usepackage{{{selected_font_package}}}"
         if "helvet" in selected_font_package: 
@@ -403,7 +411,10 @@ def main():
 
             with st.spinner("PDF wird erstellt..."):
                 parsed_content = doc_parser.parse_content(current_text.split('\n'))
-                titel_komp = f"{kl_titel} ({kl_datum})" if kl_datum.strip() else kl_titel
+                if kl_datum.strip():
+                    titel_komp = f"{kl_titel} ({kl_datum})"
+                else:
+                    titel_komp = kl_titel
                 
                 font_latex = f"\\usepackage{{{selected_font_package}}}"
                 if "helvet" in selected_font_package: font_latex += "\n\\renewcommand{\\familydefault}{\\sfdefault}"
