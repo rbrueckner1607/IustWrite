@@ -68,7 +68,8 @@ class KlausurDocument:
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
                         display_text = f"\\textbf{{{line_s}}}"
-                        
+                        else:
+                            display_text = line_s
                         if level >= 3:
                             cmd = "subsubsection*"
                         elif level == 2:
