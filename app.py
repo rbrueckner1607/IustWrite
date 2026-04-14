@@ -67,7 +67,7 @@ class KlausurDocument:
             if not found_level:
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
-                        display_text = f"\\textbf{{{line_s}}}" if level == 1 else line_s
+                        display_text = f"\\textbf{{{line_s}}}"
                         
                         if level >= 3:
                             cmd = "subsubsection*"
@@ -89,11 +89,10 @@ class KlausurDocument:
                         
                         toc_indent = f"{indent_val}em"
                         
-                        latex_output.append(f"\\{cmd}{{{line_s}}}")
+                        latex_output.append(f"\\{cmd}{{{display_text}}}")
                         
                         toc_cmd = "subsubsection" if level >= 3 else cmd.replace("*", "")
-                        latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{toc_indent}}}{line_s}}}")
-                        
+                        latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{toc_indent}}}{display_text}}}")
                         found_level = True
                         break
             if not found_level:
