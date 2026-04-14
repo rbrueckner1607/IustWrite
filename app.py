@@ -17,8 +17,8 @@ class KlausurDocument:
             3: r'^\s*(I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX)\.(\s|$)',
             4: r'^\s*\d+\.(\s|$)',
             5: r'^\s*[a-z]\)\s*',
-            6: r'^\s*\(\d+\)\s*',       # NEU: (1)
-            7: r'^\s*[a-z]{2}\)\s*',    # aa)
+            6: r'^\s*[a-z]{2}\)\s*',    # aa) bleibt Level 6
+            7: r'^\s*\(\d+\)\s*',       # (1) wird Level 7
             8: r'^\s*\([a-z]\)\s*',     # (a)
             9: r'^\s*\([a-z]{2}\)\s*'   # (aa)
         }
@@ -67,18 +67,26 @@ class KlausurDocument:
             if not found_level:
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
+                        # Bestimmung des LaTeX-Befehls
                         if level >= 3:
                             cmd = "subsubsection*"
                         elif level == 2:
                             cmd = "subsection*"
                         else:
                             cmd = "section*"
-                        
-                        toc_indent = f"{max(0, level - 1)}em" 
+            
+                        # --- EINRÜCKUNG BERECHNEN ---
+                        # Wir nutzen 1.5em pro Level, damit (1) deutlich eingerückt hinter aa) steht
+                        indent_val = (level - 1) * 1.5
+                        toc_indent = f"{indent_val}em"
+            
+                        # Haupttext im Dokument
                         latex_output.append(f"\\{cmd}{{{line_s}}}")
-                        
+            
+                        # Eintrag ins Inhaltsverzeichnis
                         toc_cmd = "subsubsection" if level >= 3 else cmd.replace("*", "")
                         latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{toc_indent}}}{line_s}}}")
+            
                         found_level = True
                         break
 
