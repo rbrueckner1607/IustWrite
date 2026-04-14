@@ -67,9 +67,6 @@ class KlausurDocument:
             if not found_level:
                 for level, pattern in self.prefix_patterns.items():
                     if re.match(pattern, line_s):
-                        display_text = f"\\textbf{{{line_s}}}"
-                        else:
-                        display_text = line_s
                         if level >= 3:
                             cmd = "subsubsection*"
                         elif level == 2:
@@ -80,6 +77,9 @@ class KlausurDocument:
                         # --- INDIVIDUELLE EINRÜCKUNG (PDF TOC) ---
                         if level == 1:   # Teil 1
                             indent_val = 0.0
+                            display_text = f"\\textbf{{{line_s}}}"
+                        else:
+                            display_text = line_s
                         elif level == 2: # A.
                             indent_val = -1.8
                         elif level == 3: # I.
