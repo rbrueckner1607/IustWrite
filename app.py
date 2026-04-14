@@ -92,11 +92,11 @@ class KlausurDocument:
                             indent_val = 0.0
                         else:
                             if level == 2:
-                                indent_val = -1.8
+                                indent_val = -1.5
                             elif level == 3:
-                                indent_val = -2.0
+                                indent_val = -1.8
                             else:
-                                indent_val = -2.0 + (level - 3) * 1.0
+                                indent_val = -1.8 + (level - 3) * 1.0
                         
                         toc_indent = f"{indent_val}em"
                         
