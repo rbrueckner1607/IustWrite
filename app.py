@@ -66,24 +66,30 @@ class KlausurDocument:
             # --- 2. BLOCK: Verarbeitung der normalen Überschriften (In Gliederung) ---
             if not found_level:
                 for level, pattern in self.prefix_patterns.items():
-                    if re.match(pattern, line_s):
-                        # Bestimmung des LaTeX-Befehls
-                        if level >= 3:
+                      if re.match(pattern, line_s):
+                         if level >= 3:
                             cmd = "subsubsection*"
-                        elif level == 2:
+                         elif level == 2:
                             cmd = "subsection*"
                         else:
                             cmd = "section*"
             
-                        # --- EINRÜCKUNG BERECHNEN ---
-                        # Wir nutzen 1.5em pro Level, damit (1) deutlich eingerückt hinter aa) steht
-                        indent_val = (level - 1) * 1.5
+                        # --- INDIVIDUELLE EINRÜCKUNG (PDF TOC) ---
+                        # Hier definieren wir die Abstände manuell:
+                        if level == 1:   # Teil 1
+                            indent_val = 0.0
+                        elif level == 2: # A. (Abstand zu Level 1 geringer)
+                            indent_val = 0.8
+                        elif level == 3: # I. (Abstand zu Level 2 geringer)
+                            indent_val = 1.6
+                        else:            # Ab Level 4 (1., a), aa), (1)...) größere Sprünge
+                        # Rechnet ab Level 3 in 1.2er Schritten weiter
+                            indent_val = 1.6 + (level - 3) * 1.2
+            
                         toc_indent = f"{indent_val}em"
             
-                        # Haupttext im Dokument
                         latex_output.append(f"\\{cmd}{{{line_s}}}")
             
-                        # Eintrag ins Inhaltsverzeichnis
                         toc_cmd = "subsubsection" if level >= 3 else cmd.replace("*", "")
                         latex_output.append(f"\\addcontentsline{{toc}}{{{toc_cmd}}}{{\\hspace{{{toc_indent}}}{line_s}}}")
             
