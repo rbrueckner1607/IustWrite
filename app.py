@@ -255,8 +255,11 @@ def main():
         with tab_format:
             st.markdown("### 3. Manuelle LaTeX-Befehle")
             st.write("Für den Feinschliff im Gutachtenstil kannst du diese Befehle nutzen:")
+
+            st.markdown("**Seiteneinstellungen:**")
+            st.code("\Unter `Layout-Einstellungen` kannst du die Schriftart, den Zeilenabstand und die breite des rechten Randes einstellen. Der Rand links ist automatisch immer auf 2.5 cm gesetzt.")
             
-            st.markdown("**Schrifttypen:**")
+            st.markdown("**Textformatierung:**")
             st.code("\\textbf{fett}\n\\textit{kursiv}\n\\underline{unterstrichen}")
             
             st.markdown("**Layout-Steuerung:**")
