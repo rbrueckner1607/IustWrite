@@ -318,17 +318,17 @@ def main():
             """)
       
         with tab_video:
-            st.write("Schau dir dieses Tutorial an, um die Funktionen des Editors zu verstehen:")
+            st.markdown("###5. Video-Anleitung")
             
-            # HTML-Einbettung mit aktiviertem Vollbildmodus
-            video_html = """
-                <iframe width="100%" height="315" 
-                src="https://www.youtube.com/embed/rFBCXoqs2cU" 
-                frameborder="0" 
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                allowfullscreen></iframe>
-            """
-            st.components.v1.html(video_html, height=350)
+            # Einbettung für die schnelle Ansicht
+            st.video("https://youtu.be/rFBCXoqs2cU")
+            
+            # Großer Button für echtes Vollbild in neuem Tab
+            st.link_button("📺 Video im Vollbild öffnen (YouTube)", 
+                           "https://youtu.be/rFBCXoqs2cU", 
+                           use_container_width=True)
+            
+            st.info("Hinweis: Da das Handbuch in einem Popover-Fenster liegt, blockieren manche Browser den Vollbildmodus innerhalb dieses Fensters. Nutze den Button oben für die beste Ansicht.")
             
         with tab_dsgvo:
             st.success("### 6. Datensicherheit & DSGVO")
