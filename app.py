@@ -241,7 +241,7 @@ def main():
             st.markdown("### Manuelle LaTeX-Befehle")
             st.code("\\\\textbf{fett} \n\\\\textit{kursiv} \n\\\\underline{unterstrichen}")
             st.markdown("""
-            - `\\\\\\\\` oder `\\\\par`: Manueller Umbruch
+            - `\\\\` oder `\\par`: Manueller Umbruch
             - `\\\\noindent`: Zeile linksbündig (keine Einrückung)
             - `\\\\vspace{1cm}`: Vertikaler Abstand
             - `\\\\fn(Text)`: Fußnote setzen
