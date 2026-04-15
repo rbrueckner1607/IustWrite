@@ -341,7 +341,7 @@ def main():
             * **Lokale Souveränität (LocalStorage):** Das Auto-Save-Backup nutzt den *LocalStorage* deines eigenen Browsers. Das bedeutet: Die Sicherung deines Textes verlässt nie dein Endgerät, bis du explizit auf 'PDF generieren' klickst.
             * **Keine KI-Verwertung:** Im Gegensatz zu kommerziellen Online-Editoren werden deine juristischen Ausführungen **nicht** zur Verbesserung von Sprachmodellen (LLM) oder zu Analysezwecken ausgewertet.
             
-            **Tipp:** Nutze den Button **'Neues Gutachten'**, um auch das lokale Backup in deinem Browser aktiv zu bereinigen.
+            **Tipp:** Nutze den Button `Neues Gutachten`, um auch das lokale Backup in deinem Browser aktiv zu bereinigen.
             """)
 
     # --- ENDE DES POPOVER BLOCKS ---
