@@ -276,8 +276,7 @@ def main():
             - **Keine Speicherung:** Wir speichern deine Texte nicht dauerhaft und nutzen sie nicht für KI-Training.
             - **Lokales Backup:** Die Sicherheitsspeicherung (Auto-Save alle 30s) erfolgt **nur lokal in deinem Browser**.
             """)
-
-    # --- WICHTIG: Die nächste Zeile muss wieder eine Ebene weiter links stehen! ---
+   
     st.sidebar.markdown("---")
 
    # Der Button nutzt nun die oben definierte Funktion
