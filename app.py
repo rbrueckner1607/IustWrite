@@ -208,7 +208,7 @@ def main():
     with st.sidebar.popover("💡 Anleitung & Datenschutz", use_container_width=True):
         st.markdown("# ⚖️ IustWrite Editor Handbuch")
         
-        tab_anleitung, tab_gliederung, tab_format, tab_storage, tab_dsgvo = st.tabs(["📖 Anleitung", "⌨️ Gliederung", "🎨 Formatierung", "💾 Speichern & Laden", "🛡️ DSGVO"])
+        tab_anleitung, tab_gliederung, tab_format, tab_storage, tab_video, tab_dsgvo = st.tabs(["📖 Anleitung", "⌨️ Gliederung", "🎨 Formatierung", "💾 Speichern & Laden", "🎥 Video-Tutorial", "🛡️ DSGVO"])
         
         with tab_anleitung:
             st.markdown("### 1. Grundlegende Bedienung")
@@ -316,9 +316,15 @@ def main():
             **Pro-Tipp:** Erstelle regelmäßig Sicherungskopien deiner `.txt`-Datei. Das PDF ist das Endprodukt, 
             aber nur die `.txt`-Datei erlaubt es dir, später Änderungen vorzunehmen!
             """)
-        
+      
+        with tab_video:
+            st.markdown("###5. Video-Anleitung")
+            st.write("Schau dir dieses kurze Tutorial an, um die Funktionen des Editors in Aktion zu sehen:")
+            # Hier wird das Video direkt eingebettet
+            st.video("https://youtu.be/rFBCXoqs2cU")
+            
         with tab_dsgvo:
-            st.success("### 5. Datensicherheit & DSGVO")
+            st.success("### 6. Datensicherheit & DSGVO")
             st.markdown("""
             Dieses Tool wurde nach dem Prinzip **'Privacy by Design'** entwickelt und nutzt die native Architektur von Streamlit zur maximalen Datentrennung:
             
