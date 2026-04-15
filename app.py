@@ -273,9 +273,6 @@ def main():
             st.markdown("**Layout-Steuerung:**")
             st.code("\\\\ oder \\par      --> Neuer Absatz / Umbruch\n\\noindent         --> Keine Einrückung (linksbündig)\n\\vspace{1cm}      --> Vertikaler Abstand\n\\medskip          --> Standard-Abstand")
             
-            st.markdown("**Spezialfunktionen:**")
-            st.code("\\fn(Text)         --> Automatische Fußnote\n\\red{Text}         --> Text in Rot\n\\blue{Text}        --> Text in Blau\n\\green{Text}       --> Text in Grün")
-
             st.markdown("**Geschützte Leerzeichen (Tipp):**")
             st.write("""
             Damit Paragraphenzeichen oder Artikel nicht unschön am Zeilenende isoliert werden, nutze die **Tilde `~`**. 
