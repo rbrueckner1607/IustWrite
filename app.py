@@ -256,8 +256,15 @@ def main():
             st.markdown("### 3. Manuelle LaTeX-Befehle")
             st.write("Für den Feinschliff im Gutachtenstil kannst du diese Befehle nutzen:")
 
-            st.markdown("**Seiteneinstellungen:**")
-            st.code("\Unter `Layout-Einstellungen` kannst du die Schriftart, den Zeilenabstand und die breite des rechten Randes einstellen. Der Rand links ist automatisch immer auf 2.5 cm gesetzt.")
+            st.write("""
+            Über das Menü **Layout-Einstellungen** in der Seitenleiste hast du die volle Kontrolle über das Erscheinungsbild deines Dokuments:
+            
+            * **Schriftart:** Wähle zwischen dem Standard `lmodern`, `Times`, `Palatino` oder `Helvetica`.
+            * **Zeilenabstand:** Wähle zwischen `1.0`, `1.2`, `1.5` oder `2.0` Zeilen (Standard ist `1.2`).
+            * **Korrekturrand:** Den rechten Rand kannst du flexibel anpassen (z.B. `6cm` oder `7cm`). 
+            
+            **Hinweis:** Der linke Rand ist nach gängigen Standards fest auf **2.5 cm** eingestellt, um eine optimale Lesbarkeit und Platz für die Lochung zu garantieren.
+            """)
             
             st.markdown("**Textformatierung:**")
             st.code("\\textbf{fett}\n\\textit{kursiv}\n\\underline{unterstrichen}")
