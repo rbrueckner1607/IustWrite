@@ -247,8 +247,9 @@ def main():
             | **9** | `(aa)`| Doppel-Buchstabe in Klammern |
             
             **Profitipps für Profis:**
-            * **Erzwungener Fettdruck:** Wenn du ein Sternchen ans Ende der Zeile setzt (z.B. `A. Diebstahl*`), 
-              wird die Überschrift im Textteil fett gedruckt, im Verzeichnis aber normal.
+            * **Erzwungener Fettdruck:** Standarmäßig wird nur die Ebene 1 in der Gliederung fett dargestellt. 
+            Wenn du aber ein Sternchen ans Ende der Zeile setzt (z.B. `A. Diebstahl*`), 
+              wird die Überschrift in der Gleiderung fett gedruckt, dies ist z.B. im Strafrecht sinnvoll um eine übersichtliche Gliederung zu erhalten.
             * **Versteckte Gliederung:** Nutzt du den Stern direkt nach dem Kürzel (z.B. `A*`), erscheint 
               die Überschrift ohne Nummerierung und wird nicht ins Inhaltsverzeichnis aufgenommen.
             """)
