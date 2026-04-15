@@ -232,7 +232,7 @@ def main():
 
         with tab_gliederung:
             st.markdown("### 2. Die 9 Gliederungsebenen")
-            st.write("Eingaben werden auotmatisch als Überschriften erkannt und korrekt formatiert. Bitte verwende konsequent die standartmäßige alpha-numerische Gliederungslogik. Beginne bei einer neuen Überschrift einfach in einer jeweils neuen Zeile, um die Hierarchie zu steuern. ")
+            st.write("Eingaben werden automatisch als Überschriften erkannt und korrekt formatiert. Bitte verwende konsequent die standardmäßige alphanumerische Gliederungslogik. Beginne bei einer neuen Überschrift einfach in einer jeweils neuen Zeile, um die Hierarchie zu steuern.")
             st.markdown("""
             | Ebene | Kürzel / Beispiel | Typ |
             | :--- | :--- | :--- |
