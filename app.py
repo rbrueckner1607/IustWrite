@@ -208,76 +208,54 @@ def main():
     with st.sidebar.popover("💡 Hilfe, Befehle & Datenschutz", use_container_width=True):
         st.markdown("# ⚖️ IustWrite Handbuch")
         
-        # Definition der Tabs
+        # Tabs definieren
         tab_anleitung, tab_gliederung, tab_format, tab_dsgvo = st.tabs([
             "📖 Anleitung", "⌨️ Gliederung", "🎨 Formatierung", "🛡️ DSGVO"
         ])
         
         with tab_anleitung:
-            st.markdown("""
-            ### Funktionsweise des Editors
-            Dieser Editor wandelt einfachen Text in ein professionelles LaTeX-Layout um.
-            
-            **Der Workflow:**
-            1. **Stammdaten:** Titel, Datum und Kürzel oben eingeben. (Datum ist optional; Kürzel = Name/Kurs).
-            2. **Schreiben:** Text im Editor verfassen. Die **Zeichenstatistik** erscheint live darunter.
-            3. **Darkmode-Warnung:** Falls die Oberfläche schlecht lesbar ist, bitte den **Darkmode des Browsers ausschalten**.
-            4. **Export:** - `.txt`: Zum Speichern (später über 'Datei laden' öffnen).
-               - `.pdf`: Erstellt das finale Dokument.
-               - `.tex`: Exportiert den reinen LaTeX-Code.
-            """)
+            st.markdown("### Funktionsweise des Editors")
+            st.markdown("Dieser Editor wandelt Text in ein LaTeX-Layout um.")
+            st.markdown("1. **Stammdaten:** Titel, Datum & Kürzel oben eingeben.")
+            st.markdown("2. **Schreiben:** Text verfassen, Kürzel am Zeilenanfang nutzen.")
+            st.markdown("3. **Export:** Als `.txt` (Sicherung) oder `.pdf` (Abgabe).")
+            st.warning("⚠️ Bei Anzeige-Problemen bitte den **Darkmode ausschalten**.")
 
         with tab_gliederung:
-            st.markdown("### Automatische Gliederung")
-            st.write("Schreibe diese Kürzel an den Zeilenanfang:")
+            st.markdown("### Gliederungsebenen")
             st.markdown("""
-            | Ebene | Kürzel / Beispiel | Effekt im PDF |
+            | Ebene | Kürzel | Beispiel |
             | :--- | :--- | :--- |
-            | **1** | `Teil 1.` / `Aufgabe 1.` / `Tatkomplex 1.` | Zentriert |
-            | **2** | `A.` | Großbuchstabe |
-            | **3** | `I.` | Römische Zahl |
-            | **4** | `1.` | Arabische Zahl |
-            | **5** | `a)` | Kleinbuchstabe |
-            | **6** | `aa)` | Doppel-Kleinbuchstabe |
-            | **7** | `(1)` | Zahl in Klammern |
-            | **8** | `(a)` | Buchstabe in Klammern |
-            | **9** | `(aa)`| Doppel-Buchstabe in Klammern |
-            
-            **Modifikatoren:**
-            - **Fett:** `A. Titel*` (Stern am Ende) macht die Zeile im Text **fett**.
-            - **Versteckt:** `A* Titel` (Stern nach Kürzel) entfernt die Nummerierung und den Inhaltsverzeichnis-Eintrag.
+            | **1** | `Teil 1.` / `Aufgabe 1.` | **Teil 1** |
+            | **2** | `A.` | **A. Überschrift** |
+            | **3** | `I.` | **I. Überschrift** |
+            | **4** | `1.` | **1. Überschrift** |
+            | **5** | `a)` | **a) Überschrift** |
+            | **6** | `aa)` | **aa) Überschrift** |
+            | **7** | `(1)` | **(1) Überschrift** |
+            | **8** | `(a)` | **(a) Überschrift** |
+            | **9** | `(aa)`| **(aa) Überschrift** |
             """)
 
         with tab_format:
             st.markdown("### Manuelle LaTeX-Befehle")
+            st.code("\\\\textbf{fett} \n\\\\textit{kursiv} \n\\\\underline{unterstrichen}")
             st.markdown("""
-            **Text-Formatierung:**
-            - `\\\\textbf{fetter Text}` -> **fetter Text**
-            - `\\\\textit{kursiver Text}` -> *kursiver Text*
-            - `\\\\underline{unterstrichen}` -> <u>unterstrichen</u>
-            
-            **Struktur & Abstände:**
-            - `\\\\\\\\` oder `\\\\par` -> Manueller Zeilenumbruch
-            - `\\\\noindent` -> Verhindert die Einrückung (linksbündig)
-            - `\\\\vspace{1cm}` -> Vertikaler Abstand (z.B. 1cm)
-            - `\\\\medskip` -> Standard-Abstand zwischen Absätzen
-            
-            **Spezialbefehle:**
-            - `\\\\fn(Text)` -> Erzeugt eine Fußnote.
-            - `\\\\red{Text}`, `\\\\blue{Text}`, `\\\\green{Text}` -> Färbt den Text ein.
-            
-            *Hinweis: Sonderzeichen wie & und % werden automatisch maskiert.*
+            - `\\\\\\\\` oder `\\\\par`: Manueller Umbruch
+            - `\\\\noindent`: Zeile linksbündig (keine Einrückung)
+            - `\\\\vspace{1cm}`: Vertikaler Abstand
+            - `\\\\fn(Text)`: Fußnote setzen
+            - `\\\\red{Text}`, `\\\\blue{Text}`, `\\\\green{Text}`: Farben
             """)
 
-        with tab_datenschutz:
+        with tab_dsgvo:
             st.success("### 🛡️ DSGVO & Sicherheit")
-            st.markdown("""
-            - **Session-Prinzip:** Deine Daten werden nur flüchtig für die aktuelle Sitzung verarbeitet. Nach dem Schließen des Browsers werden sie vom Server gelöscht.
-            - **Keine Speicherung:** Wir speichern deine Texte nicht dauerhaft und nutzen sie nicht für KI-Training.
-            - **Lokales Backup:** Die Sicherheitsspeicherung (Auto-Save alle 30s) erfolgt **nur lokal in deinem Browser**.
-            """)
-    
-    # Diese Linie muss exakt unter dem 'with st.sidebar.popover' stehen!
+            st.write("Deine Daten werden nur flüchtig im Arbeitsspeicher verarbeitet.")
+            st.write("Keine Server-Speicherung. Auto-Save nur lokal im Browser.")
+
+    # --- HIER ENDET DAS POPOVER ---
+    # Achte darauf, dass diese Zeile exakt auf der gleichen Höhe 
+    # wie 'with st.sidebar.popover' beginnt!
     st.sidebar.markdown("---")
 
    # Der Button nutzt nun die oben definierte Funktion
