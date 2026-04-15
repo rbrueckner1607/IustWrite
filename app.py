@@ -205,57 +205,85 @@ def main():
    # --- SIDEBAR SETTINGS (EINGEKLAPPT) ---
 
 # --- DAS VOLLSTÄNDIGE & DETAILLIERTE HILFE-POPOVER ---
-    with st.sidebar.popover("💡 Hilfe, Befehle & Datenschutz", use_container_width=True):
-        st.markdown("# ⚖️ IustWrite Handbuch")
+    with st.sidebar.popover("💡 Ausführliches Handbuch & Befehle", use_container_width=True):
+        st.markdown("# ⚖️ IustWrite Editor v2.0")
         
-        # Tabs definieren
         tab_anleitung, tab_gliederung, tab_format, tab_dsgvo = st.tabs([
             "📖 Anleitung", "⌨️ Gliederung", "🎨 Formatierung", "🛡️ DSGVO"
         ])
         
         with tab_anleitung:
-            st.markdown("### Funktionsweise des Editors")
-            st.markdown("Dieser Editor wandelt Text in ein LaTeX-Layout um.")
-            st.markdown("1. **Stammdaten:** Titel, Datum & Kürzel oben eingeben.")
-            st.markdown("2. **Schreiben:** Text verfassen, Kürzel am Zeilenanfang nutzen.")
-            st.markdown("3. **Export:** Als `.txt` (Sicherung) oder `.pdf` (Abgabe).")
-            st.warning("⚠️ Bei Anzeige-Problemen bitte den **Darkmode ausschalten**.")
+            st.markdown("### 1. Grundlegende Bedienung")
+            st.write("""
+            Dieser Editor ist auf die Erstellung juristischer Gutachten optimiert. Er nutzt im Hintergrund 
+            das professionelle `jurabook`-Paket.
+            
+            * **Stammdaten:** Fülle Titel, Datum und Kürzel aus. Diese werden automatisch in die 
+              Kopfzeile und auf das Deckblatt/Verzeichnis übernommen.
+            * **Zeichenzähler:** Die Anzeige unter dem Editor hilft dir, die Vorgaben für Hausarbeiten 
+              (z.B. max. 70.000 Zeichen) exakt einzuhalten.
+            * **Automatisches Backup:** Alle 30 Sekunden wird dein Text im lokalen Speicher deines 
+              Browsers gesichert. So geht bei einem Absturz nichts verloren.
+            """)
+            st.info("⚠️ **Wichtig:** Deaktiviere den Darkmode deines Browsers, falls Eingabefelder schwarz auf schwarz erscheinen.")
 
         with tab_gliederung:
-            st.markdown("### Gliederungsebenen")
+            st.markdown("### 2. Die 9 Gliederungsebenen")
+            st.write("Setze diese Kürzel an den Anfang einer neuen Zeile, um die Hierarchie zu steuern:")
             st.markdown("""
-            | Ebene | Kürzel | Beispiel |
+            | Ebene | Kürzel / Beispiel | Typ |
             | :--- | :--- | :--- |
-            | **1** | `Teil 1.` / `Aufgabe 1.` | **Teil 1** |
-            | **2** | `A.` | **A. Überschrift** |
-            | **3** | `I.` | **I. Überschrift** |
-            | **4** | `1.` | **1. Überschrift** |
-            | **5** | `a)` | **a) Überschrift** |
-            | **6** | `aa)` | **aa) Überschrift** |
-            | **7** | `(1)` | **(1) Überschrift** |
-            | **8** | `(a)` | **(a) Überschrift** |
-            | **9** | `(aa)`| **(aa) Überschrift** |
+            | **1** | `Teil 1.` / `Aufgabe 1.` / `Tatkomplex 1.` | Hauptüberschrift (Zentriert) |
+            | **2** | `A.` | Großbuchstabe |
+            | **3** | `I.` | Römische Zahl |
+            | **4** | `1.` | Arabische Zahl |
+            | **5** | `a)` | Kleinbuchstabe |
+            | **6** | `aa)` | Doppel-Kleinbuchstabe |
+            | **7** | `(1)` | Zahl in Klammern |
+            | **8** | `(a)` | Buchstabe in Klammern |
+            | **9** | `(aa)`| Doppel-Buchstabe in Klammern |
+            
+            **Profitipps für Profis:**
+            * **Erzwungener Fettdruck:** Wenn du ein Sternchen ans Ende der Zeile setzt (z.B. `A. Diebstahl*`), 
+              wird die Überschrift im Textteil fett gedruckt, im Verzeichnis aber normal.
+            * **Versteckte Gliederung:** Nutzt du den Stern direkt nach dem Kürzel (z.B. `A*`), erscheint 
+              die Überschrift ohne Nummerierung und wird nicht ins Inhaltsverzeichnis aufgenommen.
             """)
 
         with tab_format:
-            st.markdown("### Manuelle LaTeX-Befehle")
-            st.code("\\\\textbf{fett} \n\\\\textit{kursiv} \n\\\\underline{unterstrichen}")
-            st.markdown("""
-            - `\\\\` oder `\\par`: Manueller Umbruch
-            - `\\\\noindent`: Zeile linksbündig (keine Einrückung)
-            - `\\\\vspace{1cm}`: Vertikaler Abstand
-            - `\\\\fn(Text)`: Fußnote setzen
-            - `\\\\red{Text}`, `\\\\blue{Text}`, `\\\\green{Text}`: Farben
+            st.markdown("### 3. Manuelle LaTeX-Befehle")
+            st.write("Für den Feinschliff im Gutachtenstil kannst du diese Befehle nutzen:")
+            
+            st.markdown("**Schrifttypen:**")
+            st.code("\\textbf{fett}\n\\textit{kursiv}\n\\underline{unterstrichen}")
+            
+            st.markdown("**Layout-Steuerung:**")
+            st.code("\\\\ oder \\par      --> Neuer Absatz / Umbruch\n\\noindent         --> Keine Einrückung (linksbündig)\n\\vspace{1cm}      --> Vertikaler Abstand\n\\medskip          --> Standard-Abstand")
+            
+            st.markdown("**Spezialfunktionen:**")
+            st.code("\\fn(Text)         --> Automatische Fußnote\n\\red{Text}         --> Text in Rot\n\\blue{Text}        --> Text in Blau\n\\green{Text}       --> Text in Grün")
+            
+            st.write("""
+            **Sonderzeichen:** Zeichen wie `&`, `%` oder `$` werden vom Editor automatisch erkannt 
+            und für LaTeX "entschärft". Du kannst sie also ganz normal im Text verwenden.
             """)
 
         with tab_dsgvo:
-            st.success("### 🛡️ DSGVO & Sicherheit")
-            st.write("Deine Daten werden nur flüchtig im Arbeitsspeicher verarbeitet.")
-            st.write("Keine Server-Speicherung. Auto-Save nur lokal im Browser.")
+            st.success("### 4. Datensicherheit & DSGVO")
+            st.markdown("""
+            Dieses Tool wurde nach dem Prinzip **'Privacy by Design'** entwickelt:
+            
+            * **Keine Cloud-Speicherung:** Deine Texte werden zu keinem Zeitpunkt auf unseren Servern 
+              gespeichert. Alles passiert im flüchtigen Arbeitsspeicher (RAM) während der PDF-Erstellung.
+            * **Lokalität:** Das Auto-Save-Backup wird ausschließlich in deinem Browser (LocalStorage) 
+              gespeichert. Wir haben keinen Zugriff darauf.
+            * **Sitzungsende:** Sobald du den Browser-Tab schließt, sind alle Daten auf dem Server weg. 
+              Nutze den Button **'Neues Gutachten'**, um auch dein lokales Browser-Backup zu löschen.
+            * **Keine Analyse:** Deine juristischen Inhalte werden nicht mitgelesen und nicht für 
+              KI-Training (LLM) verwendet.
+            """)
 
-    # --- HIER ENDET DAS POPOVER ---
-    # Achte darauf, dass diese Zeile exakt auf der gleichen Höhe 
-    # wie 'with st.sidebar.popover' beginnt!
+    # --- ENDE DES POPOVER BLOCKS ---
     st.sidebar.markdown("---")
 
    # Der Button nutzt nun die oben definierte Funktion
