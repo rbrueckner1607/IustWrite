@@ -205,7 +205,7 @@ def main():
    # --- SIDEBAR SETTINGS (EINGEKLAPPT) ---
 
 # --- DAS VOLLSTÄNDIGE & DETAILLIERTE HILFE-POPOVER ---
-    with st.sidebar.popover("💡 Ausführliches Handbuch & Befehle", use_container_width=True):
+    with st.sidebar.popover("💡 Anleitung & Datenschutz", use_container_width=True):
         st.markdown("# ⚖️ IustWrite Editor v2.0")
         
         tab_anleitung, tab_gliederung, tab_format, tab_dsgvo = st.tabs([
@@ -215,15 +215,18 @@ def main():
         with tab_anleitung:
             st.markdown("### 1. Grundlegende Bedienung")
             st.write("""
-            Dieser Editor ist auf die Erstellung juristischer Gutachten optimiert. Er nutzt im Hintergrund 
-            das professionelle `jurabook`-Paket.
+            Dieser frei nutzbare und kostenlose Editor ist auf die Erstellung juristischer Gutachten im Jurastudium optimiert. Er nutzt im Hintergrund die professionelle LATEX-Klasse `jurabook`.
+            Dadurch kann ein fokussierter Schreibflow sowie ästhetisches Endergebnis ohne Formatierungsärgernisse erreicht werden. Wenn du die Funktionsweise und Grundbefehle des des Editors 
+            einmal verinnerlicht hast, wirst du dich nicht mehr mit Formatierungseinstellungen anderer Standartprogramme herumschlagen müssen. Stattdessen kannst du dich voll und ganz 
+            auf deine rechtliche Subsumtion und den Gutachtenstil konzentrieren, während der Editor im Hintergrund für die perfekte Einhaltung formaler Vorgaben, korrekte Einrückungen und 
+            ein makelloses Schriftbild sorgt. So wird aus deiner juristischen Arbeit nicht nur ein inhaltlich überzeugendes Werk, sondern auch ein optisches Aushängeschild deines Studiums.
             
-            * **Stammdaten:** Fülle Titel, Datum und Kürzel aus. Diese werden automatisch in die 
-              Kopfzeile und auf das Deckblatt/Verzeichnis übernommen.
-            * **Zeichenzähler:** Die Anzeige unter dem Editor hilft dir, die Vorgaben für Hausarbeiten 
-              (z.B. max. 70.000 Zeichen) exakt einzuhalten.
+            * **Stammdaten:** Fülle Titel, Datum und Kürzel aus. Diese werden automatisch in die Kopfzeile des fertigen Gutachtens übernommen. Es ist egal, ob du eine Klausur schreibst, 
+            einen Fall löst oder eine Falllösung für deine AG formatierst – die Logik für deine Kopfzeile kannst du hier je nach Bedarf für dich verwenden. Die Namens-/Kürzelangabe erscheint 
+            oben links in der Kopfzeile, während die Datumsanzeige in Klammern hinter den Titel gesetzt wird, welcher oben rechts steht.
+            * **Zeichenzähler:** Die Anzeige unter dem Editorfenster hilft dir, die Vorgaben für Klausuren o.ä. (z.B. max. 25.000 Zeichen) einzuhalten.
             * **Automatisches Backup:** Alle 30 Sekunden wird dein Text im lokalen Speicher deines 
-              Browsers gesichert. So geht bei einem Absturz nichts verloren.
+              Browsers gesichert. So geht bei einem Absturz oder nach dem Schließen der Editorseite nichts verloren.
             """)
             st.info("⚠️ **Wichtig:** Deaktiviere den Darkmode deines Browsers, falls Eingabefelder schwarz auf schwarz erscheinen.")
 
