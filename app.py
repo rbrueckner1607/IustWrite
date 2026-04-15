@@ -208,9 +208,7 @@ def main():
     with st.sidebar.popover("💡 Anleitung & Datenschutz", use_container_width=True):
         st.markdown("# ⚖️ IustWrite Editor Handbuch")
         
-        tab_anleitung, tab_gliederung, tab_format, tab_storage, tab_dsgvo = st.tabs([
-            "📖 Anleitung", "⌨️ Gliederung", "🎨 Formatierung", "💾 Speichern & Laden", "🛡️ DSGVO"
-        ])
+        tab_anleitung, tab_gliederung, tab_format, tab_storage, tab_dsgvo = st.tabs(["📖 Anleitung", "⌨️ Gliederung", "🎨 Formatierung", "💾 Speichern & Laden", "🛡️ DSGVO"])
         
         with tab_anleitung:
             st.markdown("### 1. Grundlegende Bedienung")
