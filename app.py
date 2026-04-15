@@ -303,7 +303,7 @@ def main():
             
             st.markdown("**Arbeit fortsetzen:**")
             st.write("""
-            Wenn du später weiterarbeiten möchtest, nutze unter dem Editorfenster den Button **'Upload'** (Datei laden). 
+            Wenn du später weiterarbeiten möchtest, nutze unter dem Editorfenster den Button `Upload` (Datei laden). 
             Wähle deine `.txt`-Datei aus, und dein Text wird sofort wieder in den Editor geladen.
             """)
 
