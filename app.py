@@ -292,7 +292,7 @@ def main():
         with tab_storage:
             st.markdown("### 4. Daten sichern und fortsetzen")
             st.write("""
-            Da dieser Editor keine dauerhaften Daten auf dem Server speichert ist es wichtig, dass du deine Datei immer (zwischen-)speicherst.
+            Da dieser Editor keine dauerhaften Daten auf dem Server speichert, ist es wichtig, dass du deine Datei immer (zwischen-)speicherst.
             """)
             
             st.markdown("**Gutachten zwischenspeichern:**")
@@ -303,11 +303,19 @@ def main():
             
             st.markdown("**Arbeit fortsetzen:**")
             st.write("""
-            Wenn du später weiterarbeiten möchtest, nutze in der Seitenleiste den Button **'Datei laden'** (Upload). 
+            Wenn du später weiterarbeiten möchtest, nutze unter dem Editorfenster den Button **'Upload'** (Datei laden). 
             Wähle deine `.txt`-Datei aus, und dein Text wird sofort wieder in den Editor geladen.
             """)
 
-            st.markdown("**Arbeit fortsetzen:**")
+            st.markdown("**PDF-Erstellen:**")
+            st.write("""
+            Wenn du die Arbeit an dinem Gutachten beendet hast kannst du dir eine PDF-Datei herunterladen. Drücke dafür links unter dem Editorfenster auf **'PDF generieren'**. Daraufhin wird "PDF erfolgreich erstellt!" angezeigt und du kannst auf den Button **'Download PDF'** drücken. Nun wird die PDF-Datei automatisch heruntergeladen. Die Foramtierung der Datei erfolgt automatisch. Die Reihenfolge der Datei ist grundsätzlich Gliederung (ohne Seitenzahlen) + Gutachten (mit Arabischen Seitenzahlen). Wenn du deinem Gutachten ein Sachverhalt oder ein anderes PDF-Dokument voranstellen willst, kannst du dies über den Button **'Upload'** (Sachverhalt beifügen (PDF)) tun.
+            """)
+
+            st.markdown("**Sachverhalt oder Dokument voranstellen:**")
+            st.write("""
+            Wenn du einen Sachverhalt oder ein anderes PDF-Dokument deinem Gutachten voranstellen willst, kannst du dies über den Button **'Upload'** (Sachverhalt beifügen (PDF)) tun.
+            """)
             
             st.info("""
             **Pro-Tipp:** Erstelle regelmäßig Sicherungskopien deiner `.txt`-Datei. Das PDF ist das Endprodukt, 
