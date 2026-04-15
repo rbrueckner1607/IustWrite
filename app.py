@@ -209,7 +209,7 @@ def main():
         st.markdown("# ⚖️ IustWrite Editor Handbuch")
         
         tab_anleitung, tab_gliederung, tab_format, tab_dsgvo = st.tabs([
-            "📖 Anleitung", "⌨️ Gliederung", "🎨 Formatierung", "🛡️ DSGVO"
+            "📖 Anleitung", "⌨️ Gliederung", "🎨 Formatierung", "💾 Speichern & Laden", "🛡️ DSGVO"
         ])
         
         with tab_anleitung:
@@ -291,8 +291,33 @@ def main():
             und für LaTeX "entschärft". Du kannst sie also ganz normal im Text verwenden.
             """)
 
+        with tab_storage:
+            st.markdown("### 4. Daten sichern und fortsetzen")
+            st.write("""
+            Da dieser Editor keine dauerhaften Daten auf dem Server speichert ist es wichtig, dass du deine Datei immer (zwischen-)speicherst.
+            """)
+            
+            st.markdown("**Gutachten zwischenspeichern:**")
+            st.write("""
+            Klicke unter dem Editorfenster (mittig oben) auf **'Als TXT speichern'**. Diese Datei enthält deinen rohen Text inklusive aller Formatierungen. 
+            Sie wird lokal auf deinem Computer gespeichert. Du kannst deine Eingaben auch als LATEX-Datei speichern **`Als TEX Speichern`**), falls du individuelle Änderungen vornehmen möchtest (Dies erfordert jedoch Kenntnisse in LATEX und die entsprechende Software, sodass dies für die einfache Anwendung nicht empfohlen wird.)
+            """)
+            
+            st.markdown("**Arbeit fortsetzen:**")
+            st.write("""
+            Wenn du später weiterarbeiten möchtest, nutze in der Seitenleiste den Button **'Datei laden'** (Upload). 
+            Wähle deine `.txt`-Datei aus, und dein Text wird sofort wieder in den Editor geladen.
+            """)
+
+            st.markdown("**Arbeit fortsetzen:**")
+            
+            st.info("""
+            **Pro-Tipp:** Erstelle regelmäßig Sicherungskopien deiner `.txt`-Datei. Das PDF ist das Endprodukt, 
+            aber nur die `.txt`-Datei erlaubt es dir, später Änderungen vorzunehmen!
+            """)
+        
         with tab_dsgvo:
-            st.success("### 4. Datensicherheit & DSGVO")
+            st.success("### 5. Datensicherheit & DSGVO")
             st.markdown("""
             Dieses Tool wurde nach dem Prinzip **'Privacy by Design'** entwickelt und nutzt die native Architektur von Streamlit zur maximalen Datentrennung:
             
