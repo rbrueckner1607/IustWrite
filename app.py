@@ -318,7 +318,7 @@ def main():
             """)
       
         with tab_video:
-            st.markdown("###5. Video-Anleitung")
+            st.markdown("🎥 Video-Tutorial")
             
             # Einbettung für die schnelle Ansicht
             st.video("https://youtu.be/rFBCXoqs2cU")
@@ -331,7 +331,7 @@ def main():
             st.info("Hinweis: Da das Handbuch in einem Popover-Fenster liegt, blockieren manche Browser den Vollbildmodus innerhalb dieses Fensters. Nutze den Button oben für die beste Ansicht.")
             
         with tab_dsgvo:
-            st.success("### 6. Datensicherheit & DSGVO")
+            st.success("###🛡️ Datensicherheit & DSGVO")
             st.markdown("""
             Dieses Tool wurde nach dem Prinzip **'Privacy by Design'** entwickelt und nutzt die native Architektur von Streamlit zur maximalen Datentrennung:
             
