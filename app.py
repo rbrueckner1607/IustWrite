@@ -206,7 +206,7 @@ def main():
 
 # --- DAS VOLLSTÄNDIGE & DETAILLIERTE HILFE-POPOVER ---
     with st.sidebar.popover("💡 Anleitung & Datenschutz", use_container_width=True):
-        st.markdown("# ⚖️ IustWrite Editor v2.0")
+        st.markdown("# ⚖️ IustWrite Editor Handbuch")
         
         tab_anleitung, tab_gliederung, tab_format, tab_dsgvo = st.tabs([
             "📖 Anleitung", "⌨️ Gliederung", "🎨 Formatierung", "🛡️ DSGVO"
@@ -232,7 +232,7 @@ def main():
 
         with tab_gliederung:
             st.markdown("### 2. Die 9 Gliederungsebenen")
-            st.write("Eingaben werden automatisch als Überschriften erkannt und korrekt formatiert. Bitte verwende konsequent die standardmäßige alphanumerische Gliederungslogik. Beginne bei einer neuen Überschrift einfach in einer jeweils neuen Zeile, um die Hierarchie zu steuern.")
+            st.write("Eingaben werden automatisch als Überschriften erkannt und korrekt formatiert. Bitte verwende konsequent die standardmäßige alphanumerische Gliederungslogik. Beginne bei einer neuen Überschrift einfach in einer jeweils neuen Zeile, um die Hierarchie zu steuern. Bitte achte bei den Gliederungspunkten darauf die Punkte richtig zu setzen Aufgabe 1`.`)")
             st.markdown("""
             | Ebene | Kürzel / Beispiel | Typ |
             | :--- | :--- | :--- |
@@ -246,9 +246,9 @@ def main():
             | **8** | `(a)` | Buchstabe in Klammern |
             | **9** | `(aa)`| Doppel-Buchstabe in Klammern |
             
-            **Profitipps für Profis:**
+            **Tipps für Profis:**
             * **Erzwungener Fettdruck:** Standardmäßig wird nur die Ebene 1 (`Teil. 1`) in der Gliederung fett dargestellt. Wenn du aber ein Sternchen ans Ende der Zeile setzt (z. B. `A. Diebstahl*`), wird die Überschrift in der Gliederung fett gedruckt. Dies ist z. B. im Strafrecht sinnvoll, um eine übersichtliche Gliederung zu erhalten.
-            * **Versteckte Gliederung:** Nutzt du den Stern direkt nach dem Kürzel (z.B. `A*`), erscheint 
+            * **Versteckte Gliederung:** Nutzt du den Stern direkt nach dem Kürzel (z.B. `A* Hilfsgutachten`), erscheint 
               die Überschrift ohne Nummerierung und wird nicht ins Inhaltsverzeichnis aufgenommen.
             """)
 
