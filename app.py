@@ -252,19 +252,19 @@ def main():
             st.markdown("### Manuelle LaTeX-Befehle")
             st.markdown("""
             **Text-Formatierung:**
-            - `\\textbf{fetter Text}` -> **fetter Text**
-            - `\\textit{kursiver Text}` -> *kursiver Text*
-            - `\\underline{unterstrichen}` -> <u>unterstrichen</u>
+            - `\\\\textbf{fetter Text}` -> **fetter Text**
+            - `\\\\textit{kursiver Text}` -> *kursiver Text*
+            - `\\\\underline{unterstrichen}` -> <u>unterstrichen</u>
             
             **Struktur & Abstände:**
-            - `\\\\` oder `\\par` -> Manueller Zeilenumbruch
-            - `\\noindent` -> Verhindert die Einrückung (linksbündig)
-            - `\\vspace{1cm}` -> Vertikaler Abstand (z.B. 1cm)
-            - `\\medskip` -> Standard-Abstand zwischen Absätzen
+            - `\\\\\\\\` oder `\\\\par` -> Manueller Zeilenumbruch
+            - `\\\\noindent` -> Verhindert die Einrückung (linksbündig)
+            - `\\\\vspace{1cm}` -> Vertikaler Abstand (z.B. 1cm)
+            - `\\\\medskip` -> Standard-Abstand zwischen Absätzen
             
             **Spezialbefehle:**
-            - `\\fn(Text)` -> Erzeugt eine Fußnote.
-            - `\\red{Text}`, `\\blue{Text}`, `\\green{Text}` -> Färbt den Text ein.
+            - `\\\\fn(Text)` -> Erzeugt eine Fußnote.
+            - `\\\\red{Text}`, `\\\\blue{Text}`, `\\\\green{Text}` -> Färbt den Text ein.
             
             *Hinweis: Sonderzeichen wie & und % werden automatisch maskiert.*
             """)
@@ -276,7 +276,8 @@ def main():
             - **Keine Speicherung:** Wir speichern deine Texte nicht dauerhaft und nutzen sie nicht für KI-Training.
             - **Lokales Backup:** Die Sicherheitsspeicherung (Auto-Save alle 30s) erfolgt **nur lokal in deinem Browser**.
             """)
-   
+    
+    # Diese Linie muss exakt unter dem 'with st.sidebar.popover' stehen!
     st.sidebar.markdown("---")
 
    # Der Button nutzt nun die oben definierte Funktion
