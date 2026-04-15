@@ -280,7 +280,7 @@ def main():
             Damit Paragraphenzeichen oder Artikel nicht unschön am Zeilenende isoliert werden, nutze die **Tilde `~`**. 
             Sie erzeugt ein Leerzeichen, an dem *kein* Zeilenumbruch stattfinden darf.
             """)
-            st.code("§~242~Abs.~1~StGB")
+            st.code("§~42~I Alt.~2 VwGO")
             
             st.markdown("""
             **So tippst du die Tilde:**
