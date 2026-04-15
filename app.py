@@ -274,6 +274,19 @@ def main():
             
             st.markdown("**Spezialfunktionen:**")
             st.code("\\fn(Text)         --> Automatische Fußnote\n\\red{Text}         --> Text in Rot\n\\blue{Text}        --> Text in Blau\n\\green{Text}       --> Text in Grün")
+
+            st.markdown("**Geschützte Leerzeichen (Tipp):**")
+            st.write("""
+            Damit Paragraphenzeichen oder Artikel nicht unschön am Zeilenende isoliert werden, nutze die **Tilde `~`**. 
+            Sie erzeugt ein Leerzeichen, an dem *kein* Zeilenumbruch stattfinden darf.
+            """)
+            st.code("§~242~Abs.~1~StGB")
+            
+            st.markdown("""
+            **So tippst du die Tilde:**
+            * **Mac:** `Option (alt) ⌥` + `n`, dann `Leertaste`
+            * **Windows:** `Alt Gr` + `*` (Taste rechts neben dem Ü), dann `Leertaste`
+            """)
             
             st.write("""
             **Sonderzeichen:** Zeichen wie `&`, `%` oder `$` werden vom Editor automatisch erkannt 
