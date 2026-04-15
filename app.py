@@ -273,16 +273,15 @@ def main():
         with tab_dsgvo:
             st.success("### 4. Datensicherheit & DSGVO")
             st.markdown("""
-            Dieses Tool wurde nach dem Prinzip **'Privacy by Design'** entwickelt:
+            Dieses Tool wurde nach dem Prinzip **'Privacy by Design'** entwickelt und nutzt die native Architektur von Streamlit zur maximalen Datentrennung:
             
-            * **Keine Cloud-Speicherung:** Deine Texte werden zu keinem Zeitpunkt auf unseren Servern 
-              gespeichert. Alles passiert im flüchtigen Arbeitsspeicher (RAM) während der PDF-Erstellung.
-            * **Lokalität:** Das Auto-Save-Backup wird ausschließlich in deinem Browser (LocalStorage) 
-              gespeichert. Wir haben keinen Zugriff darauf.
-            * **Sitzungsende:** Sobald du den Browser-Tab schließt, sind alle Daten auf dem Server weg. 
-              Nutze den Button **'Neues Gutachten'**, um auch dein lokales Browser-Backup zu löschen.
-            * **Keine Analyse:** Deine juristischen Inhalte werden nicht mitgelesen und nicht für 
-              KI-Training (LLM) verwendet.
+            * **Isolierte Sessions:** Jedes Mal, wenn du diese Seite lädst, wird eine komplett neue, isolierte Instanz (Session) auf dem Server gestartet. Deine Daten sind strikt von anderen Nutzern getrennt.
+            * **Flüchtiger Arbeitsspeicher (RAM):** Deine Texte werden ausschließlich im Arbeitsspeicher der laufenden Session verarbeitet. Es findet **keine persistente Speicherung** in einer Datenbank oder auf Festplatten statt.
+            * **Automatisches Purging:** Sobald du den Browser-Tab schließt oder die Verbindung unterbrochen wird, wird die zugehörige Session auf dem Server terminiert. Alle im RAM befindlichen Daten deines Gutachtens werden dabei **unwiderruflich gelöscht**.
+            * **Lokale Souveränität (LocalStorage):** Das Auto-Save-Backup nutzt den *LocalStorage* deines eigenen Browsers. Das bedeutet: Die Sicherung deines Textes verlässt nie dein Endgerät, bis du explizit auf 'PDF generieren' klickst.
+            * **Keine KI-Verwertung:** Im Gegensatz zu kommerziellen Online-Editoren werden deine juristischen Ausführungen **nicht** zur Verbesserung von Sprachmodellen (LLM) oder zu Analysezwecken ausgewertet.
+            
+            **Tipp:** Nutze den Button **'Neues Gutachten'**, um auch das lokale Backup in deinem Browser aktiv zu bereinigen.
             """)
 
     # --- ENDE DES POPOVER BLOCKS ---
