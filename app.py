@@ -309,12 +309,7 @@ def main():
 
             st.markdown("**PDF-Erstellen:**")
             st.write("""
-            Wenn du die Arbeit an dinem Gutachten beendet hast kannst du dir eine PDF-Datei herunterladen. Drücke dafür links unter dem Editorfenster auf **'PDF generieren'**. Daraufhin wird "PDF erfolgreich erstellt!" angezeigt und du kannst auf den Button **'Download PDF'** drücken. Nun wird die PDF-Datei automatisch heruntergeladen. Die Foramtierung der Datei erfolgt automatisch. Die Reihenfolge der Datei ist grundsätzlich Gliederung (ohne Seitenzahlen) + Gutachten (mit Arabischen Seitenzahlen). Wenn du deinem Gutachten ein Sachverhalt oder ein anderes PDF-Dokument voranstellen willst, kannst du dies über den Button **'Upload'** (Sachverhalt beifügen (PDF)) tun.
-            """)
-
-            st.markdown("**Sachverhalt oder Dokument voranstellen:**")
-            st.write("""
-            Wenn du einen Sachverhalt oder ein anderes PDF-Dokument deinem Gutachten voranstellen willst, kannst du dies über den Button **'Upload'** (Sachverhalt beifügen (PDF)) tun.
+            Wenn du die Arbeit an deinem Gutachten beendet hast kannst du dir eine PDF-Datei herunterladen. Drücke dafür links unter dem Editorfenster auf `PDF generieren`. Daraufhin wird "PDF erfolgreich erstellt!" angezeigt und du kannst auf den Button `Download PDF` drücken. Nun wird die PDF-Datei automatisch heruntergeladen. Die Formatierung der Datei erfolgt automatisch. Die Reihenfolge der Datei ist grundsätzlich Gliederung (ohne Seitenzahlen) + Gutachten (mit arabischen Seitenzahlen). Wenn du deinem Gutachten einen Sachverhalt oder ein anderes PDF-Dokument voranstellen willst, kannst du dies über den Button `Upload` (Sachverhalt beifügen (PDF)) tun.
             """)
             
             st.info("""
