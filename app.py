@@ -223,7 +223,7 @@ def main():
             
             * **Stammdaten:** Fülle Titel, Datum und Kürzel aus. Diese werden automatisch in die Kopfzeile des fertigen Gutachtens übernommen. Es ist egal, ob du eine Klausur schreibst, 
             einen Fall löst oder eine Falllösung für deine AG formatierst – die Logik für deine Kopfzeile kannst du hier je nach Bedarf für dich verwenden. Die Namens-/Kürzelangabe erscheint 
-            oben links in der Kopfzeile, während die Datumsanzeige in Klammern hinter den Titel gesetzt wird, welcher oben rechts steht.
+            oben links in der Kopfzeile, während die Datumsanzeige in Klammern hinter den Titel gesetzt wird, welcher oben rechts steht. Auf die Datumsangabe kann freilich auch verzichtet werden.
             * **Zeichenzähler:** Die Anzeige unter dem Editorfenster hilft dir, die Vorgaben für Klausuren o.ä. (z.B. max. 25.000 Zeichen) einzuhalten.
             * **Automatisches Backup:** Alle 30 Sekunden wird dein Text im lokalen Speicher deines 
               Browsers gesichert. So geht bei einem Absturz oder nach dem Schließen der Editorseite nichts verloren.
@@ -232,7 +232,9 @@ def main():
 
         with tab_gliederung:
             st.markdown("### 2. Die 9 Gliederungsebenen")
-            st.write("Setze diese Kürzel an den Anfang einer neuen Zeile, um die Hierarchie zu steuern:")
+            st.write("Eingaben werden auotmatisch als Überschriften erkannt und korrekt formatiert. Bitte verwende konsequent die 
+            standartmäßige alpha-numerische Gliederungslogik. Beginne bei einer neuen Überschrift einfach in einer jeweils neuen Zeile, 
+            um die Hierarchie zu steuern. ")
             st.markdown("""
             | Ebene | Kürzel / Beispiel | Typ |
             | :--- | :--- | :--- |
