@@ -331,7 +331,7 @@ def main():
             st.info("Hinweis: Da das Handbuch in einem Popover-Fenster liegt, blockieren manche Browser den Vollbildmodus innerhalb dieses Fensters. Nutze den Button oben für die beste Ansicht.")
             
         with tab_dsgvo:
-            st.success("###🛡️ Datensicherheit & DSGVO")
+            st.success("🛡️ Datensicherheit & DSGVO")
             st.markdown("""
             Dieses Tool wurde nach dem Prinzip **'Privacy by Design'** entwickelt und nutzt die native Architektur von Streamlit zur maximalen Datentrennung:
             
