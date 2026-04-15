@@ -253,8 +253,8 @@ def main():
             """)
 
         with tab_format:
-            st.markdown("### 3. Manuelle LaTeX-Befehle")
-            st.write("Für den Feinschliff im Gutachtenstil kannst du diese Befehle nutzen:")
+            st.markdown("### 3. Manuelle Befehle")
+            st.write("Für den Feinschliff im Gutachten kannst du diese LATEX-Befehle nutzen:")
 
             st.write("""
             Über das Menü **Layout-Einstellungen** in der Seitenleiste hast du die volle Kontrolle über das Erscheinungsbild deines Dokuments:
@@ -268,6 +268,7 @@ def main():
             
             st.markdown("**Textformatierung:**")
             st.code("\\textbf{fett}\n\\textit{kursiv}\n\\underline{unterstrichen}")
+            st.code("\\fn(Text)         --> Automatische Fußnote\n\\red{Text}         --> Text in Rot\n\\blue{Text}        --> Text in Blau\n\\green{Text}       --> Text in Grün")
             
             st.markdown("**Layout-Steuerung:**")
             st.code("\\\\ oder \\par      --> Neuer Absatz / Umbruch\n\\noindent         --> Keine Einrückung (linksbündig)\n\\vspace{1cm}      --> Vertikaler Abstand\n\\medskip          --> Standard-Abstand")
