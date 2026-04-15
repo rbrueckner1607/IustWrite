@@ -205,9 +205,10 @@ def main():
    # --- SIDEBAR SETTINGS (EINGEKLAPPT) ---
 
 # --- DAS VOLLSTÄNDIGE & DETAILLIERTE HILFE-POPOVER ---
-    with st.sidebar.popover("💡 Ausführliche Anleitung & Befehle", use_container_width=True):
+    with st.sidebar.popover("💡 Hilfe, Befehle & Datenschutz", use_container_width=True):
         st.markdown("# ⚖️ IustWrite Handbuch")
         
+        # Definition der Tabs
         tab_anleitung, tab_gliederung, tab_format, tab_dsgvo = st.tabs([
             "📖 Anleitung", "⌨️ Gliederung", "🎨 Formatierung", "🛡️ DSGVO"
         ])
@@ -215,75 +216,68 @@ def main():
         with tab_anleitung:
             st.markdown("""
             ### Funktionsweise des Editors
-            Dieser Editor wurde speziell für juristische Gutachten entwickelt. Er wandelt einfachen Text in ein hochprofessionelles LaTeX-Layout um.
+            Dieser Editor wandelt einfachen Text in ein professionelles LaTeX-Layout um.
             
             **Der Workflow:**
-            1. **Stammdaten:** Titel, Datum und Kürzel (Name/Kurs) eingeben. Diese erscheinen im Kopf des Dokuments.
-            2. **Text verfassen:** Nutze die Gliederungskürzel am Zeilenanfang.
-            3. **Live-Statistik:** Unter dem Editor siehst du die exakte **Zeichen- und Wortanzahl**.
-            4. **Automatisches Backup:** Dein Text wird alle 30 Sekunden lokal im Browser gespeichert.
-            5. **Export:** - `.txt`: Zum Speichern und späteren Weiterschreiben (über "Datei laden").
-               - `.pdf`: Generiert das fertige Dokument mit automatischem Inhaltsverzeichnis.
-               - `.tex`: Der Rohcode für individuelle Anpassungen in externen Editoren.
-
-            **⚠️ Anzeige-Hinweis:** Falls Buttons oder Texte verschwimmen, bitte den **Darkmode/Nachtmodus ausschalten**.
+            1. **Stammdaten:** Titel, Datum und Kürzel oben eingeben. (Datum ist optional; Kürzel = Name/Kurs).
+            2. **Schreiben:** Text im Editor verfassen. Die **Zeichenstatistik** erscheint live darunter.
+            3. **Darkmode-Warnung:** Falls die Oberfläche schlecht lesbar ist, bitte den **Darkmode des Browsers ausschalten**.
+            4. **Export:** - `.txt`: Zum Speichern (später über 'Datei laden' öffnen).
+               - `.pdf`: Erstellt das finale Dokument.
+               - `.tex`: Exportiert den reinen LaTeX-Code.
             """)
 
         with tab_gliederung:
-            st.markdown("### Die automatischen Gliederungsebenen")
-            st.write("Schreibe diese Kürzel einfach an den Anfang einer neuen Zeile:")
+            st.markdown("### Automatische Gliederung")
+            st.write("Schreibe diese Kürzel an den Zeilenanfang:")
             st.markdown("""
             | Ebene | Kürzel / Beispiel | Effekt im PDF |
             | :--- | :--- | :--- |
-            | **1** | `Teil 1.` / `Aufgabe 1.` / `Tatkomplex 1.` | Zentrierte Hauptüberschrift |
+            | **1** | `Teil 1.` / `Aufgabe 1.` / `Tatkomplex 1.` | Zentriert |
             | **2** | `A.` | Großbuchstabe |
             | **3** | `I.` | Römische Zahl |
             | **4** | `1.` | Arabische Zahl |
             | **5** | `a)` | Kleinbuchstabe |
             | **6** | `aa)` | Doppel-Kleinbuchstabe |
             | **7** | `(1)` | Zahl in Klammern |
-            | **8** | `(a)` | Kleinbuchstabe in Klammern |
-            | **9** | `(aa)`| Doppel-Kleinbuchstabe in Klammern |
+            | **8** | `(a)` | Buchstabe in Klammern |
+            | **9** | `(aa)`| Doppel-Buchstabe in Klammern |
             
-            **Besonderheiten:**
-            - **Fett-Modus:** Setze ein Sternchen ans Ende der Zeile (z.B. `A. Diebstahl*`), damit die Überschrift im Text fett gedruckt wird.
-            - **Versteckte Gliederung:** Nutze ein Sternchen direkt nach dem Kürzel (z.B. `A*`), um eine Überschrift ohne Nummerierung und ohne Eintrag im Inhaltsverzeichnis zu erzeugen.
+            **Modifikatoren:**
+            - **Fett:** `A. Titel*` (Stern am Ende) macht die Zeile im Text **fett**.
+            - **Versteckt:** `A* Titel` (Stern nach Kürzel) entfernt die Nummerierung und den Inhaltsverzeichnis-Eintrag.
             """)
 
         with tab_format:
             st.markdown("### Manuelle LaTeX-Befehle")
-            st.write("Du kannst folgende Befehle direkt im Text nutzen, um das Layout zu steuern:")
-            
             st.markdown("""
-            **Textauszeichnung:**
+            **Text-Formatierung:**
             - `\\textbf{fetter Text}` -> **fetter Text**
             - `\\textit{kursiver Text}` -> *kursiver Text*
             - `\\underline{unterstrichen}` -> <u>unterstrichen</u>
             
-            **Abstände & Umbrüche:**
-            - `\\\\` oder `\\par` -> Manueller Zeilenumbruch / Neuer Absatz
-            - `\\noindent` -> Verhindert die Einrückung der nächsten Zeile (linksbündig)
-            - `\\vspace{1cm}` -> Erzeugt einen vertikalen Abstand von 1 cm
-            - `\\medskip` -> Ein vordefinierter mittlerer Abstand (wird automatisch bei Leerzeilen gesetzt)
+            **Struktur & Abstände:**
+            - `\\\\` oder `\\par` -> Manueller Zeilenumbruch
+            - `\\noindent` -> Verhindert die Einrückung (linksbündig)
+            - `\\vspace{1cm}` -> Vertikaler Abstand (z.B. 1cm)
+            - `\\medskip` -> Standard-Abstand zwischen Absätzen
             
-            **Farben & Fußnoten:**
-            - `\\fn(Dein Text)` -> Erzeugt eine automatisch nummerierte Fußnote.
+            **Spezialbefehle:**
+            - `\\fn(Text)` -> Erzeugt eine Fußnote.
             - `\\red{Text}`, `\\blue{Text}`, `\\green{Text}` -> Färbt den Text ein.
             
-            **Sonderzeichen:**
-            - Zeichen wie `&` oder `%` werden vom Editor automatisch für LaTeX maskiert, du kannst sie also ganz normal tippen.
+            *Hinweis: Sonderzeichen wie & und % werden automatisch maskiert.*
             """)
 
         with tab_datenschutz:
-            st.success("### 🛡️ Sicherheit & DSGVO")
+            st.success("### 🛡️ DSGVO & Sicherheit")
             st.markdown("""
-            **Datensparsamkeit:**
-            - **Keine Cloud-Speicherung:** Deine Texte werden niemals dauerhaft auf unseren Servern gespeichert oder analysiert.
-            - **Session-Prinzip:** Deine Daten existieren nur für die Dauer deiner Sitzung im Arbeitsspeicher.
-            - **Client-Side Backup:** Die Sicherheitsspeicherung (Auto-Save) findet ausschließlich **lokal auf deinem Rechner** im Browser statt.
-            - **Kein KI-Training:** Deine juristischen Ausarbeitungen werden nicht zum Training von Sprachmodellen verwendet.
+            - **Session-Prinzip:** Deine Daten werden nur flüchtig für die aktuelle Sitzung verarbeitet. Nach dem Schließen des Browsers werden sie vom Server gelöscht.
+            - **Keine Speicherung:** Wir speichern deine Texte nicht dauerhaft und nutzen sie nicht für KI-Training.
+            - **Lokales Backup:** Die Sicherheitsspeicherung (Auto-Save alle 30s) erfolgt **nur lokal in deinem Browser**.
             """)
 
+    # --- WICHTIG: Die nächste Zeile muss wieder eine Ebene weiter links stehen! ---
     st.sidebar.markdown("---")
 
    # Der Button nutzt nun die oben definierte Funktion
