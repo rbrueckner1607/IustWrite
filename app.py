@@ -318,7 +318,6 @@ def main():
             """)
       
         with tab_video:
-            st.markdown("###5. Video-Anleitung")
             st.write("Schau dir dieses Tutorial an, um die Funktionen des Editors zu verstehen:")
             
             # HTML-Einbettung mit aktiviertem Vollbildmodus
